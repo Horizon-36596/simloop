@@ -8,11 +8,11 @@ it, and you do not copy any of its source into your project.
 >
 > SimLoop is served by JitPack, which builds a git **tag** on demand. **No `v*` tag exists yet**, so the
 > version this folder asks for resolves for nobody today, and step 3 below fails with
-> `Could not find com.github.Horizon-36596.SimLoop:SimLoop:v0.1.0-beta1`. That message means the release
+> `Could not find com.github.Horizon-36596.simloop:SimLoop:v0.1.0-beta1`. That message means the release
 > is not out, not that you did anything wrong.
 >
 > Until the first tag is cut, the route that works is to build the library yourself and depend on your
-> own local copy — [Building it yourself](https://simloop.horizon36596.org/getting-started/#building-it-yourself-works-today)
+> own local copy — [Building it yourself](https://libraries.horizon36596.org/simloop/getting-started/#building-it-yourself-works-today)
 > is the whole procedure, and it is two commands.
 
 ## The three steps
@@ -124,5 +124,5 @@ On the field the same mistake is a sample released on the way up, and nothing ab
 
 ## Where the rest of it is
 
-The library's documentation is at **<https://simloop.horizon36596.org>** — what each package does, what
+The library's documentation is at **<https://libraries.horizon36596.org/simloop/>** — what each package does, what
 SimLoop deliberately does not simulate, and the full API reference.

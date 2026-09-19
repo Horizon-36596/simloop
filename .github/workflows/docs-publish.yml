@@ -6,19 +6,29 @@
 # repository was made public, so the first `v*` tag is what publishes the site.
 # ============================================================================================
 #
-# What is still outstanding is not in this file. Three settings have to exist before a deployment can
-# succeed, all of them a human's, in a browser, and none of them something a build may do:
+# What is still outstanding is not in this file. Four settings have to exist before a deployment can
+# succeed, all of them a human's, in a browser, and none of them something a build may do. THREE OF THEM
+# ARE IN A DIFFERENT REPOSITORY, which is the part that surprises people:
 #
-#   1. GitHub Pages enabled for the repository, with "GitHub Actions" as the source:
-#      Settings -> Pages -> Build and deployment -> Source: GitHub Actions.
-#   2. The DNS record. The exact record is written out in SimLoop/PUBLISHING.md under "Hosting the
-#      documentation site" - it is one CNAME and it is not guessed at here.
-#   3. The custom domain entered: Settings -> Pages -> Custom domain -> simloop.horizon36596.org ->
-#      Save. This step is NOT optional and the CNAME file does not replace it. GitHub's docs: "If you
-#      are publishing from a custom GitHub Actions workflow, no CNAME file is created, and any existing
-#      CNAME file is ignored." This is such a workflow, so the Pages setting is what sets the domain.
+#   1. A public repository named exactly `Horizon-36596/Horizon-36596.github.io` - the organisation's
+#      Pages site, holding the landing page. Its contents are prepared here under docs/landing-site/.
+#   2. The DNS record. One CNAME, name `libraries`, value `horizon-36596.github.io`. The exact record,
+#      and the three ways it is usually got wrong, are in SimLoop/PUBLISHING.md.
+#   3. That landing repository's Settings -> Pages -> Custom domain -> libraries.horizon36596.org.
+#   4. THIS repository: Settings -> Pages -> Build and deployment -> Source: GitHub Actions, with the
+#      Custom domain field left EMPTY.
 #
-# If a tag is cut before those three are done, this job fails at the deploy step and says so, which is
+# Step 4's emptiness is the load-bearing part. A project site with no custom domain of its own is served
+# under the organisation site's domain at the project's repository name, so this site answers at
+# libraries.horizon36596.org/simloop/ - lower case, because that is this repository's name. Setting a
+# custom domain here instead would take the domain root and leave no room for a second library.
+#
+# There is no CNAME file in this repository on purpose. A CNAME file is how a repository claims a domain
+# root, which is the behaviour being avoided, and on this publish path GitHub ignores it anyway: "If you
+# are publishing from a custom GitHub Actions workflow, any CNAME file is ignored and is not required."
+# (Troubleshooting custom domains and GitHub Pages, "CNAME errors", checked 2026-09-19.)
+#
+# If a tag is cut before those four are done, this job fails at the deploy step and says so, which is
 # the failure you want: loud, at release time, naming the thing that is missing.
 
 name: Publish documentation site

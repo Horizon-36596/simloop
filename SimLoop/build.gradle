@@ -194,12 +194,12 @@ afterEvaluate {
                     description = 'Season-agnostic simulation and deterministic-replay core for FTC: ' +
                             'fake hardware that implements the real SDK interfaces, first-order mechanism ' +
                             'plants, a fixed-timestep scenario runner, and RLOG scoring.'
-                    url = 'https://github.com/Horizon-36596/SimLoop'
+                    url = 'https://github.com/Horizon-36596/simloop'
 
                     licenses {
                         license {
                             name = 'GNU Affero General Public License v3.0 or later'
-                            url = 'https://github.com/Horizon-36596/SimLoop/blob/main/SimLoop/LICENSE'
+                            url = 'https://github.com/Horizon-36596/simloop/blob/main/SimLoop/LICENSE'
                         }
                     }
                     developers {
@@ -210,9 +210,9 @@ afterEvaluate {
                         }
                     }
                     scm {
-                        connection = 'scm:git:https://github.com/Horizon-36596/SimLoop.git'
-                        developerConnection = 'scm:git:ssh://git@github.com/Horizon-36596/SimLoop.git'
-                        url = 'https://github.com/Horizon-36596/SimLoop'
+                        connection = 'scm:git:https://github.com/Horizon-36596/simloop.git'
+                        developerConnection = 'scm:git:ssh://git@github.com/Horizon-36596/simloop.git'
+                        url = 'https://github.com/Horizon-36596/simloop'
                     }
                 }
             }

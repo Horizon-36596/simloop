@@ -61,7 +61,7 @@ repositories over project repositories". Without that line, both forms work and 
 ```groovy
 // TeamCode/build.gradle
 dependencies {
-    testImplementation 'com.github.Horizon-36596.SimLoop:SimLoop:0.1.0-beta1'
+    testImplementation 'com.github.Horizon-36596.simloop:SimLoop:0.1.0-beta1'
 
     // JUnit 5, if you are not already on it. SimLoop's own tests use it; yours need not.
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'

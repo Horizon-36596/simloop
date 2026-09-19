@@ -44,9 +44,13 @@ the starter folder is what declares it.
 | Change code in this repository | [`SimLoop/CLAUDE.md`](SimLoop/CLAUDE.md) |
 
 `SimLoop/docs/` is written to be read as Markdown in the repository and also builds into a site. Once
-GitHub Pages is switched on for this repository — the steps are at the top of
-[`.github/workflows/docs-publish.yml`](.github/workflows/docs-publish.yml) — the rendered site is served
-at `simloop.horizon36596.org`, with the generated API reference under `/javadoc/`.
+GitHub Pages is turned on — four settings, three of them in the organisation's landing repository, all
+written out in [`SimLoop/PUBLISHING.md`](SimLoop/PUBLISHING.md) — the rendered site is served at
+**`libraries.horizon36596.org/simloop/`**, with the generated API reference under `/javadoc/`.
+
+That path is this repository's name, in lower case, because GitHub serves a project site at its
+repository name under the organisation's domain and the path is case-sensitive. It is also why the
+published coordinate is `com.github.Horizon-36596.simloop:SimLoop`.
 
 ## What is in this repository
 
@@ -55,6 +59,7 @@ at `simloop.horizon36596.org`, with the generated API reference under `/javadoc/
 | [`SimLoop/`](SimLoop) | The library. The only thing that is published. |
 | [`simloop-starter/`](simloop-starter) | The folder teams copy: the build settings, and the example robot. |
 | [`examples/`](examples/build.gradle) | A Gradle module with no sources of its own — it compiles the starter folder and runs its tests, so the thing teams copy cannot rot. Never published. |
+| [`docs/landing-site/`](docs/landing-site/README.md) | The page that fronts `libraries.horizon36596.org`. Nothing builds it; it belongs in the `Horizon-36596.github.io` repository and is kept here so it is version-controlled somewhere. |
 
 ## Why the library sits in a subdirectory
 
@@ -63,7 +68,7 @@ for two reasons that are both cheaper to keep than to change:
 
 - The Android Gradle Plugin's library plugin is applied to something it expects. A root project that is
   itself an Android library is a layout nothing else in the FTC ecosystem uses.
-- The published coordinate stays `com.github.Horizon-36596.SimLoop:SimLoop`. JitPack derives the group
+- The published coordinate stays `com.github.Horizon-36596.simloop:SimLoop`. JitPack derives the group
   from the repository owner and the artifact from the module, so flattening the layout would silently
   rename the artifact out from under anyone already depending on it.
 

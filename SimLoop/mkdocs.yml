@@ -15,13 +15,14 @@ site_author: Horizon (FTC 36596)
 # The domain the site is served at. The workflow that publishes it is written and complete; the DNS
 # record and the Pages settings are a human's, and the steps are listed at the top of
 # .github/workflows/docs-publish.yml. It is written here rather than left blank because MkDocs uses it
-# for canonical links and the sitemap; if the domain changes, this line and the CNAME are the two places
-# to change.
-site_url: https://simloop.horizon36596.org/
+# for canonical links and the sitemap. This repository holds no CNAME file on purpose - the domain is
+# attached to the landing repository and this site inherits it - so if the domain changes, this line and
+# the DNS record are what change.
+site_url: https://libraries.horizon36596.org/simloop/
 
 # Rendered as a link in the header of every page.
-repo_url: https://github.com/Horizon-36596/SimLoop
-repo_name: Horizon-36596/SimLoop
+repo_url: https://github.com/Horizon-36596/simloop
+repo_name: Horizon-36596/simloop
 edit_uri: ""
 
 docs_dir: docs

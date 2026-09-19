@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Horizon Libraries</title>
+<meta name="description" content="Open-source libraries published by Horizon, FIRST Tech Challenge team 36596.">
+<link rel="icon" href="horizon-mark.svg" type="image/svg+xml">
+<meta name="color-scheme" content="dark">
+
+<!-- Jost is the structural face, Newsreader the narrative serif, JetBrains Mono anything that is a
+     figure. The same three the documentation sites use, so the domain reads as one place. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500&family=Newsreader:opsz,wght@6..72,400&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+
+<style>
+/* ---------------------------------------------------------------------------------------------
+   Horizon tokens, copied from the documentation site's stylesheets/horizon.css, which in turn took
+   them from the team website's tailwind.config.ts. Three places now hold these values and they are
+   meant to stay identical - if one changes, the others are wrong rather than different.
+
+   Dark only, with no toggle, for the same reason the docs are: the team site declares
+   `color-scheme: dark` and ships no light mode, so offering one here would be inventing a second
+   brand nobody has designed.
+   --------------------------------------------------------------------------------------------- */
+:root {
+  --amber:   #ffcb5c;
+  --orange:  #f86a43;
+  --crimson: #b13848;
+
+  --night-950: #17061d;  /* the ground */
+  --night-925: #1c0a24;
+  --night-900: #22102b;
+  --night-850: #2a1735;
+  --night-800: #331e3f;
+  --night-700: #42294f;
+  --night-600: #563863;
+
+  --haze-50:  #faf6fb;
+  --haze-100: #f0e8f2;
+  --haze-200: #dccfe0;
+  --haze-300: #c2b0c8;   /* body text floor - nothing narrative goes dimmer than this */
+  --haze-400: #a08fa8;
+  --haze-500: #93849b;
+  --haze-600: #665572;   /* decorative only - too dim against night-950 for anything you must read */
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--night-950);
+  color: var(--haze-300);
+  font-family: 'Jost', ui-sans-serif, system-ui, sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+  /* A single wash of warmth from the top left, so the page is not a flat rectangle of one colour.
+     Kept far below the text contrast threshold - it should be felt rather than seen. */
+  background-image:
+    radial-gradient(60rem 40rem at 12% -10%, rgba(248, 106, 67, 0.10), transparent 60%),
+    radial-gradient(45rem 35rem at 92% 6%, rgba(255, 203, 92, 0.06), transparent 60%);
+  background-repeat: no-repeat;
+}
+
+.wrap {
+  max-width: 62rem;
+  margin: 0 auto;
+  padding: 0 1rem;   /* 16px gutter, so nothing touches the edge on a phone */
+}
+
+/* --- masthead --------------------------------------------------------------------------------- */
+
+header.masthead {
+  padding: 4.5rem 0 0;
+}
+
+.mark {
+  width: 3.25rem;
+  height: 3.25rem;
+  border-radius: 50%;   /* the artwork is a circle on its own ground; crop it round */
+  display: block;
+}
+
+h1 {
+  font-size: clamp(2.5rem, 7vw, 4rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  color: var(--haze-50);
+  margin: 1.75rem 0 0;
+}
+
+/* The signature element, the same one that sits under every h1 on the documentation site. */
+h1::after {
+  content: '';
+  display: block;
+  width: 4rem;
+  height: 3px;
+  margin-top: 0.9rem;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--amber) 0%, var(--orange) 55%, var(--crimson) 100%);
+}
+
+.lede {
+  font-family: 'Newsreader', ui-serif, Georgia, serif;
+  font-weight: 400;
+  font-size: 1.15rem;
+  line-height: 1.7;
+  color: var(--haze-200);
+  max-width: 44ch;
+  margin: 1.5rem 0 0;
+}
+
+.team {
+  margin: 0.75rem 0 0;
+  font-size: 0.95rem;
+  color: var(--haze-500);
+}
+
+/* --- the library list ------------------------------------------------------------------------- */
+
+h2.section {
+  margin: 4.5rem 0 1.25rem;
+  font-size: 0.78rem;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--haze-500);
+}
+
+.library {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+  background: var(--night-900);
+  border: 1px solid var(--night-800);
+  border-radius: 20px;
+  padding: 1.75rem;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.35s var(--ease), background 0.35s var(--ease), transform 0.35s var(--ease);
+}
+
+/* The brand gradient as a hairline down the leading edge, revealed on hover rather than always on -
+   one card does not need a permanent stripe, and a list of six would look like a barcode. */
+.library::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--amber) 0%, var(--orange) 55%, var(--crimson) 100%);
+  opacity: 0;
+  transition: opacity 0.35s var(--ease);
+}
+
+.library:hover,
+.library:focus-visible {
+  background: var(--night-850);
+  border-color: var(--night-600);
+  transform: translateY(-2px);
+}
+
+.library:hover::before,
+.library:focus-visible::before { opacity: 1; }
+
+.library:focus-visible { outline: 2px solid var(--amber); outline-offset: 3px; }
+
+.library h3 {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--haze-50);
+}
+
+.library p {
+  font-family: 'Newsreader', ui-serif, Georgia, serif;
+  /* Stated, not inherited. body sets 300, which is not a weight this page fetches for Newsreader, so
+     the browser would synthesise one. Every rule that changes family states its weight for that reason. */
+  font-weight: 400;
+  font-size: 1.02rem;
+  line-height: 1.7;
+  color: var(--haze-300);
+  margin: 0.6rem 0 0;
+  max-width: 58ch;
+}
+
+.meta {
+  margin: 1.25rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.tag {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 0.74rem;
+  font-weight: 400;
+  letter-spacing: 0.02em;
+  color: var(--haze-400);
+  background: var(--night-800);
+  border: 1px solid var(--night-700);
+  border-radius: 8px;
+  padding: 0.2rem 0.55rem;
+}
+
+.tag.beta {
+  color: var(--amber);
+  border-color: rgba(255, 203, 92, 0.35);
+  background: rgba(255, 203, 92, 0.08);
+}
+
+.go {
+  margin: 1.1rem 0 0;
+  font-size: 0.95rem;
+  font-weight: 400;
+  color: var(--amber);
+}
+
+.go::after {
+  content: ' \2192';   /* → */
+  display: inline-block;
+  transition: transform 0.35s var(--ease);
+}
+
+.library:hover .go::after { transform: translateX(3px); }
+
+/* --- footer ----------------------------------------------------------------------------------- */
+
+footer {
+  margin: 5rem 0 0;
+  border-top: 1px solid var(--night-800);
+  padding: 1.75rem 0 4rem;
+  font-size: 0.88rem;
+  /* haze-500, not haze-600: measured against night-950 those are 5.6:1 and 2.9:1, and WCAG AA wants
+     4.5:1 for text this size. The footer is small and quiet, not unreadable. */
+  color: var(--haze-500);
+}
+
+footer a {
+  color: var(--haze-400);
+  text-decoration: none;
+  border-bottom: 1px solid var(--night-700);
+}
+
+footer a:hover { color: var(--amber); border-bottom-color: var(--amber); }
+
+@media (max-width: 30rem) {
+  header.masthead { padding-top: 3rem; }
+  .library { padding: 1.35rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; }
+}
+</style>
+</head>
+
+<body>
+<div class="wrap">
+
+  <header class="masthead">
+    <img class="mark" src="horizon-mark.svg" alt="" width="52" height="52">
+    <h1>Horizon Libraries</h1>
+    <p class="lede">
+      Open-source tools we build for our own robot, published because the next team should not have to
+      build them again.
+    </p>
+    <p class="team">Horizon &middot; <em>FIRST</em> Tech Challenge team 36596</p>
+  </header>
+
+  <main>
+    <h2 class="section">Libraries</h2>
+
+    <!-- The whole card is the link, so without a label a screen reader would announce the heading, both
+         paragraphs and all four tags as one run of link text. Name it for what clicking it does. -->
+    <a class="library" href="/simloop/" aria-label="SimLoop - read the documentation">
+      <h3>SimLoop</h3>
+      <p>
+        Run your FTC robot code on a laptop, deterministically, and get a log you can score. Your
+        subsystems and your OpMode run unchanged against fake hardware in a JVM unit test &mdash; no
+        Control Hub, no emulator. A test run is a few seconds.
+      </p>
+      <div class="meta">
+        <span class="tag beta">beta</span>
+        <span class="tag">Java</span>
+        <span class="tag">AGPL-3.0</span>
+        <span class="tag">org.horizon36596.simloop</span>
+      </div>
+      <p class="go">Read the documentation</p>
+    </a>
+  </main>
+
+  <footer>
+    Copyright &copy; 2026 Horizon (FTC 36596).
+    Source on <a href="https://github.com/Horizon-36596">GitHub</a>.
+  </footer>
+
+</div>
+</body>
+</html>

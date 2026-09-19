@@ -2,7 +2,7 @@
 
 ## Where
 
-**GitHub Issues on [`Horizon-36596/SimLoop`](https://github.com/Horizon-36596/SimLoop/issues).**
+**GitHub Issues on [`Horizon-36596/simloop`](https://github.com/Horizon-36596/simloop/issues).**
 
 That is the only channel. There is no Discord, no mailing list and no support address, and pretending
 there is would waste your time. An issue is also the only route that leaves a record the next person

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Not here &middot; Horizon Libraries</title>
+<!-- Root-absolute, unlike index.html's relative href, and that difference is deliberate: this page is
+     served for ANY unmatched path, so a relative href on /Simloop/typo would look for the mark at
+     /Simloop/horizon-mark.svg and miss. Same reason the "All Horizon libraries" link below is "/". -->
+<link rel="icon" href="/horizon-mark.svg" type="image/svg+xml">
+<meta name="color-scheme" content="dark">
+<meta name="robots" content="noindex">
+
+<!-- This page catches any path under libraries.horizon36596.org that is not a published library. The
+     most likely way to land here is a capital letter: the path is the repository name and it is
+     case-sensitive, so /SimLoop misses and /simloop hits. Say so rather than leaving a bare 404. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;500&family=Newsreader:opsz,wght@6..72,400&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --amber:   #ffcb5c;
+  --orange:  #f86a43;
+  --crimson: #b13848;
+  --night-950: #17061d;
+  --night-800: #331e3f;
+  --night-700: #42294f;
+  --haze-50:  #faf6fb;
+  --haze-300: #c2b0c8;
+  --haze-400: #a08fa8;
+  --haze-500: #93849b;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  background: var(--night-950);
+  color: var(--haze-300);
+  font-family: 'Jost', ui-sans-serif, system-ui, sans-serif;
+  font-weight: 300;
+  line-height: 1.6;
+  background-image: radial-gradient(55rem 38rem at 10% -12%, rgba(248, 106, 67, 0.10), transparent 60%);
+  background-repeat: no-repeat;
+}
+
+.wrap {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 3rem 1rem;
+}
+
+h1 {
+  font-size: clamp(2rem, 6vw, 2.75rem);
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  color: var(--haze-50);
+  margin: 0;
+}
+
+h1::after {
+  content: '';
+  display: block;
+  width: 4rem;
+  height: 3px;
+  margin-top: 0.9rem;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--amber) 0%, var(--orange) 55%, var(--crimson) 100%);
+}
+
+p {
+  font-family: 'Newsreader', ui-serif, Georgia, serif;
+  /* Stated rather than inherited: body sets 300, and 300 is not a weight this page fetches. */
+  font-weight: 400;
+  font-size: 1.05rem;
+  line-height: 1.75;
+  max-width: 52ch;
+}
+
+code {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 400;
+  font-size: 0.88em;
+  color: var(--haze-50);
+  background: var(--night-800);
+  border: 1px solid var(--night-700);
+  border-radius: 6px;
+  padding: 0.1rem 0.35rem;
+}
+
+a { color: var(--amber); text-decoration: none; border-bottom: 1px solid rgba(255, 203, 92, 0.4); }
+a:hover { border-bottom-color: var(--amber); }
+
+/* haze-500, not haze-600: 5.6:1 against night-950 where haze-600 is 2.9:1, and AA wants 4.5:1. */
+.small { font-family: 'Jost', sans-serif; font-size: 0.9rem; color: var(--haze-500); margin-top: 2.5rem; }
+</style>
+</head>
+
+<body>
+<div class="wrap">
+  <h1>Nothing at this address</h1>
+
+  <p>
+    If you were looking for a library, the path is its repository name and it is case-sensitive &mdash;
+    <code>/simloop</code> works, <code>/SimLoop</code> does not.
+  </p>
+
+  <p>
+    <a href="/">All Horizon libraries</a>
+  </p>
+
+  <p class="small">Horizon &middot; <em>FIRST</em> Tech Challenge team 36596</p>
+</div>
+</body>
+</html>

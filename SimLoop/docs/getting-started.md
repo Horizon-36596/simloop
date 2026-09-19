@@ -24,7 +24,7 @@ Pedro Pathing, Road Runner, FTC Dashboard or Robolectric — SimLoop depends on 
 
 ## The three-step way: copy the starter folder
 
-[`simloop-starter/`](https://github.com/Horizon-36596/SimLoop/tree/main/simloop-starter) is one folder
+[`simloop-starter/`](https://github.com/Horizon-36596/simloop/tree/main/simloop-starter) is one folder
 that carries every build setting SimLoop needs, plus a small example robot that drives itself.
 
 1. **Copy the folder** into the root of your FTC project, beside `TeamCode/` and `FtcRobotController/`.
@@ -50,7 +50,7 @@ driving itself in simulation.
     than a thing you can adopt. A folder you drop in competes with nothing, and removing it is deleting
     the folder and one line.
 
-The starter's own [README](https://github.com/Horizon-36596/SimLoop/tree/main/simloop-starter#readme)
+The starter's own [README](https://github.com/Horizon-36596/simloop/tree/main/simloop-starter#readme)
 says what is in it, and [Your first simulated test](first-test.md) walks through the same code line by
 line.
 
@@ -88,7 +88,7 @@ repositories {
 ```groovy
 // TeamCode/build.gradle
 dependencies {
-    testImplementation 'com.github.Horizon-36596.SimLoop:SimLoop:v0.1.0-beta1'
+    testImplementation 'com.github.Horizon-36596.simloop:SimLoop:v0.1.0-beta1'
 
     // JUnit 5, if you are not already on it.
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'
@@ -183,7 +183,7 @@ dependencies {
     `org.horizon36596` is the group this project declares. It is what `publishToMavenLocal` writes and
     what a future Maven Central release would use. JitPack ignores it and derives its own group from the
     repository owner and name, so a JitPack dependency is spelled
-    `com.github.Horizon-36596.SimLoop:SimLoop` instead. Use whichever matches the repository you are
+    `com.github.Horizon-36596.simloop:SimLoop` instead. Use whichever matches the repository you are
     pulling from — and note that the local one carries the plain version `0.1.0-beta1`, because that is
     what `build.gradle` declares, while JitPack's carries the tag.
 

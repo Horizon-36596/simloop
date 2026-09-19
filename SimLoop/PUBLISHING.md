@@ -8,7 +8,7 @@ Central. The build wiring this describes lives at the bottom of `SimLoop/build.g
 | | Value |
 |---|---|
 | Group (in the POM) | `org.horizon36596` |
-| Group (as JitPack serves it) | `com.github.Horizon-36596.SimLoop` |
+| Group (as JitPack serves it) | `com.github.Horizon-36596.simloop` |
 | Artifact | `SimLoop` (matches the Gradle subproject name, which is what JitPack uses for a module) |
 | Current version | `0.1.0-beta1` |
 | Packaging | `aar`, plus a sources jar |
@@ -61,7 +61,7 @@ that — a bump that misses the README leaves teams copying a version that was n
    the part people skip.
 4. **Commit, tag, push the tag.** The tag is the version, e.g. `v0.1.0-beta1`.
 5. **Build that tag on JitPack yourself, and read the log**, at
-   `https://jitpack.io/#Horizon-36596/SimLoop`. This is a gate, not a warm-up, and until it has passed
+   `https://jitpack.io/#Horizon-36596/simloop`. This is a gate, not a warm-up, and until it has passed
    once nobody should be given the coordinate. Two specific things can only be learned here:
    - **Whether the coordinate is right at all.** JitPack derives the artifact id from the module, and
      the only way to be certain which spelling it serves is to see it serve one.
@@ -115,7 +115,7 @@ correct, and they are meant to stay:
   shape nothing else in this ecosystem has.
 - **The coordinate depends on it.** JitPack derives the group from the repository owner and the artifact
   id from the module, so a flat layout would serve `com.github.Horizon-36596:SimLoop` where this one
-  serves `com.github.Horizon-36596.SimLoop:SimLoop`. Flattening is not a tidy-up; it is a silent rename
+  serves `com.github.Horizon-36596.simloop:SimLoop`. Flattening is not a tidy-up; it is a silent rename
   of the artifact under anyone already depending on it.
 
 The root of the repository holds what belongs to the repository rather than to the library:
@@ -149,58 +149,79 @@ pip install -r SimLoop/docs-requirements.txt
 ```
 
 `.github/workflows/docs-publish.yml` publishes it on a `v*` tag. No tag has been cut, so it has never
-run, and three repository settings still have to exist before a deployment can succeed. The CI job in
+run, and four settings still have to exist before a deployment can succeed - three of them in a
+different repository, because the site is served under a shared domain. The CI job in
 `test.yml` builds the site on every push and keeps it as a downloadable artifact regardless, so a break
 in the site is caught by the push that causes it rather than by a release.
 
-### Turning it on — three steps, all of them a human's
+### Turning it on — four steps, all of them a human's
 
-A fourth step, deleting the workflow's off switch, was done on 2026-09-17 when the repository was made
-public. Nothing in this repository needs editing again; what is left is three things in a browser.
+The site does not live on its own domain. It lives at **`libraries.horizon36596.org/simloop/`**, a path
+under a domain that belongs to a *different* repository — Horizon's organisation Pages site — so that a
+second library later gets `libraries.horizon36596.org/<its-name>/` and needs no DNS of its own.
 
-**1. Enable GitHub Pages.** Settings → Pages → Build and deployment → Source: **GitHub Actions**. Not
-"Deploy from a branch" — the workflow deploys the built artifact directly, and there is no `gh-pages`
-branch to point at.
+That is the whole reason the steps below look the way they do, and it is the one thing to get right:
+**the custom domain is set on the landing repository, never on this one.** GitHub's rule is that a
+project site with no custom domain of its own is served under the organisation site's domain, at the
+project's repository name — *"if the custom domain for your user site is `www.octocat.com`, and you have
+a project site with no custom domain configured that is published from a repository called
+`octo-project`, the GitHub Pages site for that repository will be available at
+`www.octocat.com/octo-project`."* Setting a custom domain **here** would override that and take the
+domain root, which is the opposite of what is wanted.
+
+The path is the repository name, and it is case-sensitive. This repository is `simloop`, lower case, so
+the path is `/simloop`. It was renamed from `SimLoop` on 2026-09-19 for exactly that reason, before any
+tag existed — which also moved the published coordinate to `com.github.Horizon-36596.simloop:SimLoop`.
+
+**1. Create the landing repository.** A public repository named exactly
+`Horizon-36596/Horizon-36596.github.io`. The name is not a choice: GitHub recognises
+`<owner>.github.io` as the organisation site and nothing else. Its contents are the landing page — an
+`index.html` and a `404.html` are enough, and both are prepared in this repository under
+`docs/landing-site/` ready to copy in.
 
 **2. Add the DNS record.** One record, at whoever hosts `horizon36596.org`:
 
 | Field | Value |
 |---|---|
 | **Type** | `CNAME` |
-| **Name** / Host | `simloop` |
+| **Name** / Host | `libraries` |
 | **Value** / Target / Points to | `horizon-36596.github.io` |
 | **TTL** | leave it at the default, or 3600 |
 | **Proxy status** (Cloudflare only) | **DNS only** — grey cloud, not orange |
 
 Three things about that record, each of which has cost somebody an afternoon:
 
-- The **Name** is `simloop`, not `simloop.horizon36596.org`. Most registrars append the domain for you and
-  a full name here becomes `simloop.horizon36596.org.horizon36596.org`. A few registrars do want the full
-  name — if yours shows existing records with their full names, match what you see.
-- The **Value** is the organisation's Pages host, `horizon-36596.github.io`, and it is **not** the
-  repository: there is no `/SimLoop` on the end. GitHub's own instruction is that the record "should
-  always point to `<user>.github.io` or `<organization>.github.io`, excluding the repository name".
-  Some registrars require a trailing dot (`horizon-36596.github.io.`); GitHub does not mention one, so if
-  the field rejects the value without it, that is your registrar's convention, not GitHub's.
+- The **Name** is `libraries`, not `libraries.horizon36596.org`. Most registrars append the domain for
+  you, and a full name here becomes `libraries.horizon36596.org.horizon36596.org`. A few registrars do
+  want the full name — if yours shows existing records with their full names, match what you see.
+- The **Value** is the organisation's Pages host, `horizon-36596.github.io`, and it is **not** a
+  repository: there is no `/simloop` on the end. GitHub's own instruction is that the record "should
+  always point to `<user>.github.io` or `<organization>.github.io`, excluding the repository name". Some
+  registrars require a trailing dot (`horizon-36596.github.io.`); GitHub does not mention one, so if the
+  field rejects the value without it, that is your registrar's convention, not GitHub's.
 - **On Cloudflare, turn the proxy off** until GitHub has issued the certificate. *Unverified:* GitHub's
   own documentation says nothing about proxies, but this is a common report — a proxied record hides the
   real origin from the certificate check. If the certificate does issue with the proxy on, leave it on.
 
-**3. Enter the custom domain in the repository's settings.** Settings → Pages → Custom domain → type
-`simloop.horizon36596.org` → **Save**.
+**3. Point the landing repository at the domain.** In `Horizon-36596.github.io` → Settings → Pages:
+Source **Deploy from a branch**, branch `main`, folder `/ (root)`; then Custom domain →
+`libraries.horizon36596.org` → **Save**, and tick **Enforce HTTPS** once the certificate has issued.
 
-This step is not optional and is easy to skip, because the repository *does* contain a `CNAME` file and
-that looks like it should be enough. It is not, on this publish path. GitHub's documentation is explicit:
-**"If you are publishing from a custom GitHub Actions workflow, no `CNAME` file is created, and any
-existing `CNAME` file is ignored."** `docs-publish.yml` is a custom Actions workflow, so the Pages setting
-is the only thing that sets the domain.
+**4. Enable Pages on THIS repository, with no custom domain.** Settings → Pages → Build and deployment →
+Source: **GitHub Actions**. Not "Deploy from a branch" — `docs-publish.yml` deploys the built artifact
+directly and there is no `gh-pages` branch to point at. **Leave the Custom domain field empty.** That
+emptiness is what makes this site answer at `/simloop` under the landing domain rather than trying to
+own a domain of its own.
 
-`SimLoop/docs/CNAME` is kept anyway, holding `simloop.horizon36596.org`. It costs 25 bytes, it records in
-the repository which domain the site is meant to answer on, and it is what would carry the domain if
-anyone ever switched this to a branch-based publish. It is not what makes step 3 unnecessary.
+There is deliberately **no `CNAME` file in this repository**, and one should not be added back. It was
+deleted on 2026-09-19 along with the old single-domain plan. Two reasons it would be worse than useless:
+a `CNAME` file is how a repository claims a domain root, which is the behaviour being avoided here; and
+on this publish path it would not work anyway — GitHub's documentation is explicit that **"if you are
+publishing from a custom GitHub Actions workflow, any CNAME file is ignored and is not required."**
+(*Troubleshooting custom domains and GitHub Pages*, under "CNAME errors", checked 2026-09-19.)
 
-With those three done, pushing a `v*` tag publishes the site, and so does running the workflow by hand
-from the Actions tab. All three are a human's, in a browser, and a build may not do any of them.
+With those four done, pushing a `v*` tag publishes the site, and so does running the workflow by hand
+from the Actions tab. All four are a human's, in a browser, and a build may not do any of them.
 
 ### Checking it worked
 
@@ -208,10 +229,14 @@ GitHub's documentation gives one number worth knowing: **"It can take up to an h
 become available over HTTPS after you configure your custom domain."** DNS propagation is on top of that
 and depends on your registrar. Both are waiting, not failure.
 
-- `https://simloop.horizon36596.org/` loads, over HTTPS, with no certificate warning.
+- `https://libraries.horizon36596.org/` loads the landing page, over HTTPS, with no certificate warning.
+  If this one fails, nothing below it can work — the domain is not attached yet.
+- `https://libraries.horizon36596.org/simloop/` loads the documentation site. A 404 here with the landing
+  page working means either the tag has not been pushed, or a custom domain got set on this repository
+  after all.
 - The footer of every page reads the version you just tagged.
-- `https://simloop.horizon36596.org/javadoc/` loads the API reference. If the site loads and this 404s,
-  the `docsSite` task did not run — the deploy published a bare `mkdocs build` from somewhere.
+- `https://libraries.horizon36596.org/simloop/javadoc/` loads the API reference. If the site loads and
+  this 404s, the `docsSite` task did not run — the deploy published a bare `mkdocs build` from somewhere.
 
 ## What a Maven Central release would additionally need
 
@@ -267,7 +292,7 @@ file assumes.
   flattening the layout would rename the published artifact.
 - **Documentation is not versioned** until the library is past beta. One site, no version selector, with
   the version stamped on every page.
-- **Bugs and questions go to GitHub Issues** on `Horizon-36596/SimLoop`. One channel, public, and it
+- **Bugs and questions go to GitHub Issues** on `Horizon-36596/simloop`. One channel, public, and it
   leaves a record the next person with the same problem can find.
 
 ### Settled on 2026-09-17: the package and the Maven group
@@ -278,5 +303,5 @@ file assumes.
   line, which is why this is a decision rather than a preference. `org.horizon36596` is the reverse-DNS of
   a domain Horizon controls, which is also what a Maven Central namespace verification asks for.
 - **The published coordinate did not change with it.** JitPack derives the group from the repository
-  owner, not from this file, so `com.github.Horizon-36596.SimLoop` is what a consumer writes either way.
+  owner, not from this file, so `com.github.Horizon-36596.simloop` is what a consumer writes either way.
   The declared group matters for `publishToMavenLocal` and for any future Maven Central release.

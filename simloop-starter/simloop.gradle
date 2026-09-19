@@ -40,7 +40,7 @@ repositories {
 dependencies {
     // `testImplementation`, never `implementation`. SimLoop is for the tests that run on your laptop;
     // none of it belongs in the APK that goes to the Control Hub, and this scope is what keeps it out.
-    testImplementation "com.github.Horizon-36596.SimLoop:SimLoop:${simloopVersion}"
+    testImplementation "com.github.Horizon-36596.simloop:SimLoop:${simloopVersion}"
 
     // JUnit 5. SimLoop's assertions and the example are written in it.
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'
