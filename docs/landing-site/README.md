@@ -3,9 +3,15 @@
 These files are **not part of the SimLoop library** and nothing builds them. They live here so that the
 page which fronts the domain is version-controlled somewhere rather than existing only in a browser tab.
 
-They belong in a different repository: **`Horizon-36596/Horizon-36596.github.io`**, public, at its root.
-That name is not a choice — GitHub recognises `<owner>.github.io` as the organisation's Pages site and
-nothing else does the job.
+They belong in a different repository: **[`Horizon-36596/Horizon-36596.github.io`](https://github.com/Horizon-36596/Horizon-36596.github.io)**,
+public, at its root. That name is not a choice — GitHub recognises `<owner>.github.io` as the
+organisation's Pages site and nothing else does the job.
+
+**That repository now exists and is serving these files**, since 2026-09-19, at
+<https://horizon-36596.github.io/> — and at `libraries.horizon36596.org` once the DNS record is added.
+**Edit them there, not here.** This copy is the one they were created in and is kept so the page is
+version-controlled somewhere a reader of this repository will find it; it is not what is served, and
+nothing syncs the two.
 
 ## Why a separate repository at all
 
@@ -26,7 +32,7 @@ empty. The full procedure, with the DNS record written out, is in
 **The path is the repository name, and it is case-sensitive.** That is why the SimLoop repository is
 named `simloop` in lower case.
 
-## Installing it
+## Installing it (already done — this is the record of how)
 
 Copy `index.html`, `404.html` and `horizon-mark.svg` to the root of `Horizon-36596.github.io`, commit,
 and set that repository's Pages source to **Deploy from a branch → `main` → `/ (root)`**. There is no

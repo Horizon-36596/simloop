@@ -43,10 +43,11 @@ the starter folder is what declares it.
 | Cut a release, or check the coordinate | [`SimLoop/PUBLISHING.md`](SimLoop/PUBLISHING.md) |
 | Change code in this repository | [`SimLoop/CLAUDE.md`](SimLoop/CLAUDE.md) |
 
-`SimLoop/docs/` is written to be read as Markdown in the repository and also builds into a site. Once
-GitHub Pages is turned on — four settings, three of them in the organisation's landing repository, all
-written out in [`SimLoop/PUBLISHING.md`](SimLoop/PUBLISHING.md) — the rendered site is served at
-**`libraries.horizon36596.org/simloop/`**, with the generated API reference under `/javadoc/`.
+`SimLoop/docs/` is written to be read as Markdown in the repository and also builds into a site. That
+site is live now at **<https://horizon-36596.github.io/simloop/>**, with the generated API reference
+under [`/javadoc/`](https://horizon-36596.github.io/simloop/javadoc/). It will answer at
+**`libraries.horizon36596.org/simloop/`** as well once one DNS record is added — the remaining steps,
+and which are already done, are in [`SimLoop/PUBLISHING.md`](SimLoop/PUBLISHING.md).
 
 That path is this repository's name, in lower case, because GitHub serves a project site at its
 repository name under the organisation's domain and the path is case-sensitive. It is also why the

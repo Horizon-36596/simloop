@@ -173,11 +173,18 @@ The path is the repository name, and it is case-sensitive. This repository is `s
 the path is `/simloop`. It was renamed from `SimLoop` on 2026-09-19 for exactly that reason, before any
 tag existed — which also moved the published coordinate to `com.github.Horizon-36596.simloop:SimLoop`.
 
-**1. Create the landing repository.** A public repository named exactly
-`Horizon-36596/Horizon-36596.github.io`. The name is not a choice: GitHub recognises
-`<owner>.github.io` as the organisation site and nothing else. Its contents are the landing page — an
-`index.html` and a `404.html` are enough, and both are prepared in this repository under
-`docs/landing-site/` ready to copy in.
+> **Steps 1 and 4 are done.** Both were done on 2026-09-19 and neither needs doing again. The two that
+> remain — **2** and **3** — are the DNS record and the custom domain, and they are the two nobody but a
+> human with the domain's credentials can do. Until they are done, both sites are already live at
+> GitHub's own addresses: <https://horizon-36596.github.io/> and
+> <https://horizon-36596.github.io/simloop/>. Steps 2 and 3 move them onto `libraries.horizon36596.org`;
+> they do not turn them on.
+
+**1. Create the landing repository.** ✅ **Done 2026-09-19** — `Horizon-36596/Horizon-36596.github.io`,
+public, with the landing page at its root and Pages serving `main` / `(root)`. The name is not a choice:
+GitHub recognises `<owner>.github.io` as the organisation site and nothing else. The copy under
+`docs/landing-site/` in this repository is the source those files were taken from; that repository is
+where they are edited now.
 
 **2. Add the DNS record.** One record, at whoever hosts `horizon36596.org`:
 
@@ -207,11 +214,11 @@ Three things about that record, each of which has cost somebody an afternoon:
 Source **Deploy from a branch**, branch `main`, folder `/ (root)`; then Custom domain →
 `libraries.horizon36596.org` → **Save**, and tick **Enforce HTTPS** once the certificate has issued.
 
-**4. Enable Pages on THIS repository, with no custom domain.** Settings → Pages → Build and deployment →
-Source: **GitHub Actions**. Not "Deploy from a branch" — `docs-publish.yml` deploys the built artifact
-directly and there is no `gh-pages` branch to point at. **Leave the Custom domain field empty.** That
-emptiness is what makes this site answer at `/simloop` under the landing domain rather than trying to
-own a domain of its own.
+**4. Enable Pages on THIS repository, with no custom domain.** ✅ **Done 2026-09-19** — Source is
+**GitHub Actions** and the Custom domain field is empty. Not "Deploy from a branch": `docs-publish.yml`
+deploys the built artifact directly and there is no `gh-pages` branch to point at. That empty Custom
+domain field is what makes this site answer at `/simloop` under the landing domain rather than trying to
+own a domain of its own, so **leave it empty** — filling it in is how this arrangement breaks.
 
 There is deliberately **no `CNAME` file in this repository**, and one should not be added back. It was
 deleted on 2026-09-19 along with the old single-domain plan. Two reasons it would be worse than useless:
@@ -221,7 +228,8 @@ publishing from a custom GitHub Actions workflow, any CNAME file is ignored and 
 (*Troubleshooting custom domains and GitHub Pages*, under "CNAME errors", checked 2026-09-19.)
 
 With those four done, pushing a `v*` tag publishes the site, and so does running the workflow by hand
-from the Actions tab. All four are a human's, in a browser, and a build may not do any of them.
+from the Actions tab — which is how the site currently on those addresses got there, on 2026-09-19,
+before any tag existed.
 
 ### Checking it worked
 
@@ -230,7 +238,9 @@ become available over HTTPS after you configure your custom domain."** DNS propa
 and depends on your registrar. Both are waiting, not failure.
 
 - `https://libraries.horizon36596.org/` loads the landing page, over HTTPS, with no certificate warning.
-  If this one fails, nothing below it can work — the domain is not attached yet.
+  If this one fails, nothing below it can work — the domain is not attached yet. The github.io addresses
+  keep working throughout; they are the same site, and comparing the two is how you tell a DNS problem
+  from a site problem.
 - `https://libraries.horizon36596.org/simloop/` loads the documentation site. A 404 here with the landing
   page working means either the tag has not been pushed, or a custom domain got set on this repository
   after all.
