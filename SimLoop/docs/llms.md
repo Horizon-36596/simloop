@@ -22,10 +22,10 @@ the right page instead of crawling navigation.
 | [What it does not do](limits.md) | Every deliberate boundary, with the reason, plus known rough edges. | Before planning anything; before claiming a feature exists. |
 | [Packages overview](packages/index.md) | Which package does what and how they connect. | Choosing where a thing lives. |
 | [`fakehardware`](packages/fakehardware.md) | Fake SDK devices and `FakeHardwareMap`. Ticks, volts, `[-1, 1]` power. | Wiring hardware into a test. |
-| [`plant`](packages/plant.md) | First-order mechanism and drivetrain models: time constant, max speed, end stops, gravity fraction. Drivetrain field frame is **+x forward, +y left**, CCW-positive. | Modelling motion, or explaining a response. |
+| [`plant`](packages/plant.md) | First-order mechanism and drivetrain models: time constant, max speed, end stops, gravity fraction. Drivetrain pose is in the **localizer frame**: +x forward, +y left, CCW-positive. | Modelling motion, or explaining a response. |
 | [`config`](packages/config.md) | The interfaces the season implements. Full unit table per method. The two defaults that quietly lie. | Writing a robot's sim config. |
 | [`sim`](packages/sim.md) | `FakeTimer`, `ScenarioRunner`, `RlogDecodedCompare`. The four reasons a run refuses to return a log. | Running a scenario, or diagnosing a thrown run. |
-| [`field`](packages/field.md) | Game pieces, possession states, trigger volumes. Intake *logic*, not intaking. | Modelling possession. |
+| [`field`](packages/field.md) | Game pieces, possession states, trigger volumes, and `FieldFrameTransform` — the rotation between the drivetrain's frame and the field's. Intake *logic*, not intaking. | Modelling possession, or crossing between the two frames. |
 | [`loop`](packages/loop.md) | `RunResult`, `Objective`, `Guardrail`, `Scorer`, `Gate`, `LoopDriver`, `StopReport`. | Scoring a run or driving iteration. |
 | [`viz`](packages/viz.md) | Mechanism sketches for AdvantageScope. Inches, radians, robot frame. | Drawing a mechanism's pose. |
 | [Troubleshooting](troubleshooting.md) | Failures that read like a robot-code bug and are not. | A build or run failed. |
@@ -40,9 +40,13 @@ the right page instead of crawling navigation.
 - **Time is always seconds.** `deltaTime` is the scenario's fixed step; 0.02 s is the usual 50 Hz.
 - **Mechanism position units are the caller's choice** and nothing converts. Drivetrain pose is always
   inches and radians.
-- **There are two field frames, and they disagree.** `plant` integrates a drivetrain pose into **+x
-  forward, +y left**; `field` places game pieces in **+X right, +Y forward**. Do not pass a pose from one
-  to the other without converting. This is a known defect in the library, not a doc error.
+- **There are two frames, ninety degrees apart, and both are deliberate.** `plant` integrates a
+  drivetrain pose in the **localizer frame** (+x forward, +y left); `field` places game pieces in the
+  **field frame** (+X right, +Y forward). Convert with
+  `org.horizon36596.simloop.field.FieldFrameTransform` — `fieldXFromLocalizer`, `fieldYFromLocalizer`,
+  `fieldHeadingFromLocalizer`, and the three inverses. Rotation only, no translation; heading *rates*
+  are not rotated. Nothing calls it for you, and passing a pose across unrotated returns a confident
+  wrong answer rather than throwing.
 - **Gravity fraction is always positive**, unitless, in `[0, 1)`. The plant subtracts it, so gravity always
   pulls toward `minPosition`.
 - **`UNKNOWN` is a real guardrail verdict** and is not a pass. Read `Scorer.Score.unknowns()` before

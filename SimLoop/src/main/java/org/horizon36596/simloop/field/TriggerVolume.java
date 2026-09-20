@@ -27,8 +27,17 @@ package org.horizon36596.simloop.field;
  * <p><b>Field frame it is tested against.</b> {@link #overlapsPiece} takes the robot's pose in the repo's
  * FTC-Cartesian field frame (+X right, +Y forward, centre origin, inches, heading CCW-positive with the
  * robot's forward direction being {@code (cos heading, sin heading)} — conventions §7), rotates the piece
- * into the robot frame, and does one circle-versus-rectangle test. There is no second field frame and no
- * translation anywhere (conventions §7).
+ * into the robot frame, and does one circle-versus-rectangle test. The field frame and the localizer
+ * frame share the field's centre origin, so converting between those two is a rotation with no
+ * translation; the robot frame this method rotates into is centred on the robot, so getting into it is a
+ * translation and then a rotation.
+ *
+ * <p><b>A drivetrain pose is not in that frame.</b> {@code MecanumDrivePlant} and
+ * {@code MecanumPoseIntegrator} report the localizer frame (+x forward, +y left), which is ninety
+ * degrees from the field frame this method wants. Handing one straight in gives a plausible-looking
+ * wrong answer rather than an error, so rotate it first with
+ * {@link FieldFrameTransform#fieldXFromLocalizer}, {@link FieldFrameTransform#fieldYFromLocalizer} and
+ * {@link FieldFrameTransform#fieldHeadingFromLocalizer}.
  *
  * <p>Immutable and pure: nothing here holds state, reads a clock, or allocates per call, so the same
  * inputs give the same answer on replay (domain R5) and season-agnostic core stays season-agnostic

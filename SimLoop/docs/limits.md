@@ -76,13 +76,18 @@ Calibrating against a real robot, and reporting the sim-to-real gap, is future w
 These are defects or unfinished corners rather than boundaries, and they are worth knowing before you
 trip over them.
 
-- **The published coordinate is unverified.** No version has been tagged, so no JitPack build has ever
-  served it. See [Installing it](getting-started.md).
 - **Nothing calibrated has shipped.** Every constant in every example on this site is plausible, not
   measured.
-- **There are two field frames in the library and they disagree.** The drivetrain integrates into +x
-  forward / +y left; game pieces and trigger volumes live in +X right / +Y forward. Converting at the
-  boundary is the caller's job today, and nothing warns you. See [`plant`](packages/plant.md).
+- **There are two frames, ninety degrees apart, and converting is your job.** The drivetrain integrates
+  into the localizer frame (+x forward / +y left); game pieces and trigger volumes live in the field
+  frame (+X right / +Y forward). Both are deliberate. `FieldFrameTransform` does the rotation, but
+  nothing calls it for you and nothing warns you when you forget — a pose passed across unrotated puts
+  the robot somewhere plausible, facing the wrong way. See [`field`](packages/field.md).
+- **The drivetrain's field clamp is written on the field's axes, not the localizer's.**
+  `MecanumPoseIntegrator` clamps its `x` (localizer forward) to `fieldHalfWidth` and its `y` (localizer
+  left) to `fieldHalfHeight`, which are the *field* frame's half-extents — so the two bounds are
+  transposed by the same ninety degrees. It changes nothing on a square field, which every configuration
+  here uses, and it would be wrong the moment one is not square.
 - **Loop-time guardrails have nothing to check.** `EnvelopeGuardrails.loopTimeUnderBudget` exists and
   returns `UNKNOWN` until some scenario logs a loop time — which no scenario does yet. An envelope with
   unknowns in it is guarding less than it looks like it is; `Scorer.Score.unknowns()` is how you find out.

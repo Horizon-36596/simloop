@@ -5,7 +5,7 @@ import org.horizon36596.simloop.fakehardware.FakeMotor;
 
 /**
  * Closes the sim odometry loop for a mecanum drivetrain (fakehardware-plant §5): each tick it reads the
- * four drive {@link FakeMotor}s' modelled wheel velocities and integrates the field-frame pose through
+ * four drive {@link FakeMotor}s' modelled wheel velocities and integrates the pose through
  * {@link MecanumPoseIntegrator}. Because the season drivetrain's inverse kinematics (which commanded the
  * motor powers) and this forward-kinematics integrator share the {@code [frontLeft, frontRight, backLeft,
  * backRight]} wheel order and convention (B1-M1 — IK is the exact inverse of this FK), a forward chassis
@@ -14,6 +14,12 @@ import org.horizon36596.simloop.fakehardware.FakeMotor;
  * <p>Season-agnostic core: it depends only on {@link FakeMotor} + {@link DrivetrainSimConfig}. The glue
  * that exposes this pose through the season's odometry device (e.g. an OctoQuad fake) lives in the season
  * layer (domain R7). Deterministic: state changes only in {@link #update(double)}; getters are pure reads.
+ *
+ * <p><b>The pose is in the localizer frame</b> ({@code +x} forward at heading 0, {@code +y} left), which
+ * is ninety degrees from the field frame that {@code org.horizon36596.simloop.field} places game pieces
+ * and trigger volumes in. Both are deliberate (conventions §7). Rotate with
+ * {@link org.horizon36596.simloop.field.FieldFrameTransform} at the boundary; a pose passed across
+ * unrotated puts the robot somewhere plausible, facing the wrong way (BACKLOG B37).
  */
 public final class MecanumDrivePlant {
 
@@ -90,21 +96,21 @@ public final class MecanumDrivePlant {
                 deltaTime);
     }
 
-    /** {@return the field-frame X position, in inches — {@code +x} is forward at heading 0} */
+    /** {@return the localizer-frame X position, in inches — {@code +x} is forward at heading 0} */
     public double getX() { return integrator.getX(); }
 
-    /** {@return the field-frame Y position, in inches — {@code +y} is left at heading 0} */
+    /** {@return the localizer-frame Y position, in inches — {@code +y} is left at heading 0} */
     public double getY() { return integrator.getY(); }
 
-    /** {@return the heading in radians, CCW-positive, measured from field {@code +x}} */
+    /** {@return the heading in radians, CCW-positive, measured from localizer {@code +x}} */
     public double getHeading() { return integrator.getHeading(); }
 
     /**
      * Teleport the integrated pose (e.g. to seed a routine's start pose).
      *
-     * @param x       field-frame X position, in inches
-     * @param y       field-frame Y position, in inches
-     * @param heading heading in radians, CCW-positive from field {@code +x}
+     * @param x       localizer-frame X position (forward at heading 0), in inches
+     * @param y       localizer-frame Y position (left at heading 0), in inches
+     * @param heading heading in radians, CCW-positive from localizer {@code +x}
      */
     public void setPose(double x, double y, double heading) {
         integrator.setPose(x, y, heading);

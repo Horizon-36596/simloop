@@ -5,13 +5,20 @@ import org.horizon36596.simloop.config.DrivetrainSimConfig;
 /**
  * Kinematic mecanum forward-kinematics pose integrator (architecture §3 core primitive,
  * fakehardware-plant §5). Given the four wheel linear speeds (in/s) it computes chassis velocity,
- * integrates the field-frame pose, and clamps to the field bounds (kinematic drivetrain bound, R6).
+ * integrates the pose, and clamps to the field bounds (kinematic drivetrain bound, R6).
  *
  * <p>Kinematic only — no contact forces or rigid-body physics (R6). Geometry comes from the season
  * {@link DrivetrainSimConfig}; the core hard-codes no season numbers.
  *
- * <p>Wheel order is [frontLeft, frontRight, backLeft, backRight]. Field frame: +x forward at
- * heading 0, +y left, heading CCW-positive (radians).
+ * <p>Wheel order is [frontLeft, frontRight, backLeft, backRight].
+ *
+ * <p><b>The frame is the localizer frame, not the field frame</b> (conventions §7): {@code +x} forward
+ * at heading 0, {@code +y} left, heading CCW-positive, radians, inches. That is the frame a dead-wheel
+ * odometry device reports, and this class integrates in it because in a real robot such a device is what
+ * feeds the same numbers. It is <b>ninety degrees from the field frame</b> that game pieces and trigger
+ * volumes are placed in ({@code +X} right, {@code +Y} forward). Rotate with
+ * {@link org.horizon36596.simloop.field.FieldFrameTransform} before asking a field question of a pose
+ * from here; passing one straight across is wrong in a way that still looks plausible (BACKLOG B37).
  */
 public final class MecanumPoseIntegrator {
 
@@ -89,7 +96,7 @@ public final class MecanumPoseIntegrator {
         // and only to vy, so forward motion and rotation stay exact geometry. See lateralEfficiency.
         vy *= lateralEfficiency;
 
-        // Rotate robot-frame velocity into the field frame at the current heading, then integrate.
+        // Rotate robot-frame velocity into the localizer frame at the current heading, then integrate.
         double cos = Math.cos(heading);
         double sin = Math.sin(heading);
         x += (vx * cos - vy * sin) * deltaTime;
@@ -97,25 +104,34 @@ public final class MecanumPoseIntegrator {
         heading += omega * deltaTime;
 
         // Kinematic field clamp (domain R6).
+        //
+        // KNOWN TRANSPOSITION, deliberately left as it is: `x` here is the LOCALIZER frame's forward
+        // axis, which is the FIELD frame's +Y, and `y` is localizer-left, which is field -X. So each
+        // bound below is being applied to the other axis's half-extent. On a square field - which is
+        // every field this library has ever been configured with, and every FTC field - the two numbers
+        // are equal and it makes no difference. On a field that is not square it would clamp the robot
+        // to a box rotated ninety degrees from the real one. Fixing it means either swapping these two
+        // lines or renaming the config accessors to name localizer axes, and neither is worth doing
+        // blind: it needs a non-square configuration and a test that fails before the change.
         x = clamp(x, -fieldHalfWidth, fieldHalfWidth);
         y = clamp(y, -fieldHalfHeight, fieldHalfHeight);
     }
 
-    /** {@return the field-frame X position, in inches, clamped to the field} */
+    /** {@return the localizer-frame X position (forward at heading 0), in inches, clamped to the field} */
     public double getX() { return x; }
 
-    /** {@return the field-frame Y position, in inches, clamped to the field} */
+    /** {@return the localizer-frame Y position (left at heading 0), in inches, clamped to the field} */
     public double getY() { return y; }
 
-    /** {@return the heading in radians, CCW-positive, measured from field {@code +X}; not wrapped} */
+    /** {@return the heading in radians, CCW-positive, measured from localizer {@code +x}; not wrapped} */
     public double getHeading() { return heading; }
 
     /**
      * Teleports the pose, for a test that needs to start somewhere other than the origin.
      *
-     * @param x       field-frame X position, in inches
-     * @param y       field-frame Y position, in inches
-     * @param heading heading in radians, CCW-positive from field {@code +X}
+     * @param x       localizer-frame X position (forward at heading 0), in inches
+     * @param y       localizer-frame Y position (left at heading 0), in inches
+     * @param heading heading in radians, CCW-positive from localizer {@code +x}
      */
     public void setPose(double x, double y, double heading) {
         this.x = x;
@@ -123,7 +139,7 @@ public final class MecanumPoseIntegrator {
         this.heading = heading;
     }
 
-    /** Returns the pose to the field origin, facing field {@code +X}. */
+    /** Returns the pose to the origin, facing localizer {@code +x} (robot forward). */
     public void reset() {
         setPose(0.0, 0.0, 0.0);
     }

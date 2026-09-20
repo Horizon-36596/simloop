@@ -37,18 +37,27 @@ mechanism — and it is deliberately not more than that.
 - **Mechanism position:** *your* units, whatever the config's `minPosition`/`maxPosition` are in. Inches
   for a slide, degrees or radians for an arm — SimLoop never converts, so pick one and stay in it.
 - **Mechanism velocity:** those same units per **second**.
-- **Drivetrain pose:** **inches** and **radians**, field frame — **+x forward** at heading 0, **+y
-  left**, heading **counter-clockwise-positive**, measured from +x.
+- **Drivetrain pose:** **inches** and **radians**, **localizer frame** — **+x forward** at heading 0,
+  **+y left**, heading **counter-clockwise-positive**, measured from +x.
 
-!!! danger "This is not the same field frame the `field` package uses"
-    `MecanumDrivePlant` and `MecanumPoseIntegrator` integrate into **+x forward, +y left**. The
-    [`field`](field.md) package's game pieces and trigger volumes use **+X right, +Y forward**. Those are
-    the same handedness rotated 90 degrees, so a pose handed straight from one to the other is silently
-    wrong rather than obviously wrong.
+!!! danger "This is not the frame the `field` package uses — rotate before you cross"
+    `MecanumDrivePlant` and `MecanumPoseIntegrator` integrate into the **localizer frame**, +x forward /
+    +y left. That is the frame a dead-wheel odometry device reports, which is why the plant works in it.
+    The [`field`](field.md) package's game pieces and trigger volumes use the **field frame**, +X right /
+    +Y forward. Same handedness, rotated 90 degrees, so a pose handed straight across is silently wrong
+    rather than obviously wrong.
 
-    This is a real inconsistency in the library, not a documentation one, and it is filed as a defect
-    (`docs/BACKLOG.md` B37 in the development repository) rather than papered over here. Until it is resolved: convert deliberately at the boundary, and do not
-    assume a pose means the same thing on both sides of it.
+    Both frames are deliberate. The rotation between them is
+    [`FieldFrameTransform`](field.md#converting-between-the-two-frames) in the `field` package:
+
+    ```java
+    double fieldX = FieldFrameTransform.fieldXFromLocalizer(drive.getX(), drive.getY());
+    double fieldY = FieldFrameTransform.fieldYFromLocalizer(drive.getX(), drive.getY());
+    double fieldHeading = FieldFrameTransform.fieldHeadingFromLocalizer(drive.getHeading());
+    ```
+
+    Nothing calls it for you. Forgetting it is the single easiest mistake to make against this library,
+    so it has its own test in the module: `DrivetrainPoseMeetsFieldFrameTest`.
 - **Wheel order** everywhere: `[frontLeft, frontRight, backLeft, backRight]`.
 
 ## Order inside a tick

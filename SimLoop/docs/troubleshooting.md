@@ -70,6 +70,24 @@ the same statement — *the log is not a record of the run*:
 None of them is affected by what your own assertions found. The commonest cause in a new project is a
 second test JVM writing the same RLOG path — give each scenario its own file name.
 
+## The intake never picks anything up, and the mouth measurements are right
+
+Check whether a drivetrain pose reached a field question unrotated. `MecanumDrivePlant` reports the
+localizer frame (+x forward, +y left); `GamePieceTracker.updateRobotPose` and `TriggerVolume.overlapsPiece`
+want the field frame (+X right, +Y forward). They are ninety degrees apart, nothing throws, and the
+symptom is an empty mouth that looks like bad geometry.
+
+```java
+tracker.updateRobotPose(
+        FieldFrameTransform.fieldXFromLocalizer(drive.getX(), drive.getY()),
+        FieldFrameTransform.fieldYFromLocalizer(drive.getX(), drive.getY()),
+        FieldFrameTransform.fieldHeadingFromLocalizer(drive.getHeading()));
+```
+
+A quick way to confirm it is the frame and not the mouth: drive straight forward and print both the
+drivetrain's X and the rotated field Y. If forward motion is showing up as field X rather than field Y,
+the rotation is missing.
+
 ## The RLOG is not there any more
 
 `build/` is a build output directory and `./gradlew clean` deletes it. Re-run the test; that is the
