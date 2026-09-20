@@ -26,6 +26,17 @@
 // which reads like the library is missing rather than like a typo.
 ext.simloopVersion = 'v0.1.0-beta1'
 
+// The coordinate is `com.github.<owner>:<repository>`, all of it derived by JitPack from the repository
+// address and none of it from what this project calls itself. SimLoop's own build declares the group
+// `org.horizon36596` and the artifact `SimLoop`; JitPack ignores both. That is JitPack's single-module
+// form, and it applies because the build publishes exactly one module. A build that published two would
+// get the other form, `com.github.<owner>.<repository>:<module>` - so adding a second published module
+// here would silently rename this one out from under everybody who depends on it.
+//
+// Checked against the real thing on 2026-09-19 rather than reasoned about: the first JitPack build of
+// v0.1.0-beta1 served com/github/Horizon-36596/simloop/v0.1.0-beta1/simloop-v0.1.0-beta1.aar, and the
+// two-dot spelling this file used to carry 404s.
+
 repositories {
     // JitPack builds the SimLoop tag on demand and serves the result. No account, no credentials.
     maven { url = 'https://jitpack.io' }
@@ -40,7 +51,7 @@ repositories {
 dependencies {
     // `testImplementation`, never `implementation`. SimLoop is for the tests that run on your laptop;
     // none of it belongs in the APK that goes to the Control Hub, and this scope is what keeps it out.
-    testImplementation "com.github.Horizon-36596.simloop:SimLoop:${simloopVersion}"
+    testImplementation "com.github.Horizon-36596:simloop:${simloopVersion}"
 
     // JUnit 5. SimLoop's assertions and the example are written in it.
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'

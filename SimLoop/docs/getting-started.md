@@ -2,16 +2,14 @@
 
 There are two ways in, and the first one is three steps.
 
-!!! danger "Read this before you copy anything"
-    **No release has been cut yet.** JitPack builds a git tag on demand and serves what that build
-    installs, and no `v*` tag exists, so the coordinate below resolves for nobody today. It is written
-    out now so that cutting the tag is the only thing left to do, not so that you can paste it and
-    wonder why it fails.
+!!! success "`v0.1.0-beta1` is out, and this page was checked against it"
+    Not "should work" — run, on 2026-09-19. A throwaway stock-layout FTC project copied the starter
+    folder in, added the one line, and resolved `com.github.Horizon-36596:simloop:v0.1.0-beta1` from the
+    real JitPack repository with no local publishing of any kind. Three test classes ran and passed: the
+    two example ones, and an ordinary JUnit 4 test the project already had.
 
-    What is **unverified** until one real JitPack build has served it: the coordinate itself and the
-    JitPack repository line that goes with it. Everything under
-    [Building it yourself](#building-it-yourself-works-today) is verified — it is how SimLoop's own
-    consumers build against it today.
+    It is a **beta**. The APIs are tested but have been used by one team on one robot, so pin the exact
+    version and expect names to move before `0.1.0`.
 
 ## What you need first
 
@@ -88,7 +86,7 @@ repositories {
 ```groovy
 // TeamCode/build.gradle
 dependencies {
-    testImplementation 'com.github.Horizon-36596.simloop:SimLoop:v0.1.0-beta1'
+    testImplementation 'com.github.Horizon-36596:simloop:v0.1.0-beta1'
 
     // JUnit 5, if you are not already on it.
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'
@@ -179,13 +177,15 @@ dependencies {
 }
 ```
 
-!!! note "Two groups, and both are correct"
-    `org.horizon36596` is the group this project declares. It is what `publishToMavenLocal` writes and
-    what a future Maven Central release would use. JitPack ignores it and derives its own group from the
-    repository owner and name, so a JitPack dependency is spelled
-    `com.github.Horizon-36596.simloop:SimLoop` instead. Use whichever matches the repository you are
-    pulling from — and note that the local one carries the plain version `0.1.0-beta1`, because that is
-    what `build.gradle` declares, while JitPack's carries the tag.
+!!! note "Two coordinates for one library, and both are correct"
+    `org.horizon36596:SimLoop:0.1.0-beta1` is what this project declares, and it is what
+    `publishToMavenLocal` writes and what a future Maven Central release would use. **JitPack ignores
+    all three parts and derives its own** from the repository address: the group becomes
+    `com.github.Horizon-36596`, the artifact becomes the repository name `simloop`, and the version is
+    the tag verbatim — so a JitPack dependency is spelled `com.github.Horizon-36596:simloop:v0.1.0-beta1`.
+
+    Use whichever matches the repository you are pulling from. Mixing them up fails with
+    `Could not find`, which reads like a missing library rather than a wrong spelling.
 
 ## Checking it worked
 

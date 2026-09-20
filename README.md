@@ -51,7 +51,7 @@ and which are already done, are in [`SimLoop/PUBLISHING.md`](SimLoop/PUBLISHING.
 
 That path is this repository's name, in lower case, because GitHub serves a project site at its
 repository name under the organisation's domain and the path is case-sensitive. It is also why the
-published coordinate is `com.github.Horizon-36596.simloop:SimLoop`.
+published coordinate is `com.github.Horizon-36596:simloop`.
 
 ## What is in this repository
 
@@ -69,9 +69,12 @@ for two reasons that are both cheaper to keep than to change:
 
 - The Android Gradle Plugin's library plugin is applied to something it expects. A root project that is
   itself an Android library is a layout nothing else in the FTC ecosystem uses.
-- The published coordinate stays `com.github.Horizon-36596.simloop:SimLoop`. JitPack derives the group
-  from the repository owner and the artifact from the module, so flattening the layout would silently
-  rename the artifact out from under anyone already depending on it.
+What does **not** depend on it is the published coordinate, which is worth saying because this file used
+to claim the opposite. JitPack names the artifact after the repository, not after the Gradle module, as
+long as the build publishes exactly one module — measured, not assumed: the first build of
+`v0.1.0-beta1` served `com.github.Horizon-36596:simloop`. What would rename it is publishing a **second**
+module, which switches JitPack to its multi-module spelling. So the rule to keep is "one published
+module", not "one particular directory layout".
 
 So `SimLoop/` in a path and `:SimLoop` in a Gradle task are correct everywhere they appear, including in
 the CI workflows.

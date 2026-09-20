@@ -1,14 +1,11 @@
 # Publishes the documentation site to GitHub Pages when a release tag is pushed.
 #
-# ============================================================================================
-# THIS WORKFLOW ONLY RUNS ON A RELEASE TAG. There is no tag yet, so it has never run. Nothing
-# here needs editing again: the off switch it used to carry was deleted on 2026-09-17, when the
-# repository was made public, so the first `v*` tag is what publishes the site.
-# ============================================================================================
+# It has run, and the site is live: https://libraries.horizon36596.org/simloop/. Nothing in this file
+# needs editing. What follows is the setup it depends on, written down because none of it is visible
+# from this file and most of it is in a DIFFERENT REPOSITORY - which is the part that surprises people.
 #
-# What is still outstanding is not in this file. Four settings have to exist before a deployment can
-# succeed, all of them a human's, in a browser, and none of them something a build may do. THREE OF THEM
-# ARE IN A DIFFERENT REPOSITORY, which is the part that surprises people:
+# FIVE settings have to exist before a deployment can succeed. All five are done, and all five are a
+# human's, in a browser; a build may not do any of them.
 #
 #   1. A public repository named exactly `Horizon-36596/Horizon-36596.github.io` - the organisation's
 #      Pages site, holding the landing page. Its contents are prepared here under docs/landing-site/.
@@ -17,19 +14,35 @@
 #   3. That landing repository's Settings -> Pages -> Custom domain -> libraries.horizon36596.org.
 #   4. THIS repository: Settings -> Pages -> Build and deployment -> Source: GitHub Actions, with the
 #      Custom domain field left EMPTY.
+#   5. THIS repository's `github-pages` environment: a deployment branch policy that allows tags.
 #
 # Step 4's emptiness is the load-bearing part. A project site with no custom domain of its own is served
 # under the organisation site's domain at the project's repository name, so this site answers at
 # libraries.horizon36596.org/simloop/ - lower case, because that is this repository's name. Setting a
 # custom domain here instead would take the domain root and leave no room for a second library.
 #
+# Step 5 is the one nobody predicts, and it is why the first real tag push failed here on 2026-09-19
+# ten minutes after the same workflow had succeeded by hand from `main`. Enabling Pages creates a
+# `github-pages` environment whose deployment branch policy allows THE DEFAULT BRANCH ONLY. A tag is not
+# a branch, so `deploy` is rejected before it starts, with:
+#
+#   Tag "v0.1.0-beta1" is not allowed to deploy to github-pages due to environment protection rules.
+#
+# Which is clear - but only where you can see it. The rejection happens before any step runs, so it is
+# an ANNOTATION on the run rather than a line in a step log: the job has zero steps, and
+# `gh run view --log-failed` answers "log not found" and nothing else. Read it in the UI, or with
+# `gh api repos/<owner>/<repo>/check-runs/<job id>/annotations`. One entry fixes it, already applied
+# here, and the next library will need its own:
+#
+#   gh api -X POST repos/Horizon-36596/simloop/environments/github-pages/deployment-branch-policies -f 'name=v*' -f 'type=tag'
+#
+# In the UI: Settings > Environments > github-pages > Deployment branches and tags > Add rule, ref type
+# Tag, pattern v*.
+#
 # There is no CNAME file in this repository on purpose. A CNAME file is how a repository claims a domain
 # root, which is the behaviour being avoided, and on this publish path GitHub ignores it anyway: "If you
 # are publishing from a custom GitHub Actions workflow, any CNAME file is ignored and is not required."
 # (Troubleshooting custom domains and GitHub Pages, "CNAME errors", checked 2026-09-19.)
-#
-# If a tag is cut before those four are done, this job fails at the deploy step and says so, which is
-# the failure you want: loud, at release time, naming the thing that is missing.
 
 name: Publish documentation site
 

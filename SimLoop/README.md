@@ -12,11 +12,16 @@ settled enough to promise.
 
 ## Installing
 
-**The coordinate below is provisional until one real JitPack build has confirmed it.** JitPack builds a
-tag on demand and serves what that build installs, so nothing resolves for anybody until a `v*` tag is
-pushed and JitPack has built it once. `PUBLISHING.md` makes that first confirmed build the gate before
-the coordinate is handed to any team — it is written out here so that cutting the tag is the only thing
-left to do.
+**`v0.1.0-beta1` is released and the coordinate below was confirmed against it on 2026-09-19** — not
+read off JitPack's documentation, but resolved for real by a throwaway stock-layout FTC project with
+nothing published locally. Beta means pin the exact version: the API is tested, and it has been used by
+one team on one robot.
+
+Note the two spellings, because mixing them up fails with `Could not find`, which reads like a missing
+library rather than a wrong name. **JitPack derives its own coordinate from the repository address** and
+ignores what this project calls itself: `com.github.Horizon-36596:simloop:v0.1.0-beta1`, with the tag as
+the version, `v` included. The POM inside says `org.horizon36596:SimLoop:0.1.0-beta1`, which is what
+`publishToMavenLocal` writes and what a future Maven Central release would use.
 
 JitPack, which builds a tag of this repository on demand:
 
@@ -61,7 +66,7 @@ repositories over project repositories". Without that line, both forms work and 
 ```groovy
 // TeamCode/build.gradle
 dependencies {
-    testImplementation 'com.github.Horizon-36596.simloop:SimLoop:0.1.0-beta1'
+    testImplementation 'com.github.Horizon-36596:simloop:v0.1.0-beta1'
 
     // JUnit 5, if you are not already on it. SimLoop's own tests use it; yours need not.
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'

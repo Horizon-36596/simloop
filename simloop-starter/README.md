@@ -4,16 +4,16 @@ Copy **this folder** into the root of your FTC project, add **one line** to `Tea
 run the tests. That is the whole installation. You do not clone the SimLoop repository, you do not build
 it, and you do not copy any of its source into your project.
 
-> ## Read this first: no release has been cut yet
+> ## `v0.1.0-beta1` is out, and these steps were run against it
 >
-> SimLoop is served by JitPack, which builds a git **tag** on demand. **No `v*` tag exists yet**, so the
-> version this folder asks for resolves for nobody today, and step 3 below fails with
-> `Could not find com.github.Horizon-36596.simloop:SimLoop:v0.1.0-beta1`. That message means the release
-> is not out, not that you did anything wrong.
+> On 2026-09-19 a throwaway stock-layout FTC project did exactly what is written below — copied this
+> folder in, added the one line, ran the command — and resolved the library from JitPack with nothing
+> published locally. It is a **beta** — the API is tested, and it has been used by one team on one
+> robot. Pin the exact version, and expect names to move before `0.1.0`.
 >
-> Until the first tag is cut, the route that works is to build the library yourself and depend on your
-> own local copy — [Building it yourself](https://libraries.horizon36596.org/simloop/getting-started/#building-it-yourself-works-today)
-> is the whole procedure, and it is two commands.
+> If step 3 fails with `Could not find`, check the spelling of the coordinate before anything else. The
+> group is `com.github.Horizon-36596`, the artifact is `simloop` in lower case, and the version keeps
+> the leading `v` because JitPack's version *is* the git tag.
 
 ## The three steps
 

@@ -8,15 +8,25 @@ Central. The build wiring this describes lives at the bottom of `SimLoop/build.g
 | | Value |
 |---|---|
 | Group (in the POM) | `org.horizon36596` |
-| Group (as JitPack serves it) | `com.github.Horizon-36596.simloop` |
-| Artifact | `SimLoop` (matches the Gradle subproject name, which is what JitPack uses for a module) |
-| Current version | `0.1.0-beta1` |
-| Packaging | `aar`, plus a sources jar |
+| Artifact (in the POM) | `SimLoop` |
+| Version (in the POM) | `0.1.0-beta1` |
+| **What a consumer actually writes** | **`com.github.Horizon-36596:simloop:v0.1.0-beta1`** |
+| Packaging | `aar`, plus sources and javadoc jars |
 
-Two groups is not a mistake. JitPack rewrites the group of everything it builds to
-`com.github.<owner>.<repo>`, so the value in `build.gradle` is what a Maven Central release and
-`publishToMavenLocal` use, and the JitPack one is what a consumer types today. Both are correct at the
-same time; only one of them is ever in a consumer's `build.gradle`.
+**JitPack ignores every one of those first three values and derives its own.** The group becomes
+`com.github.<owner>`, the artifact becomes the **repository** name, and the version is the git tag
+verbatim, leading `v` included. So a consumer writes `com.github.Horizon-36596:simloop:v0.1.0-beta1`
+while the POM inside says `org.horizon36596:SimLoop:0.1.0-beta1`, and both are correct at once — the
+declared values are what `publishToMavenLocal` and any future Maven Central release use.
+
+That is JitPack's **single-module** spelling, and this build gets it because `jitpack.yml` installs
+exactly one module. A build that published two would get the **multi-module** spelling,
+`com.github.<owner>.<repo>:<module>` — which is what this file used to claim was already happening.
+It was wrong, and it stayed wrong right up until a real build could be read: on 2026-09-19 the first
+JitPack build of `v0.1.0-beta1` served
+`com/github/Horizon-36596/simloop/v0.1.0-beta1/simloop-v0.1.0-beta1.aar`, and the two-dot spelling
+404s. **Do not publish a second module** without changing every coordinate in this repository at the
+same time.
 
 ## Version scheme
 
@@ -113,10 +123,9 @@ correct, and they are meant to stay:
 - The Android Gradle Plugin's library plugin is applied to a subproject, which is the layout it expects
   and the layout every FTC project already uses. A root project that is itself an Android library is a
   shape nothing else in this ecosystem has.
-- **The coordinate depends on it.** JitPack derives the group from the repository owner and the artifact
-  id from the module, so a flat layout would serve `com.github.Horizon-36596:SimLoop` where this one
-  serves `com.github.Horizon-36596.simloop:SimLoop`. Flattening is not a tidy-up; it is a silent rename
-  of the artifact under anyone already depending on it.
+The coordinate does **not** depend on it — an earlier version of this file said it did. JitPack names
+the artifact after the repository while the build publishes one module, whatever the directory layout
+is. What would rename the artifact is publishing a second module (see Coordinates, above).
 
 The root of the repository holds what belongs to the repository rather than to the library:
 `settings.gradle`, `build.gradle`, `gradlew` and the wrapper, `jitpack.yml`, `LICENSE`, `NOTICE.md`,
@@ -171,7 +180,8 @@ domain root, which is the opposite of what is wanted.
 
 The path is the repository name, and it is case-sensitive. This repository is `simloop`, lower case, so
 the path is `/simloop`. It was renamed from `SimLoop` on 2026-09-19 for exactly that reason, before any
-tag existed — which also moved the published coordinate to `com.github.Horizon-36596.simloop:SimLoop`.
+tag existed — which also moved the published coordinate to `com.github.Horizon-36596:simloop`, since
+JitPack takes the artifact id straight from the repository name.
 
 > **Steps 1 and 4 are done.** Both were done on 2026-09-19 and neither needs doing again. The two that
 > remain — **2** and **3** — are the DNS record and the custom domain, and they are the two nobody but a
@@ -227,9 +237,34 @@ on this publish path it would not work anyway — GitHub's documentation is expl
 publishing from a custom GitHub Actions workflow, any CNAME file is ignored and is not required."**
 (*Troubleshooting custom domains and GitHub Pages*, under "CNAME errors", checked 2026-09-19.)
 
-With those four done, pushing a `v*` tag publishes the site, and so does running the workflow by hand
-from the Actions tab — which is how the site currently on those addresses got there, on 2026-09-19,
-before any tag existed.
+**5. Let tags deploy.** ✅ **Done 2026-09-19** — and it is the step nobody predicts. Turning Pages on
+creates a `github-pages` *environment* whose deployment branch policy allows **the default branch only**.
+A tag is not a branch, so the first `v*` push failed at `deploy`, minutes after the same workflow had
+worked by hand from `main`:
+
+```text
+Tag "v0.1.0-beta1" is not allowed to deploy to github-pages due to environment protection rules.
+```
+
+That message is clear, but it is only visible in the right place. The rejection happens before any step
+runs, so it is an **annotation on the run**, not a line in a step log — the job has zero steps, and
+`gh run view --log-failed` answers `log not found` and stops there. Read it in the Actions tab, or:
+
+```powershell
+gh api repos/Horizon-36596/simloop/check-runs/<job id>/annotations
+```
+
+One policy entry fixes it:
+
+```powershell
+gh api -X POST repos/Horizon-36596/simloop/environments/github-pages/deployment-branch-policies -f 'name=v*' -f 'type=tag'
+```
+
+In the UI: Settings → Environments → `github-pages` → Deployment branches and tags → Add rule → ref type
+**Tag**, pattern `v*`. **The next library will need this too.**
+
+With those done, pushing a `v*` tag publishes the site, and so does running the workflow by hand from the
+Actions tab — which is how the site first got there on 2026-09-19, before any tag existed.
 
 ### Checking it worked
 
@@ -312,6 +347,7 @@ file assumes.
   holding a copy. Changing either one after the first team has it costs that team an edit to every import
   line, which is why this is a decision rather than a preference. `org.horizon36596` is the reverse-DNS of
   a domain Horizon controls, which is also what a Maven Central namespace verification asks for.
-- **The published coordinate did not change with it.** JitPack derives the group from the repository
-  owner, not from this file, so `com.github.Horizon-36596.simloop` is what a consumer writes either way.
-  The declared group matters for `publishToMavenLocal` and for any future Maven Central release.
+- **The published coordinate did not change with it.** JitPack derives its own group and artifact from
+  the repository address, not from this file, so `com.github.Horizon-36596:simloop` is what a consumer
+  writes either way. The declared group matters for `publishToMavenLocal` and for any future Maven
+  Central release.

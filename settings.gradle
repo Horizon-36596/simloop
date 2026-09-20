@@ -1,8 +1,12 @@
-// SimLoop is the only module in this repository that is published. Keeping it a subproject rather
-// than the root project looks redundant and is not: it is what makes the Android Gradle Plugin's
-// library plugin apply to something it expects, and it is what makes the published coordinate
-// `com.github.Horizon-36596.simloop:SimLoop` rather than a different one. Both were already true before
-// this repository existed on its own, so nothing a consumer wrote has to change.
+// SimLoop is the only module in this repository that is published, and that is load-bearing. JitPack
+// names the artifact after the REPOSITORY while a build publishes exactly one module
+// (`com.github.Horizon-36596:simloop`), and switches to naming it after the module the moment a build
+// publishes two. So adding a second published module here would silently rename this one out from under
+// everyone depending on it. Add modules freely; just do not publish them.
+//
+// Keeping SimLoop a subproject rather than the root project is a separate matter, and the reason is
+// only that the Android Gradle Plugin's library plugin then applies to the shape it expects - the shape
+// every FTC project already has. It does not affect the coordinate.
 rootProject.name = 'SimLoop'
 
 include ':SimLoop'
