@@ -38,6 +38,18 @@ Copy `index.html`, `404.html` and `horizon-mark.svg` to the root of `Horizon-365
 and set that repository's Pages source to **Deploy from a branch → `main` → `/ (root)`**. There is no
 build step, no dependency and no framework — it is three files.
 
+## The `CNAME` file in that repository is load-bearing
+
+`Horizon-36596.github.io` publishes from a branch, and on that path GitHub stores the custom domain as a
+`CNAME` file at the root of the publishing source — it committed one itself when the domain was saved.
+**Do not delete it.** Every library's documentation is served under that domain, so removing it takes
+them all down at once.
+
+The library repositories are the opposite case and must have no `CNAME` file, because they publish from
+a GitHub Actions workflow, where a `CNAME` file is ignored and a custom domain would make the repository
+claim a domain root instead of a path under this one. Same file name, opposite rule, decided by how the
+site is published.
+
 ## Adding a library to the list
 
 One `<a class="library">` block in `index.html`, copied from the SimLoop one. The tags are plain text:

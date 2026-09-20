@@ -230,7 +230,14 @@ deploys the built artifact directly and there is no `gh-pages` branch to point a
 domain field is what makes this site answer at `/simloop` under the landing domain rather than trying to
 own a domain of its own, so **leave it empty** — filling it in is how this arrangement breaks.
 
-There is deliberately **no `CNAME` file in this repository**, and one should not be added back. It was
+**The two repositories have opposite rules about `CNAME` files, and both are right.** The landing
+repository publishes **from a branch**, and for that path a custom domain *is* stored as a `CNAME` file
+in the publishing source — GitHub committed one to `Horizon-36596.github.io` by itself the moment the
+domain was saved, containing `libraries.horizon36596.org`. **Leave it there.** Deleting it as tidy-up,
+on the strength of the paragraph below, drops the domain for every library at once.
+
+This repository is the other case. There is deliberately **no `CNAME` file in this repository**, and one
+should not be added back. It was
 deleted on 2026-09-19 along with the old single-domain plan. Two reasons it would be worse than useless:
 a `CNAME` file is how a repository claims a domain root, which is the behaviour being avoided here; and
 on this publish path it would not work anyway — GitHub's documentation is explicit that **"if you are
