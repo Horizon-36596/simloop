@@ -40,14 +40,15 @@ the starter folder is what declares it.
 | Write a first test, line by line | [`SimLoop/docs/first-test.md`](SimLoop/docs/first-test.md) |
 | Understand a package, with units and frame on every number | [`SimLoop/docs/`](SimLoop/docs/index.md) |
 | Know what it deliberately does **not** do | [`SimLoop/docs/limits.md`](SimLoop/docs/limits.md) |
+| Program it with an AI agent | [`simloop-agents/README.md`](simloop-agents/README.md) |
 | Cut a release, or check the coordinate | [`SimLoop/PUBLISHING.md`](SimLoop/PUBLISHING.md) |
 | Change code in this repository | [`SimLoop/CLAUDE.md`](SimLoop/CLAUDE.md) |
 
 `SimLoop/docs/` is written to be read as Markdown in the repository and also builds into a site. That
-site is live now at **<https://horizon-36596.github.io/simloop/>**, with the generated API reference
-under [`/javadoc/`](https://horizon-36596.github.io/simloop/javadoc/). It will answer at
-**`libraries.horizon36596.org/simloop/`** as well once one DNS record is added — the remaining steps,
-and which are already done, are in [`SimLoop/PUBLISHING.md`](SimLoop/PUBLISHING.md).
+site is live at **<https://libraries.horizon36596.org/simloop/>**, with the generated API reference
+under [`/javadoc/`](https://libraries.horizon36596.org/simloop/javadoc/). The
+`horizon-36596.github.io/simloop/` address still answers and redirects there. How the hosting is put
+together is in [`SimLoop/PUBLISHING.md`](SimLoop/PUBLISHING.md).
 
 That path is this repository's name, in lower case, because GitHub serves a project site at its
 repository name under the organisation's domain and the path is case-sensitive. It is also why the
@@ -59,6 +60,7 @@ published coordinate is `com.github.Horizon-36596:simloop`.
 |---|---|
 | [`SimLoop/`](SimLoop) | The library. The only thing that is published. |
 | [`simloop-starter/`](simloop-starter) | The folder teams copy: the build settings, and the example robot. |
+| [`simloop-agents/`](simloop-agents/README.md) | An optional toolkit for teams programming with an AI agent: a portable `AGENTS.md`, four skills, prompts, and notes on cost. Markdown only — no build file reads it, and deleting it changes nothing. |
 | [`examples/`](examples/build.gradle) | A Gradle module with no sources of its own — it compiles the starter folder and runs its tests, so the thing teams copy cannot rot. Never published. |
 | [`docs/landing-site/`](docs/landing-site/README.md) | The page that fronts `libraries.horizon36596.org`. Nothing builds it; it belongs in the `Horizon-36596.github.io` repository and is kept here so it is version-controlled somewhere. |
 
@@ -87,7 +89,7 @@ From the repository root:
 ./gradlew test
 ```
 
-361 JVM tests — 359 in the library, 2 in the example robot — with no device and no emulator. The
+373 JVM tests — 371 in the library, 2 in the example robot — with no device and no emulator. The
 documentation site and the API reference:
 
 ```bash

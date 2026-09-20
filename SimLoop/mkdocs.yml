@@ -109,6 +109,8 @@ nav:
       - field: packages/field.md
       - loop: packages/loop.md
       - viz: packages/viz.md
+  - Working with AI agents:
+      - Using SimLoop with an AI agent: agents.md
   - API reference:
       - Every class, method and field: javadoc.md
   - Help:

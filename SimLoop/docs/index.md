@@ -9,10 +9,10 @@ score automatically.
 
 No robot, no Driver Station, no emulator. A test run is a few seconds.
 
-!!! warning "Status: beta, and not yet released"
-    The API is settled enough to use and not settled enough to promise. No version has been tagged, so
-    **the install coordinate on the next page does not resolve for anybody yet**. That page says plainly
-    which parts are verified and which are written ahead of the release that makes them true.
+!!! warning "Status: beta"
+    The API is settled enough to use and not settled enough to promise. `v0.1.0-beta1` is released and
+    the install coordinate on the next page resolves — that was checked by installing it into a fresh
+    FTC project rather than assumed. Pin the exact version, and expect names to move before `0.1.0`.
 
 ## The fastest way in
 
