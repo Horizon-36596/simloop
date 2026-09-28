@@ -1,0 +1,90 @@
+name: Bug report
+description: Something in SimLoop is wrong or crashes
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting! The more of this you fill in, the faster we can fix it.
+        If the sim runs but does not match your real robot, use "Sim doesn't match my robot" instead.
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Tell us what went wrong, in your own words.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: Code or test that shows the problem
+      description: The smallest OpMode, test or snippet that makes it happen. Cut out anything that is not needed.
+      render: java
+    validations:
+      required: true
+
+  - type: input
+    id: simloop-version
+    attributes:
+      label: SimLoop version or commit
+      description: The version in your build.gradle, or a commit hash.
+      placeholder: e.g. 0.1.0-beta1 or ddd1ad6
+    validations:
+      required: true
+
+  - type: dropdown
+    id: sdk-version
+    attributes:
+      label: FTC SDK version
+      options:
+        - "11.2.1"
+        - "12.0.0"
+        - Other (write it below)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS
+        - Linux
+    validations:
+      required: true
+
+  - type: input
+    id: tool-versions
+    attributes:
+      label: Java, Gradle and Android Studio versions
+      description: Also write your FTC SDK version here if you picked "Other".
+      placeholder: e.g. Java 17, Gradle 8.9, Android Studio Ladybug
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Full stack trace or log
+      description: Paste the whole error, not just the last line.
+      render: shell
+
+  - type: dropdown
+    id: determinism
+    attributes:
+      label: Does it happen again if you run it a second time?
+      description: SimLoop runs should be deterministic, so the same run should fail the same way.
+      options:
+        - "Yes, every time"
+        - "No, only sometimes"
+        - "I have not checked"
+    validations:
+      required: true
