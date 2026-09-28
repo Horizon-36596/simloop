@@ -1,0 +1,51 @@
+name: Sim doesn't match my robot
+description: The sim doesn't match my real robot
+labels: ["fidelity"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this when SimLoop runs fine but gives different numbers than your real robot.
+        Real measurements help the most, so please include numbers.
+
+  - type: dropdown
+    id: device
+    attributes:
+      label: Which part of the sim?
+      options:
+        - Motor
+        - IMU
+        - Encoder
+        - Servo
+        - Sensor
+        - OpMode runner
+        - Timing
+        - Something else
+    validations:
+      required: true
+
+  - type: textarea
+    id: robot-vs-sim
+    attributes:
+      label: What does the real robot do, and what does the sim do?
+      description: Use numbers and units where you can.
+      placeholder: |
+        Robot: at 0.5 power the motor reaches 1400 ticks/s after about 0.3 s.
+        Sim: at 0.5 power it reaches 1400 ticks/s after 0.05 s.
+    validations:
+      required: true
+
+  - type: textarea
+    id: how-measured
+    attributes:
+      label: How did you measure it on the robot?
+      description: For example telemetry, a log file, a stopwatch or video. Include battery voltage if it matters.
+    validations:
+      required: true
+
+  - type: textarea
+    id: config
+    attributes:
+      label: Your sim config or code
+      description: The part of your setup that creates or uses this device.
+      render: java
