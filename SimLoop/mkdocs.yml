@@ -97,6 +97,7 @@ markdown_extensions:
 nav:
   - Start here:
       - What SimLoop is: index.md
+      - Every feature: features.md
       - Installing it: getting-started.md
       - Your first simulated test: first-test.md
       - What it does not do: limits.md
