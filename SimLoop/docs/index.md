@@ -88,3 +88,21 @@ These are enforced by tests in the module, not by good intentions.
   pure reads.
 - **The fakes replicate real device semantics exactly** — every method of the interface, including the
   ones nobody calls, behaving the way the hardware does.
+
+## Help build SimLoop
+
+SimLoop is built by Horizon (FTC 36596) for any FTC team, and other teams and simulator authors are
+welcome to add to it. It is season-agnostic, so what you add helps every season. Wanted most:
+
+- **New fake devices** that replicate a real FTC SDK class, with tests against the SDK's behaviour.
+- **Field and game-piece models** built from the general pieces in [`field`](packages/field.md), never
+  one game's field.
+- **Documentation**: a page that confused you, a missing unit, a missing example.
+- **Examples**: worked tests for common robots.
+- **Interop with other tools**: log formats, AdvantageScope layouts, replay and analysis tools.
+
+Read [`CONTRIBUTING.md`](https://github.com/Horizon-36596/simloop/blob/main/CONTRIBUTING.md) first. Small
+starter tasks are in
+[`docs/good-first-issues.md`](https://github.com/Horizon-36596/simloop/blob/main/docs/good-first-issues.md).
+For anything bigger, start a
+[Discussion](https://github.com/Horizon-36596/simloop/discussions).

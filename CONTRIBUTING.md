@@ -119,8 +119,9 @@ of the API is enough.
 ## Where to start
 
 Look at the issues labelled
-[`good first issue`](https://github.com/Horizon-36596/simloop/labels/good%20first%20issue). Doc fixes
-are always welcome too: if a page confused you, it will confuse the next team.
+[`good first issue`](https://github.com/Horizon-36596/simloop/labels/good%20first%20issue), or at
+[`docs/good-first-issues.md`](docs/good-first-issues.md), which lists small starter tasks with the
+files to touch and how to test each one. Doc fixes are always welcome too: if a page confused you, it will confuse the next team.
 
 Found a bug but have no time to fix it? An issue is still very helpful. Use the bug form, or the
 "Sim doesn't match my robot" form if the sim runs but gives different numbers than your robot.

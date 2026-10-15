@@ -69,6 +69,27 @@ That path is this repository's name, in lower case, because GitHub serves a proj
 repository name under the organisation's domain and the path is case-sensitive. It is also why the
 published coordinate is `com.github.Horizon-36596:simloop`.
 
+## Help build SimLoop
+
+SimLoop is built by Horizon (FTC 36596) for any FTC team, and it gets better when other teams and
+simulator authors add to it. The library is season-agnostic, so everything below helps every season.
+Contributions we want most:
+
+- **New fake devices** that replicate a real FTC SDK class method for method, with tests that compare
+  them to the SDK: a sensor, an odometry computer, a motor controller feature the fakes lack.
+- **Field and game-piece models**: new shapes, contact cases, goals and structures, built from the
+  `field` package's general pieces, never one game's field.
+- **Documentation**: a page that confused you, a missing unit, an example that should exist.
+- **Examples**: a worked test for a common robot, such as a drivetrain with odometry or an arm in
+  `RUN_TO_POSITION`.
+- **Interop with other tools**: log formats, AdvantageScope layouts, other replay or analysis tools that
+  could read or write what SimLoop produces.
+
+Start with [`CONTRIBUTING.md`](CONTRIBUTING.md). [`docs/good-first-issues.md`](docs/good-first-issues.md)
+lists small starter tasks. For anything bigger, open a
+[Discussion](https://github.com/Horizon-36596/simloop/discussions) first so nobody spends a weekend on
+something that will not fit.
+
 ## What is in this repository
 
 | Path | What it is |
