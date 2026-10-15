@@ -1,0 +1,36 @@
+# Exceptions to the rules in patterns.txt. One per line; blank lines and lines starting with # are
+# ignored:
+#
+#   <rule-id>|<path>|<exact line text>
+#
+# The line text is compared after trimming leading and trailing spaces, so indentation does not matter
+# but every other character does. If the line changes, the exception stops applying and the gate fails
+# again, which is the point: someone has to look at the new line. There are deliberately no line
+# numbers, so an edit elsewhere in the file does not break an exception.
+#
+# For a path or size rule, leave the text empty: <rule-id>|<path>|
+#
+# Every exception needs a comment saying why it is safe. The gate prints exceptions that matched
+# nothing, so stale ones can be removed.
+
+# --- teamcode-mention ---------------------------------------------------------------------------------
+# OpModeRunner documents which packages it loads on the sim clock, and its example class name is the
+# default FTC package. Both are text in javadoc, not a dependency.
+teamcode-mention|SimLoop/src/main/java/org/horizon36596/simloop/opmode/OpModeRunner.java|* ({@code org.firstinspires.ftc.teamcode.} and {@code com.seattlesolvers.solverslib.}) unless
+teamcode-mention|SimLoop/src/main/java/org/horizon36596/simloop/opmode/OpModeRunner.java|* @param className   the OpMode's full class name, such as {@code "org.firstinspires.ftc.teamcode.MyAuto"}
+# SimClockLoader's default list of package prefixes to load on the sim clock: the stock FTC TeamCode
+# package. A string prefix, not an import.
+teamcode-mention|SimLoop/src/main/java/org/horizon36596/simloop/simclock/SimClockLoader.java|"org.firstinspires.ftc.teamcode.",
+
+# --- season-name (transitional) -----------------------------------------------------------------------
+# Four comments in the library as it stands on main name an FTC game or our robot. The newer
+# library in Horizon's robot repository has already removed them, and the sync replaces these files.
+# Delete these four lines in the same pull request as that sync; the gate lists them as unused then.
+season-name|SimLoop/src/main/java/org/horizon36596/simloop/fakehardware/FakeCRServo.java|* Fake {@link CRServo}: a continuous-rotation servo, the actuator V0's deposit ejects a line of pollen
+season-name|SimLoop/src/main/java/org/horizon36596/simloop/loop/Objective.java|/** The raw metric is already "bigger is better" — pollen scored, distance covered. */
+season-name|SimLoop/src/main/java/org/horizon36596/simloop/plant/MultiDofMechanismPlant.java|* a pollen. Every name and unit above arrives from the caller. <b>Deterministic</b> (domain R5): state
+season-name-decode|SimLoop/src/main/java/org/horizon36596/simloop/config/DrivetrainSimConfig.java|* The DECODE glue implements it from {@code globals/Constants}. Units are inches, seconds,
+
+# --- binary-artifact ----------------------------------------------------------------------------------
+# The Gradle wrapper. Every Gradle project commits it, and it is what makes ./gradlew work.
+binary-artifact|gradle/wrapper/gradle-wrapper.jar|

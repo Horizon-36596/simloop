@@ -1,0 +1,52 @@
+# Rules for tools/leak-gate/leak-gate.sh. One rule per line; blank lines and lines starting with # are
+# ignored. Fields are separated by spaces, and the last field (the pattern) runs to the end of the line,
+# so it may contain spaces:
+#
+#   <kind> <rule-id> <scope> <flags> <pattern>
+#
+#   kind     content  - fail on any line of a text file that matches <pattern>
+#            path     - fail on any file whose path matches <pattern>
+#            size     - fail on any file larger than <pattern> bytes
+#   rule-id  the name printed on failure and used in allowlist.txt
+#   scope    an extended regex; only files whose repository-relative path matches it are checked
+#            (`.` means every file)
+#   flags    extra grep flags, such as -i (ignore case) or -iw (ignore case, whole words); `-` for none
+#   pattern  an extended regular expression (grep -E)
+#
+# These rules are public, so they name only public things: FTC SDK packages, real FTC game names,
+# file types. Never add a private class, robot or person's name here - a public list of private names
+# is itself the leak. The private robot repository keeps its own blocklist and runs it before
+# upstreaming anything.
+#
+# Change a rule only to make it stricter. A false positive is fixed in allowlist.txt, by file and exact
+# line, so the rule keeps catching everything else.
+
+# --- The library never depends on a team's robot code -------------------------------------------------
+# An import or package statement in the team package. Not allowlistable in practice: there is no
+# legitimate reason for one.
+content teamcode-import ^SimLoop/(.*/)?src/main/ - ^[[:space:]]*(import|package)[[:space:]]+(static[[:space:]]+)?org\.firstinspires\.ftc\.teamcode
+# Any other mention of the team package (javadoc, strings). Each legitimate one is allowlisted exactly.
+content teamcode-mention ^SimLoop/(.*/)?src/main/ - org\.firstinspires\.ftc\.teamcode
+# A Gradle dependency on, or inclusion of, a :TeamCode project, in any Gradle script.
+content teamcode-dependency \.gradle(\.kts)?$ - (project|include)[[:space:](]+(path:[[:space:]]*)?["']:TeamCode["']
+
+# --- The library is season-agnostic ------------------------------------------------------------------
+# Real FTC game names and their pieces, as whole words, any case.
+content season-name ^SimLoop/(.*/)?src/main/ -iw biobuzz|bio[[:space:]_-]buzz|pollen|nectar|hive|into[[:space:]_-]+the[[:space:]_-]+deep|center[[:space:]_-]?stage|power[[:space:]_-]?play
+# DECODE is matched in capitals only: "decode" is an everyday word in a library that decodes logs.
+content season-name-decode ^SimLoop/(.*/)?src/main/ -w DECODE
+# The same names inside Java identifiers (PollenCounter, intoTheDeepField, HIVE_X), which a whole-word
+# match cannot see. Case-sensitive on purpose, so "archive" and "ARCHIVE" do not match.
+content season-name-identifier ^SimLoop/(.*/)?src/main/ - (Biobuzz|BioBuzz|BIOBUZZ|Pollen|POLLEN|Nectar|NECTAR|Hive|IntoTheDeep|INTO_THE_DEEP|CenterStage|Centerstage|CENTERSTAGE|PowerPlay|Powerplay|POWERPLAY)|(^|[^A-Z])HIVE|(biobuzz|pollen|nectar|hive|intoTheDeep|centerStage|powerPlay)[A-Z0-9_]
+
+# --- Nobody's machine ---------------------------------------------------------------------------------
+# A hard-coded home directory: C:\Users\name, C:/Users/name, /Users/name.
+content user-path . - [A-Za-z]:([\\/])+Users([\\/])+[^\\/[:space:]]|/Users/[A-Za-z0-9._-]+/
+
+# --- Files that do not belong in a library repository -------------------------------------------------
+# CAD, robot logs, heap dumps, Android builds and jars. gradle/wrapper/gradle-wrapper.jar is allowlisted.
+path binary-artifact . -i \.(step|stp|stl|glb|gltf|obj|rlog|wpilog|hprof|apk|aar|jar)$
+# Environment files and signing keys.
+path secret-file . -i (^|/)\.env(\.[^/]*)?$|\.(jks|keystore|p12|pfx|pem)$|(^|/)id_(rsa|dsa|ecdsa|ed25519)$
+# Anything over 1 MB, images included. Large files are almost always generated output or CAD.
+size large-file . - 1048576
