@@ -106,7 +106,13 @@ nav:
       - plant: packages/plant.md
       - config: packages/config.md
       - sim: packages/sim.md
+      - opmode: packages/opmode.md
+      - simclock: packages/simclock.md
+      - sim.live: packages/live.md
       - field: packages/field.md
+      - sensor: packages/sensor.md
+      - vision: packages/vision.md
+      - fit: packages/fit.md
       - loop: packages/loop.md
       - viz: packages/viz.md
   - Guides:
