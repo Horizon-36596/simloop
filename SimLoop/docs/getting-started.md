@@ -158,7 +158,7 @@ Those three are the whole dependency list. SimLoop pulls in nothing else.
 
 ### Two test settings some fakes need
 
-The starter folder does not set these yet, so add them yourself if you use the fakes that need them:
+The starter folder sets both of these for you. If you install by hand instead, add them yourself:
 
 ```groovy
 android {

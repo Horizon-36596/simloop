@@ -11,8 +11,8 @@
 // inside `apply from: '../build.common.gradle'` near the top of TeamCode/build.gradle.
 //
 // What this file does, in the order it does it: declares the two repositories SimLoop resolves from,
-// declares SimLoop and JUnit 5 as TEST-ONLY dependencies, switches the module's unit tests to the JUnit 5
-// runner, turns off the release unit-test variant (that one is not a preference - see below), and adds
+// declares SimLoop, JUnit 5 and org.json as TEST-ONLY dependencies, switches the module's unit tests to the
+// JUnit 5 runner, makes Android calls return defaults in unit tests (the IMU fake needs it), turns off the release unit-test variant (that one is not a preference - see below), and adds
 // the example robot's two source folders so the example compiles and runs the moment you have copied it.
 //
 // Deleting the example is deleting two directories and two lines at the bottom of this file. Nothing else
@@ -79,6 +79,11 @@ dependencies {
     // Without it on Gradle 9 every test in the module fails BEFORE any test runs, with "Failed to load
     // JUnit Platform", which reads like a broken module rather than a build-tool change.
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.11.3'
+
+    // The real org.json, for tests only. FakeLimelight3A hands the JSON a Limelight serves to the SDK's own
+    // LLResult parser, which is written against org.json. On the robot Android provides it, so nothing
+    // ships; in a JVM test Android's copy is a stub, and every Limelight result would come back empty.
+    testRuntimeOnly 'org.json:json:20250517'
 }
 
 android {
@@ -86,6 +91,13 @@ android {
         unitTests.all {
             useJUnitPlatform()
         }
+        // Android calls return 0, null or false in unit tests instead of throwing "not mocked". FakeImu
+        // needs it: `new RevHubOrientationOnRobot(logo, usb)` builds an OpenGLMatrix, whose constructor
+        // calls an Android method. The SDK fills the rotation itself, so the IMU's numbers stay exact.
+        //
+        // What this hides: any OTHER Android call in your tests now returns a default silently. If a test
+        // of yours behaves oddly around logging or anything else Android-shaped, suspect this line.
+        unitTests.returnDefaultValues = true
     }
 
     // The example robot's code and the example's tests, added as source folders rather than copied into
