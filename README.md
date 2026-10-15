@@ -8,8 +8,13 @@ Robolectric. Time comes from a fake clock rather than the wall, so the same run 
 every time, and that log is a PsiKit RLOG, which AdvantageScope opens and which the `loop` package can
 score automatically.
 
-Package root: `org.horizon36596.simloop`. Status: **beta** — the API is settled enough to use and not
-settled enough to promise.
+Package root: `org.horizon36596.simloop`. Licence: BSD 3-Clause.
+
+> **SimLoop is an alpha.** The API may change between alpha versions, so pin an exact version in your
+> build. Support is best effort: a small FTC team maintains it in its own time. The next release is
+> `v0.2.0-alpha.1`. It replaces `v0.1.0-beta1`, the earlier build on JitPack, which is superseded and
+> will not get fixes. Bug reports and pull requests are welcome; see
+> [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
 ## Adopting it is one folder and one line
 
@@ -42,6 +47,7 @@ the starter folder is what declares it.
 | Know what it deliberately does **not** do | [`SimLoop/docs/limits.md`](SimLoop/docs/limits.md) |
 | Program it with an AI agent | [`simloop-agents/README.md`](simloop-agents/README.md) |
 | Cut a release, or check the coordinate | [`SimLoop/PUBLISHING.md`](SimLoop/PUBLISHING.md) |
+| Contribute a fix or a feature | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | Change code in this repository | [`SimLoop/CLAUDE.md`](SimLoop/CLAUDE.md) |
 
 `SimLoop/docs/` is written to be read as Markdown in the repository and also builds into a site. That
@@ -97,19 +103,21 @@ pip install -r SimLoop/docs-requirements.txt
 ./gradlew :SimLoop:docsSite
 ```
 
-All of it is built on every push by [`.github/workflows/test.yml`](.github/workflows/test.yml), so none
-of it can quietly become something that only builds on one laptop.
+All of it is built on every push and every pull request by
+[`.github/workflows/test.yml`](.github/workflows/test.yml), so none of it can quietly become something
+that only builds on one laptop. Pull requests also run a leak check
+([`tools/leak-gate/`](tools/leak-gate/leak-gate.sh)) and a secret scan
+([`.github/workflows/leak-gate.yml`](.github/workflows/leak-gate.yml)).
 
 ## Licence
 
-**AGPL-3.0-or-later** — [`LICENSE`](LICENSE) is the licence text, [`NOTICE.md`](NOTICE.md) is the
-copyright and what it covers. Copyright (C) 2026 Horizon (FTC 36596).
+**BSD 3-Clause** — [`LICENSE`](LICENSE) is the licence text, [`NOTICE.md`](NOTICE.md) is the copyright
+and what it covers. Copyright (c) 2026, Horizon (FTC 36596).
 
-For an FTC team, in practice: **use it, change it, run it, with no obligation at all.** The copyleft term
-is triggered by *distributing*, not by using, so a private season repository owes nothing. If you publish
-your robot code, or hand a build of it to anyone outside your team, then what you hand over has to be
-AGPL-3.0 as well and its source has to be available.
+For an FTC team, in practice: use it, change it, ship it on your robot, and publish your robot code
+under any licence you like. Keep the copyright notice with any copy of SimLoop's source or build you
+hand on, and do not use Horizon's name to endorse your fork.
 
 SimLoop's own dependencies are three and they keep their own licences: the FIRST Tech Challenge SDK's
-`RobotCore` and `Hardware` (BSD), and PsiKit. This licence covers SimLoop's own code and nothing else,
-which is what [`NOTICE.md`](NOTICE.md) states exactly.
+`RobotCore` and `Hardware` (BSD), and PsiKit (BSD 3-Clause). This licence covers SimLoop's own code and
+nothing else, which is what [`NOTICE.md`](NOTICE.md) states exactly.

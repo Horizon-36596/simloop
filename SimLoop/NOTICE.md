@@ -2,32 +2,42 @@
 
 SimLoop — a season-agnostic simulation and AI-iteration library for FIRST Tech Challenge.
 
-Copyright (C) 2026 Horizon (FTC 36596)
+Copyright (c) 2026, Horizon (FTC 36596)
 
-This program is free software: you can redistribute it and/or modify it under the terms of the GNU
-Affero General Public License as published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
+SimLoop is licensed under the BSD 3-Clause License. The full text is in `LICENSE`.
 
-This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even
-the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU Affero General
-Public License for more details.
+## What it means for a team
 
-You should have received a copy of the GNU Affero General Public License along with this program. If
-not, see <https://www.gnu.org/licenses/>. The full text is in `LICENSE`.
+- **Use it.** In a private season repository, a public one, at competition, anywhere.
+- **Change it.** Copy it, fork it, patch it, cut pieces out of it.
+- **Ship it.** Put it in your robot code and build that onto your robot.
+- **Publish your robot code under any licence you like,** or under none. SimLoop does not make your
+  code open source and does not ask anything of it.
 
-## What this covers, and what it does not
+Two things are asked of you:
 
-The licence covers SimLoop: the code in this repository that is Horizon's own work.
+1. **Keep the notice.** If you copy SimLoop's source, or hand someone a build that contains it, keep the
+   copyright line and the licence text with it.
+2. **Do not use Horizon's name to endorse your fork.** You can say your project is based on SimLoop. You
+   cannot say Horizon (FTC 36596) made, approves or supports your version without written permission.
 
-It does not cover third-party code this library depends on. SimLoop depends on three artifacts: the
-FIRST Tech Challenge SDK's `RobotCore` and `Hardware`, distributed under their own BSD licence and
-remaining under it, and PsiKit, which remains under its own. Nothing here revokes, narrows or replaces
-any of those, and where a file carries someone else's copyright header, that header governs that file.
+SimLoop comes with no warranty. If it gives you a wrong number, that is a bug to report, not a promise
+that was broken.
 
-## What it means for a team, in practice
+## Contributions
 
-**Use it, change it, run it, with no obligation at all.** AGPL's copyleft term is triggered by
-*distributing*, not by using, so a season repository that stays private owes nothing.
+Contributions to this repository are accepted under the same BSD 3-Clause licence, as GitHub's terms of
+service already provide for. There is no separate contributor agreement and no sign-off line.
 
-If you publish your robot code, or hand a build of it to anyone outside your team, then what you hand
-over has to be AGPL-3.0 as well, and its source has to be available to whoever receives it.
+## Third-party code
+
+The licence covers SimLoop: the code in this repository that is Horizon's own work, and the
+contributions made to it here.
+
+It does not cover the three artifacts SimLoop depends on:
+
+- the FIRST Tech Challenge SDK's `RobotCore` and `Hardware`, which stay under their own BSD licence;
+- PsiKit, which stays under its own BSD 3-Clause licence.
+
+Nothing here revokes, narrows or replaces either. Where a file carries someone else's copyright header,
+that header governs that file.

@@ -7,8 +7,9 @@ your subsystems and your OpMode run **unchanged** against fake hardware in a JVM
 from a fake clock rather than the wall, so the same run produces the same log every time; and the log
 is a PsiKit RLOG, which AdvantageScope opens and which the `loop` package can score automatically.
 
-Package root: `org.horizon36596.simloop`. Status: **beta** — the API is settled enough to use and not
-settled enough to promise.
+Package root: `org.horizon36596.simloop`. Status: **alpha** — the API may change between alpha versions,
+so pin an exact version. Support is best effort. The next release is `v0.2.0-alpha.1`, which supersedes
+`v0.1.0-beta1`.
 
 ## Installing
 
@@ -182,14 +183,13 @@ Releasing: `PUBLISHING.md`. Conventions for changing this subtree: `CLAUDE.md`.
 
 ## Licence
 
-**AGPL-3.0-or-later** — `LICENSE` in this directory is the licence text, `NOTICE.md` beside it is the
+**BSD 3-Clause** — `LICENSE` in this directory is the licence text, `NOTICE.md` beside it is the
 copyright and what it covers.
 
-In practice, for an FTC team: **use it, change it, run it, with no obligation at all** — the copyleft
-term is triggered by *distributing*, not by using. If you publish your robot code, or hand a build of it
-to anyone outside your team, then what you hand over has to be AGPL-3.0 too and its source has to be
-available. If your season repository is private and stays that way, nothing is asked of you.
+In practice, for an FTC team: use it, change it, ship it on your robot, and publish your robot code
+under any licence you like. Keep the copyright notice with any copy of SimLoop's source or build you
+hand on, and do not use Horizon's name to endorse your fork.
 
 The dependencies keep their own licences, and there are three of them: the FIRST Tech Challenge SDK's
-`RobotCore` and `Hardware`, which are BSD, and PsiKit, which carries its own. This licence covers
+`RobotCore` and `Hardware`, which are BSD, and PsiKit, which is BSD 3-Clause. This licence covers
 SimLoop's own code and nothing else.

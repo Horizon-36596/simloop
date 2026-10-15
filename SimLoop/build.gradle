@@ -198,7 +198,7 @@ afterEvaluate {
 
                     licenses {
                         license {
-                            name = 'GNU Affero General Public License v3.0 or later'
+                            name = 'BSD-3-Clause'
                             url = 'https://github.com/Horizon-36596/simloop/blob/main/SimLoop/LICENSE'
                         }
                     }

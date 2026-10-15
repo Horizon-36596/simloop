@@ -37,7 +37,7 @@ body:
     attributes:
       label: SimLoop version or commit
       description: The version in your build.gradle, or a commit hash.
-      placeholder: e.g. 0.1.0-beta1 or ddd1ad6
+      placeholder: e.g. v0.2.0-alpha.1 or ddd1ad6
     validations:
       required: true
 

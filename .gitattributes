@@ -1,0 +1,4 @@
+# Shell scripts must keep LF line endings, even when checked out on Windows with core.autocrlf=true;
+# bash refuses a script with CRLF endings. The leak gate's rule files are read line by line too.
+*.sh text eol=lf
+tools/leak-gate/*.txt text eol=lf

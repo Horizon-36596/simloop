@@ -1,0 +1,59 @@
+name: Feature request
+description: Something SimLoop should do but does not yet
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the idea! SimLoop is season-agnostic, so a feature should help teams in any FTC game.
+        Things specific to one game or one robot belong in your own repository.
+        For a big change, it helps to agree on the shape here before anyone writes code.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: The problem, not the solution. What does your team want to test or see that you cannot today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: What would you like SimLoop to do?
+      description: How you imagine it working. A sketch of the API or a test you would like to write is great.
+      render: java
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What do you do today instead?
+      description: Any workaround you use, or why there is none.
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Which part of SimLoop?
+      options:
+        - Fake hardware (a device or the hardware map)
+        - Plants (motor, mechanism, drivetrain physics)
+        - OpMode runner or sim clock
+        - Field and game pieces
+        - Logging, replay or scoring (loop)
+        - Visualisation (viz)
+        - Documentation or the starter folder
+        - Something else
+    validations:
+      required: true
+
+  - type: dropdown
+    id: contribute
+    attributes:
+      label: Would you like to build it?
+      description: Not required. Knowing helps us plan.
+      options:
+        - "Yes, I would like to open a pull request"
+        - "Maybe, with some help"
+        - "No, just suggesting it"
+    validations:
+      required: true
