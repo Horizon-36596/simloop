@@ -42,7 +42,7 @@ Follow simloop-agents/skills/add-a-mechanism/SKILL.md. Read the subsystem first 
 
 Here is what I know about the real mechanism: <travel range, weight, motor, gear ratio, anything you have measured. Say "I do not know" for the rest - that is a real answer>.
 
-Label every constant you write with where it came from. If you estimated it, say estimated. I would rather have an honest guess I can go and measure than a number that looks authoritative.
+Label every constant you write with where it came from. If you estimated it, say estimated. I would rather have a labelled guess I can go and measure than a number that looks authoritative.
 ```
 
 ---
@@ -89,7 +89,7 @@ Tell me what would go wrong on the real robot if this were wrong, because that i
 ## Before a competition
 
 ```
-Look at every SimLoop test in this project and tell me honestly which of them would catch a real problem and which of them are passing no matter what the robot does. For each one, give me a single line: the test name, and either the specific bug it would catch or the reason it cannot fail.
+Look at every SimLoop test in this project and tell me plainly which of them would catch a real problem and which of them are passing no matter what the robot does. For each one, give me a single line: the test name, and either the specific bug it would catch or the reason it cannot fail.
 
 Do not fix anything yet. I want the list first.
 ```

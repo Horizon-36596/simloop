@@ -1,6 +1,6 @@
 ---
 name: review-sim-code
-description: Review SimLoop simulation code against the invariants that make it trustworthy - assertions that can actually fail, tick order, log keys, frame conversions, determinism, and honest physical constants. Use before merging a sim test or a new mechanism model.
+description: Review SimLoop simulation code against the invariants that make it trustworthy - assertions that can actually fail, tick order, log keys, frame conversions, determinism, and labelled physical constants. Use before merging a sim test or a new mechanism model.
 ---
 
 # Review simulation code
@@ -60,7 +60,7 @@ is a finding.
 - No iteration over a `HashMap`/`HashSet` whose order reaches a logged value.
 - Time comes from `FakeTimer` and `deltaTime`.
 
-### Honesty of the physical constants
+### Where the physical constants came from
 
 - Each constant in a sim config says where it came from. "Estimated" is a fine answer; **unlabelled is
   not**, because the next reader assumes it was measured.
@@ -74,8 +74,8 @@ is a finding.
 - Robot code was not edited to make the simulation work. If it was, that is the headline finding: the
   shipped code has been changed to satisfy a test harness.
 - The test does not depend on something SimLoop deliberately does not model
-  (<https://libraries.horizon36596.org/simloop/limits/>): contact physics, vision, command scheduling,
-  controller tuning.
+  (<https://libraries.horizon36596.org/simloop/limits/>): intake rollers, a rendered camera image,
+  command scheduling, controller tuning.
 
 ## Confirm before you report
 

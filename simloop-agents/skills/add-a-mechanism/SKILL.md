@@ -66,7 +66,7 @@ private static final MechanismSimConfig SLIDE = new MechanismSimConfig() {
 **`gravityHoldPowerFraction` is always positive** and the plant subtracts it, so gravity always pulls
 toward `minPosition`. For a horizontal mechanism — a turret, a flat slide — it is `0.0`.
 
-### Be honest about where the numbers came from
+### Say where the numbers came from
 
 A first pass is estimated, and that is fine and normal. Say so in the comment: an invented number
 labelled as invented is useful, and an invented number presented as measured is how a team ends up
