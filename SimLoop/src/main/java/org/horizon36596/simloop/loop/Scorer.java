@@ -23,13 +23,15 @@ import java.util.Map;
  * <h2>Unknowns are carried, never absorbed</h2>
  * A guardrail that could not evaluate itself contributes no penalty, which makes it arithmetically
  * identical to one that passed. {@link Score#unknownCount()} and {@link Score#unknowns()} are what keep
- * the two distinguishable, so E2's acceptance gate can refuse to promote a run whose envelope was mostly
+ * the two distinguishable, so the acceptance {@link Gate} can refuse to promote a run whose envelope was mostly
  * unmeasured. This class deliberately does not decide that policy — scoring measures, the gate judges.
  *
  * <h2>Scenario discipline</h2>
- * Two scores are only comparable if they measure the same objective over the same scenario. The scenario
- * name rides along on every {@link Score} and {@link Score#isComparableTo(Score)} checks it, because
- * "the number went up" after quietly switching scenarios is an improvement that is not one.
+ * Two scores are only comparable if they measure the same objective, read the same way, over the same
+ * scenario. The objective's name, its direction, its metric description and the scenario name all ride
+ * along on every {@link Score} and {@link Score#isComparableTo(Score)} checks all four, because "the number
+ * went up" after quietly switching scenarios, flipping MINIMIZE to MAXIMIZE, or reading a different key
+ * under the same objective name is an improvement that is not one.
  */
 public final class Scorer {
 
@@ -73,6 +75,12 @@ public final class Scorer {
      *
      * @param run the finished run to judge
      * @return the score, with the full per-guardrail breakdown attached
+     * @throws RunResult.MetricNotFoundException    if the objective (or a guardrail that ignored its "do not
+     *                                              throw" contract) reads a key the run never logged
+     * @throws RunResult.MetricNotNumericException  if it reads a key whose values are not numbers
+     * @throws Objective.NonFiniteMetricException   if the objective measured {@code NaN} or an infinity.
+     *                                              {@link LoopDriver#offer} turns all three into a rejected
+     *                                              candidate rather than a crashed loop.
      */
     public Score score(RunResult run) {
         // Measure the run ONCE. The metric is a caller-supplied function this class does not control, so
@@ -99,8 +107,8 @@ public final class Scorer {
             totalPenalty += verdict.penalty();
         }
 
-        return new Score(objective.name(), objective.scenarioName(), rawMetric, objectiveValue,
-                totalPenalty, verdicts);
+        return new Score(objective.name(), objective.scenarioName(), objective.direction(),
+                objective.metricDescription(), rawMetric, objectiveValue, totalPenalty, verdicts);
     }
 
     /** One run's score: the total, and every term that produced it. */
@@ -108,15 +116,20 @@ public final class Scorer {
 
         private final String objectiveName;
         private final String scenarioName;
+        private final Objective.Direction direction;
+        private final String metricDescription;
         private final double rawMetric;
         private final double objectiveValue;
         private final double totalPenalty;
         private final Map<String, Guardrail.Verdict> verdicts;
 
-        Score(String objectiveName, String scenarioName, double rawMetric, double objectiveValue,
-                double totalPenalty, Map<String, Guardrail.Verdict> verdicts) {
+        Score(String objectiveName, String scenarioName, Objective.Direction direction,
+                String metricDescription, double rawMetric, double objectiveValue, double totalPenalty,
+                Map<String, Guardrail.Verdict> verdicts) {
             this.objectiveName = objectiveName;
             this.scenarioName = scenarioName;
+            this.direction = direction;
+            this.metricDescription = metricDescription;
             this.rawMetric = rawMetric;
             this.objectiveValue = objectiveValue;
             this.totalPenalty = totalPenalty;
@@ -160,6 +173,16 @@ public final class Scorer {
             return scenarioName;
         }
 
+        /** {@return which way the objective's raw metric points} */
+        public Objective.Direction direction() {
+            return direction;
+        }
+
+        /** {@return what number the objective read out of the run, in words -- see Objective#metricDescription()} */
+        public String metricDescription() {
+            return metricDescription;
+        }
+
         /** {@return every guardrail's verdict, in the order they were applied} */
         public Map<String, Guardrail.Verdict> verdicts() {
             return verdicts;
@@ -193,18 +216,33 @@ public final class Scorer {
         }
 
         /**
-         * True when this score may be compared against {@code other} — same objective, same scenario.
+         * True when this score may be compared against {@code other}: same objective name, same direction,
+         * same metric description, same scenario.
          *
          * <p>Comparing across scenarios is how a loop reports an improvement it did not make, so the
-         * check is offered here rather than left to each caller to remember.
+         * check is offered here rather than left to each caller to remember. The name alone is not enough:
+         * an objective that kept its name and flipped to MAXIMIZE, or started reading a different key,
+         * produces totals that mean something else, and a "better" total against the old one is noise.
          *
          * @param other the score to compare against; null is never comparable
-         * @return true when both scores measure the same objective over the same scenario
+         * @return true when all four match
          */
         public boolean isComparableTo(Score other) {
             return other != null
                     && objectiveName.equals(other.objectiveName)
+                    && direction == other.direction
+                    && metricDescription.equals(other.metricDescription)
                     && scenarioName.equals(other.scenarioName);
+        }
+
+        /**
+         * How this score's objective reads, in one line, for a "not comparable" message:
+         * {@code "auto finish time (MINIMIZE final value of Auto/finishTimeSec) on 'auto'"}.
+         *
+         * @return the objective's name, direction, metric and scenario
+         */
+        public String objectiveIdentity() {
+            return objectiveName + " (" + direction + " " + metricDescription + ") on '" + scenarioName + "'";
         }
 
         private List<String> namesWhere(java.util.function.Predicate<Guardrail.Verdict> test) {

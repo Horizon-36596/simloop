@@ -8,7 +8,9 @@ import org.psilynx.psikit.core.rlog.RLOGWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -82,6 +84,140 @@ public class RlogDecodedCompareTest {
                 java.util.Collections.singleton("RealOutputs/Drive/pose/x"));
 
         assertTrue(mismatches.isEmpty(), "expected no mismatches with a caller override, got: " + mismatches);
+    }
+
+    @Test
+    public void aStringAndADoubleThatRenderTheSameAreStillAMismatch() throws IOException {
+        Path dir = Files.createTempDirectory("rlog-compare-test");
+        Path pathA = writeFrames(dir, "run-a", table -> table.put("RealOutputs/Drive/mode", "1.0"));
+        Path pathB = writeFrames(dir, "run-b", table -> table.put("RealOutputs/Drive/mode", 1.0));
+
+        List<RlogDecodedCompare.Mismatch> mismatches = RlogDecodedCompare.compare(pathA, pathB);
+
+        // PsiKit renders both as "1.0"; only the logged type tells them apart.
+        assertEquals(1, mismatches.size(), "expected the type difference to be reported, got: " + mismatches);
+        assertEquals("1.0 [String]", mismatches.get(0).valueA);
+        assertEquals("1.0 [Double]", mismatches.get(0).valueB);
+    }
+
+    @Test
+    public void aDivergenceAfterTheFirstFrameIsReportedAtItsOwnFrame() throws IOException {
+        Path dir = Files.createTempDirectory("rlog-compare-test");
+        Path pathA = writeFrames(dir, "run-a",
+                table -> table.put("RealOutputs/Drive/pose/x", 1.0),
+                table -> table.put("RealOutputs/Drive/pose/x", 2.0),
+                table -> table.put("RealOutputs/Drive/pose/x", 3.0));
+        Path pathB = writeFrames(dir, "run-b",
+                table -> table.put("RealOutputs/Drive/pose/x", 1.0),
+                table -> table.put("RealOutputs/Drive/pose/x", 2.0),
+                table -> table.put("RealOutputs/Drive/pose/x", 3.5));
+
+        List<RlogDecodedCompare.Mismatch> mismatches = RlogDecodedCompare.compare(pathA, pathB);
+
+        assertEquals(1, mismatches.size(), "only the last frame differs, got: " + mismatches);
+        assertEquals(2, mismatches.get(0).frameIndex);
+        assertEquals("RealOutputs/Drive/pose/x", mismatches.get(0).key);
+    }
+
+    @Test
+    public void aValueLoggedOnceCarriesForwardIntoLaterFrames() throws IOException {
+        // A key not logged again in a later frame still holds its last value in that frame's decoded state,
+        // the way AdvantageScope shows it. So a run that re-logs an unchanged value every frame and a run that
+        // logs it once agree, and a run that logs a NEW value at frame 2 differs from frame 2 on.
+        Path dir = Files.createTempDirectory("rlog-compare-test");
+        Path everyFrame = writeFrames(dir, "run-every-frame",
+                table -> table.put("RealOutputs/Drive/pose/x", 1.0),
+                table -> table.put("RealOutputs/Drive/pose/x", 1.0),
+                table -> table.put("RealOutputs/Drive/pose/x", 1.0));
+        Path onceOnly = writeFrames(dir, "run-once-only",
+                table -> table.put("RealOutputs/Drive/pose/x", 1.0),
+                table -> table.put("RealOutputs/Drive/other", 0.0),
+                table -> table.put("RealOutputs/Drive/other", 0.0));
+        Path changedLate = writeFrames(dir, "run-changed-late",
+                table -> table.put("RealOutputs/Drive/pose/x", 1.0),
+                table -> table.put("RealOutputs/Drive/pose/x", 1.0),
+                table -> table.put("RealOutputs/Drive/pose/x", 9.0));
+
+        List<Map<String, String>> decodedOnce = RlogDecodedCompare.decode(onceOnly);
+        assertEquals("1.0", decodedOnce.get(2).get("RealOutputs/Drive/pose/x"),
+                "the value logged at frame 0 is still the decoded value at frame 2");
+
+        List<RlogDecodedCompare.Mismatch> againstEveryFrame = RlogDecodedCompare.compare(everyFrame, onceOnly);
+        for (RlogDecodedCompare.Mismatch mismatch : againstEveryFrame) {
+            assertEquals("RealOutputs/Drive/other", mismatch.key,
+                    "pose/x carried forward, so only the extra key differs, got: " + againstEveryFrame);
+        }
+
+        List<RlogDecodedCompare.Mismatch> againstChanged = RlogDecodedCompare.compare(everyFrame, changedLate);
+        assertEquals(1, againstChanged.size(), "got: " + againstChanged);
+        assertEquals(2, againstChanged.get(0).frameIndex);
+    }
+
+    @Test
+    public void summariseListsTheEarliestFortyKeysAndCountsTheRest() {
+        List<RlogDecodedCompare.Mismatch> mismatches = new ArrayList<>();
+        // 45 keys; key k first diverges at frame 100 - k, so the key that went wrong earliest sorts LAST by
+        // name. The summary must still lead with it.
+        for (int k = 0; k < 45; k++) {
+            String key = String.format("RealOutputs/Key%02d", k);
+            mismatches.add(new RlogDecodedCompare.Mismatch(100 - k, key, "1.0 [Double]", "2.0 [Double]"));
+            mismatches.add(new RlogDecodedCompare.Mismatch(101 - k, key, "1.0 [Double]", "3.0 [Double]"));
+        }
+
+        String summary = RlogDecodedCompare.summarise(mismatches);
+        String[] lines = summary.split("\n");
+
+        assertTrue(lines[0].startsWith("90 field mismatches across 45 keys, earliest at frame 56"), summary);
+        assertTrue(lines[1].contains("frame 56  RealOutputs/Key44 x2"), summary);
+        assertEquals(1 + 40 + 1, lines.length, "totals line, 40 key lines, one 'and N more' line: " + summary);
+        assertTrue(lines[41].contains("and 5 more keys, all diverging at frame 96 or later"), summary);
+    }
+
+    @Test
+    public void summariseReportsAFrameCountMismatchOnItsOwnLine() {
+        List<RlogDecodedCompare.Mismatch> mismatches = new ArrayList<>();
+        mismatches.add(new RlogDecodedCompare.Mismatch(-1, "<frame count>", "20", "30"));
+        mismatches.add(new RlogDecodedCompare.Mismatch(7, "RealOutputs/Drive/pose/x", "1.0", "2.0"));
+
+        String summary = RlogDecodedCompare.summarise(mismatches);
+        String[] lines = summary.split("\n");
+
+        assertEquals("frame count differs: 20 vs 30", lines[0], summary);
+        assertTrue(lines[1].startsWith("1 field mismatches across 1 keys, earliest at frame 7"),
+                "the earliest divergence is the first real frame, not the frame-count entry's -1: " + summary);
+    }
+
+    /**
+     * The decode must close the file. Only discriminates on Windows, where a file still held open cannot be
+     * deleted; Linux and macOS allow deleting an open file, so there this passes with or without the fix.
+     */
+    @Test
+    public void decodingAFileReleasesIt() throws IOException {
+        Path dir = Files.createTempDirectory("rlog-compare-test");
+        Path path = writeLog(dir, "run-a", 1.0, 111);
+
+        RlogDecodedCompare.decode(path);
+
+        Files.delete(path);
+        assertTrue(!Files.exists(path), "the decoded file could be deleted straight afterwards");
+    }
+
+    /** What one frame of a test RLOG logs. */
+    private interface FrameWriter {
+        void write(LogTable table);
+    }
+
+    /** Writes an RLOG with one frame per {@code frames} entry, timestamps stepping by 20 ms. */
+    private static Path writeFrames(Path dir, String name, FrameWriter... frames) {
+        RLOGWriter writer = new RLOGWriter(dir.toString(), name);
+        writer.start();
+        for (int i = 0; i < frames.length; i++) {
+            LogTable table = new LogTable(i * 0.02);
+            frames[i].write(table);
+            writer.putTable(table);
+        }
+        writer.end();
+        return dir.resolve(name + ".rlog");
     }
 
     /** Writes a single-frame RLOG with a robot field plus PsiKit-meta-shaped keys at the given values. */

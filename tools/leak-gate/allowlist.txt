@@ -21,15 +21,9 @@ teamcode-mention|SimLoop/src/main/java/org/horizon36596/simloop/opmode/OpModeRun
 # SimClockLoader's default list of package prefixes to load on the sim clock: the stock FTC TeamCode
 # package. A string prefix, not an import.
 teamcode-mention|SimLoop/src/main/java/org/horizon36596/simloop/simclock/SimClockLoader.java|"org.firstinspires.ftc.teamcode.",
-
-# --- season-name (transitional) -----------------------------------------------------------------------
-# Four comments in the library as it stands on main name an FTC game or our robot. The newer
-# library in Horizon's robot repository has already removed them, and the sync replaces these files.
-# Delete these four lines in the same pull request as that sync; the gate lists them as unused then.
-season-name|SimLoop/src/main/java/org/horizon36596/simloop/fakehardware/FakeCRServo.java|* Fake {@link CRServo}: a continuous-rotation servo, the actuator V0's deposit ejects a line of pollen
-season-name|SimLoop/src/main/java/org/horizon36596/simloop/loop/Objective.java|/** The raw metric is already "bigger is better" — pollen scored, distance covered. */
-season-name|SimLoop/src/main/java/org/horizon36596/simloop/plant/MultiDofMechanismPlant.java|* a pollen. Every name and unit above arrives from the caller. <b>Deterministic</b> (domain R5): state
-season-name-decode|SimLoop/src/main/java/org/horizon36596/simloop/config/DrivetrainSimConfig.java|* The DECODE glue implements it from {@code globals/Constants}. Units are inches, seconds,
+# SimClockLoader's javadoc shows a team widening that default list to cover Pedro Pathing. Text in
+# javadoc, naming the stock FTC package as a string prefix, not a dependency.
+teamcode-mention|SimLoop/src/main/java/org/horizon36596/simloop/simclock/SimClockLoader.java|* {@code teamPackages("org.firstinspires.ftc.teamcode.", "com.seattlesolvers.solverslib.", PEDRO_PATHING)}.
 
 # --- binary-artifact ----------------------------------------------------------------------------------
 # The Gradle wrapper. Every Gradle project commits it, and it is what makes ./gradlew work.

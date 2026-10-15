@@ -10,13 +10,21 @@ score automatically.
 
 Package root: `org.horizon36596.simloop`. Licence: BSD 3-Clause.
 
-> **SimLoop is an alpha.** The API may change between alpha versions, so pin an exact version in your
-> build. Support is best effort: a small FTC team maintains it in its own time. The next release is
-> `v0.2.0-alpha.1`. It replaces `v0.1.0-beta1`, the earlier build on JitPack, which is superseded and
-> will not get fixes. Bug reports and pull requests are welcome; see
+> **SimLoop is an alpha.** `v0.2.0-alpha.1` is the current alpha and the first public one. The API may
+> change between alpha versions, so pin an exact version in your build. It needs **FTC SDK 12.0**.
+> Support is best effort: a small FTC team maintains it in its own time. `v0.1.0-beta1`, the earlier
+> build on JitPack, is superseded and will not get fixes.
+>
+> Questions go to [Discussions](https://github.com/Horizon-36596/simloop/discussions). Bugs go to
+> [Issues](https://github.com/Horizon-36596/simloop/issues). Pull requests are welcome; see
 > [`CONTRIBUTING.md`](CONTRIBUTING.md).
 
+**What it does, one line per feature:** [`SimLoop/docs/features.md`](SimLoop/docs/features.md).
+
 ## Adopting it is one folder and one line
+
+**First, put your FTC project on SDK 12.0.** SimLoop is built against FTC SDK 12.0.0; the earlier beta
+used 11.2.1.
 
 Copy [`simloop-starter/`](simloop-starter) into the root of your FTC project, add one line to the bottom
 of `TeamCode/build.gradle`, and run the tests:
@@ -40,6 +48,7 @@ the starter folder is what declares it.
 
 | If you want to | Read |
 |---|---|
+| See every feature in one list | [`SimLoop/docs/features.md`](SimLoop/docs/features.md) |
 | Adopt it in an existing FTC project | [`simloop-starter/README.md`](simloop-starter/README.md) |
 | Install it by hand, or know what the starter is doing | [`SimLoop/docs/getting-started.md`](SimLoop/docs/getting-started.md) |
 | Write a first test, line by line | [`SimLoop/docs/first-test.md`](SimLoop/docs/first-test.md) |
@@ -60,6 +69,27 @@ That path is this repository's name, in lower case, because GitHub serves a proj
 repository name under the organisation's domain and the path is case-sensitive. It is also why the
 published coordinate is `com.github.Horizon-36596:simloop`.
 
+## Help build SimLoop
+
+SimLoop is built by Horizon (FTC 36596) for any FTC team, and it gets better when other teams and
+simulator authors add to it. The library is season-agnostic, so everything below helps every season.
+Contributions we want most:
+
+- **New fake devices** that replicate a real FTC SDK class method for method, with tests that compare
+  them to the SDK: a sensor, an odometry computer, a motor controller feature the fakes lack.
+- **Field and game-piece models**: new shapes, contact cases, goals and structures, built from the
+  `field` package's general pieces, never one game's field.
+- **Documentation**: a page that confused you, a missing unit, an example that should exist.
+- **Examples**: a worked test for a common robot, such as a drivetrain with odometry or an arm in
+  `RUN_TO_POSITION`.
+- **Interop with other tools**: log formats, AdvantageScope layouts, other replay or analysis tools that
+  could read or write what SimLoop produces.
+
+Start with [`CONTRIBUTING.md`](CONTRIBUTING.md). [`docs/good-first-issues.md`](docs/good-first-issues.md)
+lists small starter tasks. For anything bigger, open a
+[Discussion](https://github.com/Horizon-36596/simloop/discussions) first so nobody spends a weekend on
+something that will not fit.
+
 ## What is in this repository
 
 | Path | What it is |
@@ -73,7 +103,7 @@ published coordinate is `com.github.Horizon-36596:simloop`.
 ## Why the library sits in a subdirectory
 
 The library is a Gradle **subproject** rather than the root project. That reads as redundant and is not,
-for two reasons that are both cheaper to keep than to change:
+for a reason that is cheaper to keep than to change:
 
 - The Android Gradle Plugin's library plugin is applied to something it expects. A root project that is
   itself an Android library is a layout nothing else in the FTC ecosystem uses.
@@ -95,7 +125,8 @@ From the repository root:
 ./gradlew test
 ```
 
-373 JVM tests — 371 in the library, 2 in the example robot — with no device and no emulator. The
+1,218 JVM tests (1,212 in the library, 4 in the keyboard-window module, 2 in the example robot), with no
+device and no emulator. The
 documentation site and the API reference:
 
 ```bash

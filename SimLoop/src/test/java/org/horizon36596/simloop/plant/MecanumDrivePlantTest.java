@@ -1,6 +1,7 @@
 package org.horizon36596.simloop.plant;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.horizon36596.simloop.config.DrivetrainSimConfig;
@@ -136,5 +137,14 @@ class MecanumDrivePlantTest {
         assertEquals(pa.getX(), pb.getX(), 0.0);
         assertEquals(pa.getY(), pb.getY(), 0.0);
         assertEquals(pa.getHeading(), pb.getHeading(), 0.0);
+    }
+
+    @Test
+    void ticksPerInchMustBeFiniteAndPositive() {
+        // NaN slips a plain `<= 0` check and would turn every wheel speed, and so the pose, into NaN.
+        assertThrows(IllegalArgumentException.class, () -> new MecanumDrivePlant(fourMotors(), config(Double.NaN)));
+        assertThrows(IllegalArgumentException.class,
+                () -> new MecanumDrivePlant(fourMotors(), config(Double.POSITIVE_INFINITY)));
+        assertThrows(IllegalArgumentException.class, () -> new MecanumDrivePlant(fourMotors(), config(0.0)));
     }
 }

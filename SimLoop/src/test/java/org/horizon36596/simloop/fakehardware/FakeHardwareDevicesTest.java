@@ -34,12 +34,14 @@ class FakeHardwareDevicesTest {
     }
 
     @Test
-    void motorCurrentIsModelledAsNeverOverCurrent() {
+    void anIdleMotorIsNotOverCurrent() {
+        // Current IS modelled (FakeMotorTest pins the model); an idle motor draws none, so an alert set
+        // above zero does not trip.
         FakeMotor motor = new FakeMotor(1000.0, 2.0);
         motor.setCurrentAlert(5.0, CurrentUnit.AMPS);
         assertEquals(5.0, motor.getCurrentAlert(CurrentUnit.AMPS), 1e-9);
         assertEquals(0.0, motor.getCurrent(CurrentUnit.AMPS), 1e-9);
-        assertFalse(motor.isOverCurrent(), "kinematic motor never trips over-current");
+        assertFalse(motor.isOverCurrent(), "an idle motor does not trip over-current");
     }
 
     @Test
@@ -48,7 +50,8 @@ class FakeHardwareDevicesTest {
         FakeMotor motor = new FakeMotor(1000.0, 2.0, cpr);
         motor.setPower(1.0);
         for (int i = 0; i < 200; i++) motor.update(0.02); // spin up
-        double ticksPerSec = motor.getVelocityTicksPerSecond();
+        // The SDK converts the hub's whole-ticks reading, which is what getVelocity() reports.
+        double ticksPerSec = motor.getVelocity();
         assertTrue(ticksPerSec > 0, "precondition: spun up");
         // deg/s must be ticks/s scaled by (360 / CPR) — the real SDK conversion, NOT a hardcoded 0.
         assertEquals(360.0 / cpr, motor.getVelocity(AngleUnit.DEGREES) / ticksPerSec, 1e-9);
@@ -148,6 +151,23 @@ class FakeHardwareDevicesTest {
         assertEquals(3.3, analog.getMaxVoltage(), 1e-9);
         analog.setVoltage(2.0);
         assertEquals(2.0, analog.getVoltage(), 1e-9);
+    }
+
+    @Test
+    void analogInputSaturatesAtTheEndsOfItsRangeAndRejectsNonFiniteVoltages() {
+        // A real pin cannot read below 0 V or above its full scale, so a voltage outside the range reads as
+        // the end it is past; NaN or infinity is a caller bug no wire can carry.
+        FakeAnalogInput analog = new FakeAnalogInput(0.0, 3.3);
+        analog.setVoltage(4.0);
+        assertEquals(3.3, analog.getVoltage(), 0.0, "above full scale reads full scale");
+        analog.setVoltage(-0.2);
+        assertEquals(0.0, analog.getVoltage(), 0.0, "below zero reads zero");
+        assertThrows(IllegalArgumentException.class, () -> analog.setVoltage(Double.NaN));
+        assertThrows(IllegalArgumentException.class, () -> analog.setVoltage(Double.POSITIVE_INFINITY));
+        assertThrows(IllegalArgumentException.class, () -> new FakeAnalogInput(1.0, 0.0),
+                "a range with no full scale is not a range");
+        assertEquals(3.3, new FakeAnalogInput(5.0, 3.3).getVoltage(), 0.0, "the constructor clips too");
+        assertEquals(1, analog.getVersion(), "AnalogInput.getVersion() returns 1");
     }
 
     @Test

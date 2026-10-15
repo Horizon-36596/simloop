@@ -11,7 +11,10 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Runs one headless sim scenario end-to-end: owns the entire PsiKit lifecycle (sim-harness §2-3) and the
@@ -33,8 +36,18 @@ import java.util.concurrent.atomic.AtomicInteger;
  * (BACKLOG B3 — cycles silently dropped) or if the resulting RLOG is missing or empty (BACKLOG B11) — a
  * scenario whose log cannot be trusted for replay is a defect the moment it happens, not something every
  * caller should have to re-check after the fact.
+ *
+ * <p><b>One logged run at a time per JVM.</b> PsiKit's {@link Logger} is one static object, so two runs
+ * logging at once would write into each other's RLOG, and a run could return normally with a log that is
+ * mostly the other's. {@link #run} therefore takes a JVM-wide lock: a second run started on another thread
+ * waits for the first to finish, and one started from inside a run's own tick fails at once. Runs also share
+ * {@code OpMode.blackboard}, which {@code OpModeRunner} clears at the start of each run, so tests that run
+ * OpModes must not run in parallel within one JVM; Gradle's separate test JVMs are fine.
  */
 public final class ScenarioRunner {
+
+    /** Held for the whole of every {@link #run} and {@link #runUntil}: PsiKit's Logger can record only one run at a time. */
+    private static final ReentrantLock ONE_LOGGED_RUN_AT_A_TIME = new ReentrantLock();
 
     private ScenarioRunner() {
     }
@@ -49,6 +62,67 @@ public final class ScenarioRunner {
          * @param deltaTimeSeconds the fixed tick step just advanced (same value passed to {@link #run})
          */
         void tick(double deltaTimeSeconds);
+    }
+
+    /**
+     * Decides, before each tick, whether that tick runs. A fixed-length scenario is
+     * {@link #fixedTickCount}; a live or replayed session runs until its input runs out.
+     *
+     * <p><b>Called exactly once per tick, in order</b>: with 0, then 1, then 2, and so on, each time before
+     * that tick advances the clock, and never again after it has returned false. A gate may therefore do
+     * the one-per-tick work of fetching that tick's input, as {@code sim.live.GamepadInputGate} does.
+     */
+    @FunctionalInterface
+    public interface TickGate {
+        /**
+         * Called before tick {@code tickIndex} advances the clock or logs anything.
+         *
+         * @param tickIndex the tick about to run, counting from 0
+         * @return true to run it; false to end the run here, with {@code tickIndex} ticks run
+         */
+        boolean shouldRunTick(int tickIndex);
+    }
+
+    /**
+     * Runs after each tick has been logged, and may make the run wait. This is the one seam where a run can
+     * be slowed to real time for a person watching it (the live-drive pacer). It is handed the sim time for
+     * information only: nothing it does can reach the sim, because the next tick advances the clock by the
+     * same fixed step whatever happened here. Every headless run uses {@link #NO_PACING}.
+     */
+    @FunctionalInterface
+    public interface TickPacer {
+        /**
+         * Called once after each tick is logged; may wait before returning.
+         *
+         * @param ticksCompleted how many ticks have run so far, this one included
+         * @param simSeconds     the sim clock after this tick, seconds
+         */
+        void afterTick(int ticksCompleted, double simSeconds);
+    }
+
+    /** No pacing at all: run as fast as the machine allows. What every headless scenario and replay uses. */
+    public static final TickPacer NO_PACING = new TickPacer() {
+        @Override
+        public void afterTick(int ticksCompleted, double simSeconds) {
+        }
+    };
+
+    /**
+     * A gate that runs exactly {@code ticks} ticks, which is what {@link #run} uses.
+     *
+     * @param ticks how many ticks to run; must not be negative
+     * @return the gate
+     */
+    public static TickGate fixedTickCount(final int ticks) {
+        if (ticks < 0) {
+            throw new IllegalArgumentException("ticks must not be negative, got " + ticks);
+        }
+        return new TickGate() {
+            @Override
+            public boolean shouldRunTick(int tickIndex) {
+                return tickIndex < ticks;
+            }
+        };
     }
 
     /**
@@ -67,19 +141,136 @@ public final class ScenarioRunner {
      *                         once per tick, before {@code body.tick(deltaTimeSeconds)} runs
      * @param rlogPath         caller-chosen output file, e.g. {@code Paths.get("build", "sim", "run1.rlog")}
      * @param body             the scenario's per-tick behavior (see {@link ScenarioBody})
-     * @throws IllegalStateException if the RLOG this run produced cannot be trusted, for any of four
-     *                                reasons: PsiKit's async writer queue overflowed (BACKLOG B3); the file
-     *                                is missing or empty (BACKLOG B11); it decodes to a different number of
-     *                                frames than ticks were run (BACKLOG B32); or the writer thread stopped
-     *                                making progress while the producer waited for it. All four are the same
-     *                                statement - the log is not a record of the run - and none of them is
-     *                                affected by what the caller's own trajectory checks found
+     * @throws IllegalArgumentException if any argument is unusable, checked before anything else happens:
+     *                                  {@code ticks} not positive; {@code deltaTimeSeconds} not a finite
+     *                                  number greater than zero; {@code config}, {@code timer},
+     *                                  {@code rlogPath} or {@code body} null; or {@code rlogPath} not ending
+     *                                  in {@code .rlog}
+     * @throws IllegalStateException if this is called from inside another run's {@code body} on the same thread
+     *                                (a run on another thread waits instead); if an old file at {@code rlogPath}
+     *                                cannot be deleted; or if the RLOG this run produced cannot be trusted,
+     *                                for any of four reasons: PsiKit's async writer queue overflowed
+     *                                (BACKLOG B3); the file is missing or empty (BACKLOG B11); it decodes
+     *                                to a different number of frames than ticks were run (BACKLOG B32); or
+     *                                the writer thread stopped making progress while the producer waited
+     *                                for it. All four are the same statement - the log is not a record of
+     *                                the run - and none of them is affected by what the caller's own
+     *                                trajectory checks found
      */
     public static void run(String opModeName, SimRobotConfig config, FakeTimer timer, int ticks,
             double deltaTimeSeconds, Path rlogPath, ScenarioBody body) {
+        // ticks is the one argument runUntil does not see (it gets a gate instead), so it is checked here.
+        if (ticks <= 0) {
+            throw new IllegalArgumentException("ScenarioRunner: ticks must be at least 1, got " + ticks);
+        }
+        runUntil(opModeName, config, timer, deltaTimeSeconds, rlogPath, fixedTickCount(ticks), NO_PACING,
+                Collections.<LogDataReceiver>emptyList(), body);
+    }
+
+    /**
+     * Like {@link #run}, for a run whose length is not known in advance: a live session that ends when the
+     * driver stops, or the replay of one. Everything {@link #run} guarantees about the RLOG holds here too,
+     * measured against the number of ticks that actually ran. {@link #run} itself comes through here, so the
+     * argument checks, the one-run-at-a-time guard and the delete of an old RLOG apply to both.
+     *
+     * <p><b>Two different "no ticks" refusals.</b> A bad argument is refused up front, before PsiKit or the
+     * file system is touched, with {@link IllegalArgumentException} - for {@link #run}, that includes a
+     * {@code ticks} below 1. A gate that says "stop" before tick 0 is only discovered once the run has
+     * started, and is refused afterwards with {@link IllegalStateException}: the arguments were fine, but
+     * the run produced no record of anything.
+     *
+     * @param opModeName       recorded as PsiKit metadata ("OpMode")
+     * @param config           recorded as metadata only, as in {@link #run}
+     * @param timer            the deterministic clock, wired to any sim-side infra before this is called
+     * @param deltaTimeSeconds fixed per-tick step; {@code timer} advances by this once per tick
+     * @param rlogPath         where the RLOG goes; must end in {@code .rlog}. A file already there is deleted
+     * @param gate             asked before every tick whether it runs; the first "no" ends the run
+     * @param pacer            called after every tick; {@link #NO_PACING} for anything headless
+     * @param extraReceivers   PsiKit receivers to add beside the RLOG file, for example an
+     *                         {@code RLOGServer} so AdvantageScope can watch a live session; empty for a
+     *                         headless run. They see every frame the file does.
+     * @param body             the scenario's per-tick behaviour
+     * @return how many ticks ran, at least 1
+     * @throws IllegalArgumentException if any argument is unusable, checked before anything else happens:
+     *                                  any of them null; {@code deltaTimeSeconds} not a finite number
+     *                                  greater than zero; or {@code rlogPath} not ending in {@code .rlog}
+     * @throws IllegalStateException    if this is called from inside another run's {@code body} on the same
+     *                                  thread (a run on another thread waits instead), or is interrupted
+     *                                  while it waits; if an old file at {@code rlogPath} cannot be
+     *                                  deleted; for the same four untrustworthy-RLOG reasons as
+     *                                  {@link #run}; and when the gate ends
+     *                                  the run before its first tick, because a run of nothing is not a
+     *                                  record of anything
+     */
+    public static int runUntil(String opModeName, SimRobotConfig config, FakeTimer timer,
+            double deltaTimeSeconds, Path rlogPath, TickGate gate, TickPacer pacer,
+            List<? extends LogDataReceiver> extraReceivers, ScenarioBody body) {
+        requireUsableArguments(config, timer, deltaTimeSeconds, rlogPath, gate, pacer, extraReceivers, body);
+
+        // Two protections, for two different mistakes. The lock serialises runs from DIFFERENT threads (two
+        // tests, or an OpMode's own thread), which would otherwise reset PsiKit's static Logger under each
+        // other. The held-by-me check refuses a run started from inside THIS thread's own tick: the lock is
+        // reentrant, so without the check that nested run would walk straight in and reset the Logger under
+        // the outer run. The check comes first and never blocks, so re-entry cannot deadlock on the lock.
+        if (ONE_LOGGED_RUN_AT_A_TIME.isHeldByCurrentThread()) {
+            throw new IllegalStateException("ScenarioRunner: '" + opModeName + "' was started from inside another"
+                    + " logged run's tick. PsiKit's Logger records one run at a time per JVM, so the two would"
+                    + " write into one RLOG; run them one after the other.");
+        }
+        try {
+            // Interruptibly: a run started from an OpMode's thread while the sim thread holds the lock would
+            // otherwise wait for ever, as the sim thread waits for the OpMode. SimLoop keeps a LinearOpMode
+            // thread's interrupt flag set, and STOP interrupts it, so such a run ends here instead.
+            ONE_LOGGED_RUN_AT_A_TIME.lockInterruptibly();
+        } catch (InterruptedException interrupted) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("ScenarioRunner: '" + opModeName + "' was interrupted while it waited"
+                    + " for another logged run to finish. Start logged runs from the test's own thread, one after"
+                    + " the other, not from an OpMode or a thread one started.", interrupted);
+        }
+        try {
+            return runOnce(opModeName, config, timer, deltaTimeSeconds, rlogPath, gate, pacer, extraReceivers,
+                    body);
+        } finally {
+            ONE_LOGGED_RUN_AT_A_TIME.unlock();
+        }
+    }
+
+    /**
+     * Rejects every argument {@link #runUntil} cannot use, before PsiKit is touched, so a bad call leaves the
+     * logger, the clock and the file system exactly as they were.
+     */
+    private static void requireUsableArguments(SimRobotConfig config, FakeTimer timer, double deltaTimeSeconds,
+            Path rlogPath, TickGate gate, TickPacer pacer, List<? extends LogDataReceiver> extraReceivers,
+            ScenarioBody body) {
+        if (config == null || timer == null || rlogPath == null || body == null) {
+            throw new IllegalArgumentException("ScenarioRunner: config, timer, rlogPath and body must all be "
+                    + "non-null (config=" + config + ", timer=" + timer + ", rlogPath=" + rlogPath
+                    + ", body=" + body + ")");
+        }
+        if (gate == null || pacer == null || extraReceivers == null) {
+            throw new IllegalArgumentException("ScenarioRunner: gate, pacer and extraReceivers must all be "
+                    + "non-null; use fixedTickCount(n), NO_PACING and an empty list for a plain headless run");
+        }
+        if (!(deltaTimeSeconds > 0.0) || Double.isInfinite(deltaTimeSeconds)) {
+            throw new IllegalArgumentException("ScenarioRunner: deltaTimeSeconds must be a finite number of "
+                    + "seconds greater than zero, got " + deltaTimeSeconds);
+        }
+        // PsiKit's RLOGWriter appends ".rlog" to any name that lacks it, so "run1.log" would be written to
+        // "run1.log.rlog" and every check after the run would look at a file that was never written.
+        if (!rlogPath.getFileName().toString().endsWith(".rlog")) {
+            throw new IllegalArgumentException("ScenarioRunner: rlogPath must end in .rlog, got " + rlogPath
+                    + " (PsiKit would silently write to " + rlogPath.getFileName() + ".rlog instead)");
+        }
+    }
+
+    /** The body of {@link #runUntil}, once its arguments are checked and the one-run guard is held. */
+    private static int runOnce(String opModeName, SimRobotConfig config, FakeTimer timer,
+            double deltaTimeSeconds, Path rlogPath, TickGate gate, TickPacer pacer,
+            List<? extends LogDataReceiver> extraReceivers, ScenarioBody body) {
         Path dir = rlogPath.toAbsolutePath().getParent();
         String fileName = rlogPath.getFileName().toString();
-        String baseName = fileName.endsWith(".rlog") ? fileName.substring(0, fileName.length() - 5) : fileName;
+        String baseName = fileName.substring(0, fileName.length() - ".rlog".length());
 
         try {
             Files.createDirectories(dir);
@@ -87,13 +278,36 @@ public final class ScenarioRunner {
             throw new UncheckedIOException("ScenarioRunner: could not create RLOG directory " + dir, e);
         }
 
+        // Reset PsiKit BEFORE the delete: Logger.reset() begins with end(), which closes any receiver still
+        // attached from an earlier logging session - including a writer holding this very path open. Deleting
+        // first could refuse a run whose handle the reset was about to release.
         Logger.reset();
+
+        // Delete the previous run's file OURSELVES, and fail if that is impossible. PsiKit's
+        // RLOGWriter.start() also deletes it, but ignores the result and then opens the file in APPEND mode
+        // (checked by disassembling the pinned core-0.2.0-beta2 jar). On Windows a file that some stream
+        // still holds open cannot be deleted, so a failed delete there used to mean this run's frames were
+        // written after the old run's, and the file decoded to the wrong number of frames.
+        try {
+            Files.deleteIfExists(rlogPath);
+        } catch (IOException e) {
+            throw new IllegalStateException("ScenarioRunner: could not delete the old RLOG at " + rlogPath
+                    + " before '" + opModeName + "' -- something still holds it open. PsiKit would append this"
+                    + " run to the old file instead of replacing it, so the run is refused.", e);
+        }
+
         Logger.setTimeSource(timer::time);
         Logger.recordMetadata("OpMode", opModeName);
-        Logger.recordMetadata("SimRobotConfig", config.getClass().getSimpleName());
+        Logger.recordMetadata("SimRobotConfig", configName(config));
         // Two-arg ctor: the single-arg form prepends the Android path /sdcard/FIRST/PsiKit/ (jar behaviour);
         // (dir, name) keeps the RLOG in the JVM build dir for AdvantageScope replay.
         Logger.addDataReceiver(new RLOGWriter(dir.toString(), baseName));
+        // Extra receivers go between the writer and the counter below, so a frame counts as written only once
+        // they have had it too. A slow one (a live RLOGServer with a sluggish client) therefore slows the
+        // producer down rather than letting PsiKit's queue overflow and drop frames - the right way round.
+        for (LogDataReceiver extra : extraReceivers) {
+            Logger.addDataReceiver(extra);
+        }
 
         // Added AFTER the writer, so a frame is only counted once the writer has finished with it. That
         // ordering is what makes the count usable as backpressure: see WrittenFrameCounter.
@@ -102,13 +316,14 @@ public final class ScenarioRunner {
 
         Logger.start();
 
+        int ticks = 0;
         int firstDroppedTick = -1;
         // The tick loop is wrapped so that PsiKit is shut down on EVERY exit path, not only the happy one.
         // Logger is global static state holding an open RLOGWriter file handle; a throw out of the scenario
         // body or out of the pacer used to leave that handle open until some later Logger.reset() happened
         // to call end() for us. See the catch below for why the original exception is the one that escapes.
         try {
-            for (int i = 0; i < ticks; i++) {
+            for (int i = 0; gate.shouldRunTick(i); i++) {
                 timer.advance(deltaTimeSeconds);
                 Logger.periodicBeforeUser();
                 body.tick(deltaTimeSeconds);
@@ -124,6 +339,8 @@ public final class ScenarioRunner {
                 }
 
                 paceProducerToWriter(i + 1, written);
+                ticks = i + 1;
+                pacer.afterTick(ticks, timer.time());
             }
         } catch (RuntimeException | Error failureDuringTheRun) {
             // Close the writer before the exception leaves, and let the ORIGINAL failure be the one the
@@ -146,6 +363,11 @@ public final class ScenarioRunner {
 
         Logger.end();
 
+        if (ticks == 0) {
+            throw new IllegalStateException("ScenarioRunner: '" + opModeName + "' ran no ticks -- the gate said"
+                    + " stop before tick 0 ran (the arguments were fine; the input ended at once), so " + rlogPath
+                    + " is not a record of anything.");
+        }
         if (firstDroppedTick >= 0) {
             throw new IllegalStateException("ScenarioRunner: PsiKit's async RLOG-writer queue overflowed "
                     + "during '" + opModeName + "', first at tick " + firstDroppedTick + " of " + ticks
@@ -164,6 +386,16 @@ public final class ScenarioRunner {
         }
 
         requireOneDecodedFramePerTick(opModeName, rlogPath, ticks);
+        return ticks;
+    }
+
+    /**
+     * The name recorded as the "SimRobotConfig" metadata: the class's simple name, or its full name when
+     * the simple name is empty (an anonymous class, such as a test stub, has no simple name).
+     */
+    private static String configName(SimRobotConfig config) {
+        String simpleName = config.getClass().getSimpleName();
+        return simpleName.isEmpty() ? config.getClass().getName() : simpleName;
     }
 
     /**
@@ -316,8 +548,11 @@ public final class ScenarioRunner {
         int decodedFrames;
         try {
             decodedFrames = RlogDecodedCompare.decode(rlogPath).size();
-        } catch (IOException e) {
-            throw new UncheckedIOException("ScenarioRunner: '" + opModeName + "' wrote " + rlogPath
+        } catch (IOException | IllegalArgumentException e) {
+            // Both of decode's failure modes: an unreadable file (IOException) and a missing or empty one
+            // (IllegalArgumentException). Either way the log cannot be shown to be complete, which is the
+            // same "not a record of the run" statement as every other check here, so the same exception.
+            throw new IllegalStateException("ScenarioRunner: '" + opModeName + "' wrote " + rlogPath
                     + " but it could not be decoded back, so there is no way to tell whether the run is"
                     + " complete", e);
         }

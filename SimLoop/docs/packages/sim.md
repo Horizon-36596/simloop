@@ -11,6 +11,12 @@ The clock, the loop, and getting a log back out again.
 | `FakeTimer` | The deterministic clock. Advances only when a tick advances it. |
 | `ScenarioRunner` | Runs a whole scenario: owns the fixed-timestep loop and the entire PsiKit logging lifecycle. |
 | `RlogDecodedCompare` | Decodes an RLOG back into per-frame field maps, and compares two runs field by field. |
+| `SimElapsedTime` | The SDK's `ElapsedTime`, reading a `FakeTimer`. Hand it to code that takes a timer. |
+
+`ScenarioRunner.runUntil(...)` runs a scenario whose length is not known in advance, such as a live
+session that ends when the driver stops. It takes a `TickGate`, a `TickPacer` and extra PsiKit receivers;
+`run(...)` is `runUntil` with a fixed tick count, no pacing and no extra receivers. See
+[`sim.live`](live.md).
 
 ## Running a scenario
 
@@ -56,10 +62,12 @@ Two runs of the same scenario must decode identically, field for field. That is 
 
 ## What this package will not do
 
-- **It will not run your OpMode's lifecycle.** There is no `init`/`start`/`loop` state machine here; the
-  scenario body is a plain lambda and you call what you want in it.
+- **It will not run your OpMode's lifecycle.** The scenario body is a plain lambda and you call what you
+  want in it. To run an `OpMode` or `LinearOpMode` through INIT, the loop and STOP, use
+  [`opmode`](opmode.md).
 - **It will not schedule commands.** If you use SolversLib, SolversLib still owns control flow.
 - **It will not vary the time step.** The tick is fixed, on purpose — a variable step is the single
   easiest way to make two runs disagree.
 - **It will not read wall-clock time anywhere.** If you introduce a `System.nanoTime()` on a sim path, you
-  have broken determinism, and nothing here will catch it for you.
+  have broken determinism, and nothing here will catch it for you. The one class that may wait on the
+  wall clock is `sim.live.RealTimePacer`, and it never changes what a tick computes.

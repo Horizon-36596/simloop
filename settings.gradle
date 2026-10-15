@@ -11,6 +11,11 @@ rootProject.name = 'SimLoop'
 
 include ':SimLoop'
 
+// SimLoop's desktop half: the window that turns held-down keys into a gamepad for a live-drive session. A
+// plain Java library, because SimLoop is an Android module and compiles against android.jar, which has no
+// AWT. Built and tested here so it cannot rot, and never published - see the note at the top of this file.
+include ':SimLoop:desktop'
+
 // The example robot, in `simloop-starter/`. It is a folder teams copy into their own project, and this
 // module is what compiles it and runs its tests so it cannot rot - see examples/build.gradle. It is
 // never published: jitpack.yml installs `:SimLoop:publishToMavenLocal` and nothing else.

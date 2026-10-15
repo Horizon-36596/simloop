@@ -66,7 +66,7 @@ skills and prompts are plain Markdown and work anywhere you can paste text.
 
 If you want a recommendation: we use **Claude Code**, and this folder was built while using it, so the
 Claude-specific paths (`.claude/skills/`, `CLAUDE.md`) are the best-tested route. That is a preference
-and an honest statement of what we have actually exercised — not a claim that the others are worse. Use
+and a plain statement of what we have actually exercised — not a claim that the others are worse. Use
 what your team has access to. Nothing here locks you in, and moving between tools costs you a file copy.
 
 ---

@@ -348,6 +348,66 @@ public class GateTest {
                 "the verdict should say a tie is not an improvement: " + verdict.explain());
     }
 
+    /**
+     * Contract: the improvement detail never prints two different totals as the same number. Implementation
+     * tier — a fixed six-decimal format printed a one-ulp gain as "12.000000 beats 12.000000", which reads
+     * like the gate accepting a tie.
+     */
+    @Test
+    public void aTinyGainIsPrintedSoTheTwoTotalsVisiblyDiffer() throws IOException {
+        Scorer.Score candidate = score("ulp-candidate", Math.nextDown(12.0));
+        Scorer.Score lastBest = score("ulp-lastbest", 12.0);
+
+        Gate.Verdict verdict = new Gate().judge(candidate, Gate.LastBest.of(lastBest),
+                Gate.SuppliedFacts.bothConfirmed());
+
+        String detail = verdict.clause(Gate.Clause.IMPROVES_ON_LAST_BEST).detail();
+        assertEquals(Gate.Outcome.HOLDS, verdict.clause(Gate.Clause.IMPROVES_ON_LAST_BEST).outcome(),
+                "any strictly positive margin counts today");
+        assertFalse(detail.contains("12.000000 beats 12.000000"), detail);
+        assertTrue(detail.contains(String.valueOf(candidate.total())) && detail.contains("by "),
+                "the detail must print the exact totals and the margin: " + detail);
+    }
+
+    /**
+     * Contract: a run that could not be scored gets a verdict that rejects, shows all four clauses, and
+     * says why. Invariant tier — "could not measure" must never read as a pass.
+     */
+    @Test
+    public void anUnscorableRunIsRejectedWithEveryClauseShown() {
+        Gate.Verdict verdict = new Gate().judgeUnscorable("no metric 'Auto/finish'",
+                Gate.SuppliedFacts.bothConfirmed());
+
+        assertFalse(verdict.accepted());
+        assertEquals(4, verdict.clauses().size());
+        assertEquals(Gate.Outcome.HOLDS, verdict.clause(Gate.Clause.TESTS_GREEN).outcome());
+        assertEquals(Gate.Outcome.UNKNOWN, verdict.clause(Gate.Clause.ENVELOPE_HOLDS).outcome());
+        assertEquals(Gate.Outcome.UNKNOWN, verdict.clause(Gate.Clause.IMPROVES_ON_LAST_BEST).outcome());
+        assertTrue(verdict.clause(Gate.Clause.IMPROVES_ON_LAST_BEST).detail().contains("Auto/finish"),
+                verdict.explain());
+    }
+
+    /**
+     * Contract: the terms a log cannot answer block the gate for every candidate, which is why they must not
+     * go in a loop scorer's envelope and why tests-green is a supplied fact instead. Invariant tier — pins
+     * the warning in {@code EnvelopeGuardrails}' javadoc, so it cannot quietly become false.
+     */
+    @Test
+    public void theTermsALogCannotAnswerBlockEveryCandidateSoTheyStayOutOfTheEnvelope() throws IOException {
+        List<Guardrail> envelope = new ArrayList<>(EnvelopeGuardrails.notAnswerableFromALog());
+        envelope.add(holdingGuardrail());
+        Scorer.Score candidate = scoreWith("not-answerable-envelope", envelope);
+
+        Gate.Verdict verdict = new Gate().judge(candidate, Gate.LastBest.firstCandidateOfRun(),
+                Gate.SuppliedFacts.bothConfirmed());
+
+        assertFalse(verdict.accepted(), "even with tests green and review passed: " + verdict.explain());
+        assertEquals(Gate.Outcome.UNKNOWN, verdict.clause(Gate.Clause.ENVELOPE_HOLDS).outcome());
+        assertThrows(UnsupportedOperationException.class,
+                () -> EnvelopeGuardrails.notAnswerableFromALog().add(holdingGuardrail()),
+                "the list is not a caller's to edit");
+    }
+
     /** Contract: a genuinely better candidate on the same scenario and objective is accepted. */
     @Test
     public void aBetterCandidateOnTheSameScenarioAndObjectiveIsAccepted() throws IOException {
@@ -374,8 +434,8 @@ public class GateTest {
      * down and cannot be reached from the gate's side: {@link Objective} refuses a non-finite metric when
      * the score is built, and {@code Guardrail.Verdict.overBudget} refuses a non-finite penalty, so
      * {@code total()} can be negative infinity (a violated envelope, on purpose) but never NaN. The gate
-     * keeps its own NaN check as the last line — it takes a bare {@code double} from another class and
-     * costs one branch — but the check that does the work is this one, so this is the one under test.
+     * therefore has no NaN branch of its own; this is the check that does the work, so it is the one under
+     * test.
      */
     @Test
     public void aNonFiniteMeasurementIsRefusedWhenTheScoreIsBuiltAndNeverReachesTheGate() throws IOException {

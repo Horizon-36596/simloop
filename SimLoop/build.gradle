@@ -20,7 +20,7 @@ apply plugin: 'maven-publish'
 // Maven Central namespace is granted by proving control of the domain the group is named after, so this
 // group is claimable later and a com.github.* one would have to be swapped for one that is.
 group = 'org.horizon36596'
-version = '0.1.0-beta1'
+version = '0.2.0-alpha.1'
 
 android {
     namespace = 'org.horizon36596.simloop'
@@ -65,6 +65,18 @@ android {
         unitTests.all {
             useJUnitPlatform()
         }
+
+        // Android framework calls return 0/null/false in unit tests instead of throwing "not mocked".
+        // SimLoop needs it for one reason: the SDK's orientation types - the
+        // `new RevHubOrientationOnRobot(logo, usb)` every FTC team writes, and the SDK helper FakeImu reads
+        // through - build an OpenGLMatrix, whose constructor calls android.opengl.Matrix.setIdentityM.
+        // Without this flag that throws in any JVM test. With it the call is a no-op, and the SDK's result is
+        // still exact: it fills the matrix's 3x3 rotation block itself and reads only that block back
+        // (checked against the SDK 12.0 bytecode; FakeImuTest pins the numbers).
+        //
+        // What this hides: any OTHER Android call on a SimLoop test path now returns a default silently.
+        // If a test behaves oddly around logging or anything else Android-shaped, suspect this line.
+        unitTests.returnDefaultValues = true
     }
 }
 
@@ -119,8 +131,11 @@ dependencies {
     // project this never shows, because every module there already declares the SDK for its own reasons;
     // for a consumer who does not, the first thing they would see is `cannot find symbol: class
     // DcMotorEx` pointing at our jar.
-    api 'org.firstinspires.ftc:RobotCore:11.2.1'
-    api 'org.firstinspires.ftc:Hardware:11.2.1'
+    //
+    // SDK 12.0.0 rather than 11.x because the fakes for the goBILDA Pinpoint, the SparkFun OTOS and the
+    // Limelight 3A replicate the SDK 12.0 driver classes, method for method.
+    api 'org.firstinspires.ftc:RobotCore:12.0.0'
+    api 'org.firstinspires.ftc:Hardware:12.0.0'
 
     // PsiKit — logging / replay / IO wrappers. Pinned deliberately: see PUBLISHING.md on why an SDK or
     // PsiKit version change is a MAJOR bump for this library rather than a tidy-up.
@@ -159,6 +174,15 @@ dependencies {
     // the platform release that pairs with Jupiter 5.11.3 above; they move together. Found on 2026-09-15,
     // importing this library into a season project on Gradle 9.1.0.
     testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.11.3"
+
+    // The real org.json, for JVM tests only. FakeLimelight3A builds the JSON a Limelight serves and hands it
+    // to the SDK's own LLResult parser, which is written against org.json. On the robot Android provides
+    // org.json, so nothing ships; but in a JVM unit test the android.jar copy is a stub whose every method
+    // throws "not mocked" (or, with unitTests.returnDefaultValues, silently returns null and 0, which would
+    // make every fake result empty). A test dependency is ahead of that stub on the test classpath, so the
+    // parser runs for real. Runtime only: no test source imports org.json. Any module whose tests use
+    // FakeLimelight3A needs this same line.
+    testRuntimeOnly "org.json:json:20250517"
 }
 
 // What gets published, and the POM that describes it.

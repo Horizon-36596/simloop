@@ -278,6 +278,46 @@ class Mechanism1DofPlantTest {
     }
 
     @Test
+    void heldPowerPositionMatchesAnalyticIntegral() {
+        // Position is the exact integral of that exponential velocity, not a rectangle-rule sum of it:
+        // from rest under a held command speed c, x(t) = c * (t - tau * (1 - exp(-t/tau))) to fp
+        // precision. A `position += velocity * dt` step runs ahead of this by about c*dt/2 during the
+        // transient, so it would miss 1e-9 by six orders of magnitude.
+        double tau = 0.5;
+        double maxSpeed = 10.0;
+        double commandSpeed = maxSpeed; // power = 1.0
+        FakeMotor m = motor();
+        Mechanism1DofPlant plant = new Mechanism1DofPlant(m, config(tau, maxSpeed, 0.0, 1e6));
+        m.setPower(1.0);
+
+        double t = 0.0;
+        for (int i = 0; i < 100; i++) {
+            plant.update(DT);
+            t += DT;
+            double predicted = commandSpeed * (t - tau * (1.0 - StrictMath.exp(-t / tau)));
+            assertEquals(predicted, plant.getPosition(), 1e-9,
+                    "position must track the analytic integral of the first-order curve at t=" + t);
+        }
+    }
+
+    @Test
+    void positionIsTheSameHoweverTheSameTimeIsTicked() {
+        // Because both velocity and position are exact per tick, 1 s reached in 25 coarse ticks and in
+        // 200 fine ticks lands in the same place (away from the end limits).
+        FakeMotor coarseMotor = motor();
+        FakeMotor fineMotor = motor();
+        Mechanism1DofPlant coarse = new Mechanism1DofPlant(coarseMotor, config(0.2, 10.0, 0.0, 1e6));
+        Mechanism1DofPlant fine = new Mechanism1DofPlant(fineMotor, config(0.2, 10.0, 0.0, 1e6));
+        coarseMotor.setPower(0.7);
+        fineMotor.setPower(0.7);
+        for (int i = 0; i < 25; i++) coarse.update(0.04);
+        for (int i = 0; i < 200; i++) fine.update(0.005);
+
+        assertEquals(fine.getPosition(), coarse.getPosition(), 1e-9,
+                "the same sim time must give the same position at any tick size");
+    }
+
+    @Test
     void hittingAWallStallsVelocityToZero() {
         // Pins the anti-windup choice — velocity resets to 0 while position sits at a hard stop still
         // driving into it, so a reversing command releases immediately instead of unwinding stored
@@ -288,6 +328,25 @@ class Mechanism1DofPlantTest {
         for (int i = 0; i < 500; i++) plant.update(DT); // drive into the top stop
         assertEquals(48.0, plant.getPosition(), 1e-6, "precondition: at the top limit");
         assertEquals(0.0, plant.getVelocity(), 0.0, "velocity must stall to 0 against the hard stop");
+    }
+
+    @Test
+    void reversingIntoAWallMidTickStillStallsVelocity() {
+        // Rushing up at ~10 units/s just under the top stop, the command reverses for one long tick
+        // (dt = 0.4 s > tau*ln2): the exact travel still carries the mechanism past 48 and is clamped onto
+        // it, but the end-of-tick velocity formula already points DOWN (-0.1 * maxSpeed). The mechanism hit
+        // the wall during the tick, so it must report zero speed, not a speed it could not have.
+        FakeMotor m = motor();
+        Mechanism1DofPlant plant = new Mechanism1DofPlant(m, config(0.5, 10.0, 0.0, 48.0));
+        m.setPower(1.0);
+        while (plant.getPosition() < 47.0) plant.update(DT);
+        assertTrue(plant.getVelocity() > 9.0, "precondition: moving fast toward the top stop");
+
+        m.setPower(-1.0);
+        plant.update(0.4);
+
+        assertEquals(48.0, plant.getPosition(), 0.0, "precondition: the tick's travel was clamped onto the stop");
+        assertEquals(0.0, plant.getVelocity(), 0.0, "a mechanism that hit a wall mid-tick ends the tick at rest");
     }
 
     @Test

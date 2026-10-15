@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 4,
+  "name": "TurretTestRobot",
+
+  "source": {
+    "tool": "hand",
+    "note": "SimLoop's turret test robot: a fixture with no CAD and no real robot behind it, authored by hand to exercise TurretSketch. Not linked to any season robot.",
+    "mechanismDoc": "SimLoop/src/test/java/org/horizon36596/simloop/viz/TurretTestRobot.java"
+  },
+
+  "units": { "length": "inches", "angle": "radians" },
+
+  "frame": {
+    "convention": "robot frame: +X robot-forward, +Y robot-left, +Z up",
+    "origin": "centre of drivetrain footprint at floor level",
+    "source": "hand"
+  },
+
+  "canvas": {
+    "widthInches": 16.0,
+    "heightInches": 24.0,
+    "backgroundColorHex": "#202020",
+    "horizontalAxis": { "x": 1.0, "y": 0.0, "z": 0.0 },
+    "verticalAxis":   { "x": 0.0, "y": 0.0, "z": 1.0 }
+  },
+
+  "mountPointInches": { "x": -2.0, "y": 0.0, "z": 8.0 },
+
+  "joints": [
+    {
+      "name": "yaw",
+      "type": "REVOLUTE",
+      "parent": null,
+      "zeroPoseDirection": { "x": 0.0, "y": 0.0, "z": 1.0 },
+      "rotationAxis": { "x": 0.0, "y": 0.0, "z": 1.0 },
+      "armLengthInches": 6.0,
+      "minAngleRadians": -3.0,
+      "maxAngleRadians": 3.0,
+      "namedPositions": [
+        { "name": "forward", "angleRadians": 0.0 },
+        { "name": "limitCw", "angleRadians": -3.0 },
+        { "name": "limitCcw", "angleRadians": 3.0 }
+      ],
+      "colorHex": "#FFD24C",
+      "lineWeightPixels": 8.0,
+      "stateKey": "TestRobot/Turret/measuredRad"
+    },
+    {
+      "name": "hood",
+      "type": "REVOLUTE",
+      "parent": "yaw",
+      "zeroPoseDirection": { "x": 0.8660254037844387, "y": 0.0, "z": 0.49999999999999994 },
+      "rotationAxis": { "x": 0.0, "y": -1.0, "z": 0.0 },
+      "armLengthInches": 5.0,
+      "minAngleRadians": 0.0,
+      "maxAngleRadians": 0.6981317007977318,
+      "namedPositions": [
+        { "name": "low", "angleRadians": 0.0 },
+        { "name": "high", "angleRadians": 0.6981317007977318 }
+      ],
+      "colorHex": "#FF9F4C",
+      "lineWeightPixels": 6.0,
+      "stateKey": "TestRobot/Hood/jointRad"
+    }
+  ]
+}

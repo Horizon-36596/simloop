@@ -22,10 +22,12 @@ It is a **`testImplementation` dependency**. Nothing in it runs on a robot, and 
 ever import it.
 
 - Package root: `org.horizon36596.simloop`
-- Coordinate: `com.github.Horizon-36596:simloop:v0.1.0-beta1` (JitPack; the version keeps its leading
+- Coordinate: `com.github.Horizon-36596:simloop:v0.2.0-alpha.1` (JitPack; the version keeps its leading
   `v` because a JitPack version *is* the git tag)
 - Documentation: <https://libraries.horizon36596.org/simloop/>
 - Licence: BSD-3-Clause
+- Status: alpha. The API may change between alpha versions, so the version stays pinned.
+- Needs FTC SDK 12.0 in this project.
 
 ## Run the tests with
 
@@ -49,11 +51,12 @@ before writing a test, not after one fails.
 
 ### 1. Do not invent an API
 
-The public surface is small and completely listed below. If the thing you want is not in it, it does not
-exist, and the honest move is to say so. **Before claiming SimLoop can do something, check
-[what it does not do](https://libraries.horizon36596.org/simloop/limits/).** Contact physics, vision,
-AprilTags, field geometry, command scheduling, controller tuning and calibration are all deliberately
-out of scope. A plausible method name half-remembered from another library is the single most common way
+The public surface is completely listed below. If the thing you want is not in it, it does not exist,
+and the right move is to say so. **Before claiming SimLoop can do something, check
+[what it does not do](https://libraries.horizon36596.org/simloop/limits/).** A rendered camera image,
+intake rollers that really grip, a shipped field, a command scheduler and controller tuning are all
+deliberately out of scope. Game-piece physics, a geometry-only camera and fitting the plant to a real log
+do exist, each with stated limits. A plausible method name half-remembered from another library is the single most common way
 this goes wrong.
 
 Every class, method and field, with units and frame on every number:
@@ -132,17 +135,24 @@ a specific subsystem, the answer is a config implementation on this side, not a 
 
 ## The whole public surface
 
-Seven packages. Complete as of `v0.1.0-beta1`.
+Thirteen packages. Complete as of `v0.2.0-alpha.1`. Every feature, one line each:
+<https://libraries.horizon36596.org/simloop/features/>.
 
 | Package | Classes | What it is for |
 |---|---|---|
-| `fakehardware` | `FakeMotor`, `FakeServo`, `FakeCRServo`, `FakeExternalEncoder`, `FakeDigitalChannel`, `FakeAnalogInput`, `FakeVoltageSensor`, `FakeI2cDeviceSynchSimple`, `FakeHardwareMap`, plus `FakeDevice` and `AbstractFakeDevice`, the interface and base class the devices share | Fake SDK devices. Ticks, volts, `[-1, 1]` power. They behave like the real SDK classes, including the awkward parts. |
-| `plant` | `Mechanism1DofPlant`, `MultiDofMechanismPlant`, `PositionalServoPlant`, `OneDofPlant`, `MecanumDrivePlant`, `MecanumPoseIntegrator` | The physics. First-order models: time constant, max speed, end stops, gravity fraction. Not rigid-body, not contact. |
+| `fakehardware` | `FakeMotor`, `FakeServo`, `FakeCRServo`, `FakeExternalEncoder`, `FakeDigitalChannel`, `FakeAnalogInput`, `FakeVoltageSensor`, `FakeImu`, `FakeGoBildaPinpoint`, `FakeSparkFunOTOS`, `FakeLimelight3A`, `FakeTouchSensor`, `FakeDistanceSensor`, `FakeRevColorSensorV3`, `ColorCounts`, `SwitchPolarity`, `FakeI2cDeviceSynchSimple`, `FakeHardwareMap`, plus `FakeDevice` and `AbstractFakeDevice` | Fake SDK 12.0 devices. Ticks, volts, `[-1, 1]` power; millimetres and radians on the odometry seam. They behave like the real SDK classes, including the awkward parts. |
+| `plant` | `Mechanism1DofPlant`, `MultiDofMechanismPlant`, `PositionalServoPlant`, `OneDofPlant`, `MecanumDrivePlant`, `MecanumPoseIntegrator` | The physics behind the motors and servos. First-order models: time constant, max speed, end stops, gravity fraction. Not rigid-body. |
 | `config` | `SimRobotConfig`, `MechanismSimConfig`, `DrivetrainSimConfig`, `PositionalServoSimConfig`, `ContinuousRotationSimConfig` | The interfaces this project implements to describe its own robot. The only way facts get in. |
-| `sim` | `FakeTimer`, `ScenarioRunner`, `RlogDecodedCompare` | Running a scenario and writing the log. |
-| `field` | `GamePiece`, `GamePieceTracker`, `PossessionState`, `TriggerVolume`, `FieldFrameTransform` | Possession *logic* — where a piece is and who holds it. Not intaking, not contact. |
+| `sim` | `FakeTimer`, `ScenarioRunner`, `RlogDecodedCompare`, `SimElapsedTime` | Running a scenario and writing the log. `SimElapsedTime` is an SDK `ElapsedTime` on sim time. |
+| `sim.live` | `GamepadInputSource`, `GamepadInputGate`, `GamepadInputTrack`, `GamepadState`, `KeyboardGamepadSource`, `RecordingGamepadInputSource`, `RealTimePacer` | Keyboard driving, recorded gamepad tracks, replay to the same log. The keyboard window is an unpublished module. |
+| `opmode` | `OpModeRunner`, `OpModeRunResult`, `GamepadScript`, `OpModePhase`, `RecordingTelemetry`, `OpModeException` | Running this project's `OpMode` or `LinearOpMode` unchanged through INIT, the loop and STOP. |
+| `simclock` | `SimClockLoader`, `SimClockElapsedTime`, `SimClockHooks`, `SimClockScheduler`, `JvmInstructions` | Used by `OpModeRunner.forTeamClass(...)` to move this project's own timer calls onto sim time. Not called directly. |
+| `field` | `GamePiece`, `GamePieceTracker`, `PossessionState`, `TriggerVolume`, `FieldFrameTransform`, `FieldWorld`, `GamePiecePhysicsConfig`, `ObstacleBox`, `ScoringVolume`, `KinematicBody`, `HingeDynamics`, `BodyCell`, `ConvexShape`, `RobotShape`, `OrientedBox`, `StaticRobot`, `FootprintContact`, `RobotContact`, `SeededRandom` | Game pieces with possession and physics, goals, field structures, robot contact. Intaking is still a box test. |
+| `sensor` | `SensorMount`, `RangeFinder`, `RangeHit`, `ColorProbe`, `ContactSwitch` | What a touch, distance or colour sensor on the robot sees or touches on the field. |
+| `vision` | `CameraLens`, `CameraMount`, `SimCamera`, `CameraSighting`, `AprilTagLayout`, `SimTagCamera`, `TagSighting`, `RigidTransform3`, `RobotFramePoint` | Which pieces and AprilTags a camera sees, and where. Geometry only; no image. |
+| `fit` | `FirstOrderFit`, `GapReport`, `LeastSquares`, `RlogTimeSeries` | Fitting the first-order plant to a real robot log, and a sim-against-robot gap report. Changes no constant. |
 | `loop` | `RunResult`, `Objective`, `Guardrail`, `EnvelopeGuardrails`, `Scorer`, `Gate`, `Milestone`, `LoopDriver`, `StopReport` | Reading a log back and scoring it. |
-| `viz` | `MechanismSketch`, `MechanismSketchDefinition`, `JointDefinition`, `RevoluteJointDefinition`, `LinearJointDefinition`, `RobotVector3` | Drawing a mechanism's pose for AdvantageScope. Inches, radians, robot frame. |
+| `viz` | `MechanismSketch`, `MechanismSketchDefinition`, `JointDefinition`, `RevoluteJointDefinition`, `LinearJointDefinition`, `TurretSketch`, `TurretSketchDefinition`, `ArticulatedRobotModel`, `ShotArc`, `ShotArcRecorder`, `RobotVector3` | Drawing mechanisms, robot parts and shots for AdvantageScope. Inches and radians in, metres in the log. |
 
 ## The shape of every test
 
@@ -183,7 +193,7 @@ In this order, stopping as soon as one answers it:
 4. <https://libraries.horizon36596.org/simloop/javadoc/> — the exact signature.
 
 If none of them answer it, **say you do not know**. Guessing an API and writing a test that passes for
-the wrong reason costs the team more than an honest stop does.
+the wrong reason costs the team more than a plain stop does.
 
 ---
 

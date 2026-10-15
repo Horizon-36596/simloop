@@ -48,8 +48,8 @@ Do this in order. Stop as soon as one of them explains it.
 4. **Check the units.** SimLoop converts nothing. A config in inches and a subsystem in ticks produces
    numbers that look almost right, which is the hardest kind of wrong to see.
 5. **Ask whether SimLoop models this at all.** <https://libraries.horizon36596.org/simloop/limits/>. If
-   the test needs contact physics or vision, the test is asking for something that does not exist and
-   the honest fix is to delete it or reduce its scope.
+   the test needs intake rollers that really grip, a rendered camera image or a command scheduler, it is
+   asking for something that does not exist, and the right fix is to delete it or reduce its scope.
 
 ## Before you call it fixed
 

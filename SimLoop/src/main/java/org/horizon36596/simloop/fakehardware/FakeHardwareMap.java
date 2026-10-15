@@ -2,20 +2,24 @@ package org.horizon36596.simloop.fakehardware;
 
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.ColorSensor;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DigitalChannel;
+import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.HardwareDevice;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
+import com.qualcomm.robotcore.hardware.TouchSensor;
 import com.qualcomm.robotcore.hardware.VoltageSensor;
+import com.qualcomm.robotcore.util.SerialNumber;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * JVM-constructible {@link HardwareMap} that resolves fake devices by config name
- * (fakehardware-plant §6). Devices are registered under the SAME names the real robot config uses,
- * so the same subsystem code resolves them in sim and on the robot (domain R1).
+ * JVM-constructible {@link HardwareMap} that resolves fake devices by config name. Devices are registered
+ * under the SAME names the real robot config uses, so the same subsystem code resolves them in sim and on
+ * the robot.
  *
  * <p>Subclassing the SDK {@code HardwareMap} with a null context is the JVM seam PsiKit's own test
  * {@code JVMHardwareMap} relies on. The harness ticks the plant via {@link #updateAll(double)}.
@@ -28,17 +32,45 @@ import java.util.List;
  * A private map also silently dropped the SDK's own naming rules: it did not trim the name, and registering
  * two devices of different types under one name overwrote the first instead of keeping both. Registering
  * through {@link DeviceMapping#put} gets every one of those behaviours from the SDK rather than
- * re-implementing them, which is what the fidelity rule asks for. (Found by the 2026-09-17 adversarial
- * review, findings {@code hardware-map-split-state} and {@code hardware-map-name-semantics}.)
+ * re-implementing them, which is what the fidelity rule asks for.
+ *
+ * <h2>Registering the same name or the same device twice</h2>
+ * These are the SDK's rules, because registration goes through the SDK's own {@code DeviceMapping.put}:
+ * <ul>
+ *   <li>The same device again, under the same or another name: one device, known by each name.</li>
+ *   <li>A different device of the <b>same</b> type under a name already taken: the new one
+ *       <b>replaces</b> the old — {@code DeviceMapping.put} removes whatever that mapping held under the
+ *       name before adding the new device.</li>
+ *   <li>A device of a <b>different</b> type under a taken name: both are kept, and a typed lookup returns
+ *       the one that fits.</li>
+ * </ul>
+ * {@link #updateAll(double)} ticks exactly the fakes the map currently holds, once each: a device
+ * registered under three names is ticked once, and a device that has been replaced or removed is no longer
+ * part of the simulated robot and is not ticked at all.
+ *
+ * <h2>One deliberate difference: enumeration order</h2>
+ * The SDK builds the list behind {@code getAll}, {@code size} and iteration out of a {@code HashSet} of
+ * devices, and a device that does not override {@code hashCode} hashes by identity — so on a real robot
+ * {@code getAll(DcMotor.class)} comes back in an order that can change from one run to the next. A sim that
+ * changed order between runs could not replay deterministically, so this map keeps that list in
+ * <b>registration order</b> instead. The set of devices returned is exactly the SDK's; only the order is
+ * pinned. Robot code that depends on the SDK's order is depending on something the robot does not promise.
  */
 public class FakeHardwareMap extends HardwareMap {
 
     /**
-     * Registration order, kept only so {@link #updateAll(double)} ticks plants in a fixed sequence. The
-     * SDK's own storage is unordered, and a sim whose plants update in hash order is not deterministic
-     * (domain R5). This list is never read as a lookup table — that is what the inherited map is for.
+     * Every fake to tick, once each, in the order it was first registered, so {@link #updateAll(double)}
+     * advances plants in a fixed sequence. Holds exactly the registered fakes still in the map (class
+     * javadoc). This list is never read as a lookup table — that is what the inherited map is for.
      */
-    private final List<FakeDevice> devicesInRegistrationOrder = new ArrayList<>();
+    private final List<FakeDevice> devicesToTickInRegistrationOrder = new ArrayList<>();
+
+    /**
+     * Every device currently in the inherited map, once each, in the order it was first put there. Copied
+     * into the SDK's {@code allDevicesList} after each change so {@code getAll}, {@code size} and iteration
+     * enumerate in this order rather than in identity-hash order (see the class javadoc).
+     */
+    private final List<HardwareDevice> allDevicesInFirstPutOrder = new ArrayList<>();
 
     /** Creates an empty map; register each fake device with {@link #register(String, HardwareDevice)}. */
     public FakeHardwareMap() {
@@ -53,11 +85,36 @@ public class FakeHardwareMap extends HardwareMap {
      * @param name   the config name the robot code will look the device up by, matching the robot's real
      *               configuration file; unitless, and leading and trailing whitespace is trimmed by the
      *               SDK exactly as it is on a real Control Hub
-     * @param device the fake to return under that name, and to tick on {@link #updateAll(double)}
+     * @param device the fake to return under that name, and to tick on {@link #updateAll(double)}. A device
+     *               already registered (under this or any other name) is still ticked only once; a device
+     *               of the same type that this one replaces under {@code name} stops being ticked.
      */
     public <T extends HardwareDevice & FakeDevice> void register(String name, T device) {
+        // The same device under the same name again changes nothing in the SDK's end state. Returning early
+        // matters for order: DeviceMapping.put would remove and re-add it, moving it to the back of both the
+        // tick order and the enumeration order.
+        List<HardwareDevice> alreadyUnderThatName = allDevicesMap.get(name.trim());
+        if (alreadyUnderThatName != null && containsThisExactObject(alreadyUnderThatName, device)) {
+            return;
+        }
         putIntoTheMatchingTypedMapping(name, device);
-        devicesInRegistrationOrder.add(device);
+        if (!containsThisExactObject(devicesToTickInRegistrationOrder, device)) {
+            devicesToTickInRegistrationOrder.add(device);
+        }
+        stopTickingDevicesNoLongerInTheMap();
+    }
+
+    /**
+     * Drops from the tick list every fake the SDK no longer holds under any name — one replaced by a later
+     * registration, or removed — so {@link #updateAll(double)} never advances a device robot code cannot
+     * reach.
+     */
+    private void stopTickingDevicesNoLongerInTheMap() {
+        for (int i = devicesToTickInRegistrationOrder.size() - 1; i >= 0; i--) {
+            if (!isRegisteredUnderAnyName(devicesToTickInRegistrationOrder.get(i))) {
+                devicesToTickInRegistrationOrder.remove(i);
+            }
+        }
     }
 
     /**
@@ -79,6 +136,13 @@ public class FakeHardwareMap extends HardwareMap {
      * it in the same mapping. No other fake in this package matches two branches today; if one is added
      * that does, the order of this chain becomes a decision rather than an accident, and it should be
      * stated here at that point.
+     *
+     * <p><b>Sensors go in the way the SDK files a configured sensor.</b> A touch, colour or distance sensor
+     * ({@link FakeTouchSensor}, {@link FakeRevColorSensorV3}, {@link FakeDistanceSensor}) takes the branch
+     * that {@code SensorFiling} describes, which puts one device into every mapping it fits, as the real
+     * configuration parser does - so a colour sensor V3 is in
+     * {@code hardwareMap.colorSensor}, {@code hardwareMap.lightSensor} and
+     * {@code hardwareMap.opticalDistanceSensor} at once.
      */
     private void putIntoTheMatchingTypedMapping(String name, HardwareDevice device) {
         if (device instanceof DcMotor) {
@@ -89,6 +153,9 @@ public class FakeHardwareMap extends HardwareMap {
             servo.put(name, (Servo) device);
         } else if (device instanceof DigitalChannel) {
             digitalChannel.put(name, (DigitalChannel) device);
+        } else if (device instanceof TouchSensor || device instanceof ColorSensor
+                || device instanceof DistanceSensor) {
+            SensorFiling.putIntoEveryMappingItFits(this, name, device);
         } else if (device instanceof AnalogInput) {
             analogInput.put(name, (AnalogInput) device);
         } else if (device instanceof VoltageSensor) {
@@ -96,6 +163,70 @@ public class FakeHardwareMap extends HardwareMap {
         } else {
             put(name, device);
         }
+    }
+
+    /**
+     * The SDK's own {@code internalPut} — every put, typed or not, ends here — followed by pinning the
+     * enumeration order (class javadoc). The SDK's version clears its device list whenever a new device
+     * arrives, to rebuild it from a {@code HashSet} on the next read; this puts back an ordered one instead.
+     */
+    @Override
+    protected void internalPut(SerialNumber serialNumber, String deviceName, HardwareDevice device) {
+        // Under the SDK's own lock, as its internalPut is, so a reader never sees the unordered list.
+        synchronized (lock) {
+            super.internalPut(serialNumber, deviceName, device);
+            if (!containsThisExactObject(allDevicesInFirstPutOrder, device)) {
+                allDevicesInFirstPutOrder.add(device);
+            }
+            allDevicesList = new ArrayList<>(allDevicesInFirstPutOrder);
+        }
+    }
+
+    /**
+     * The SDK's own {@code remove} — every removal ends here, including the one {@code DeviceMapping.put}
+     * makes when a registration replaces a device — followed by pinning the enumeration order. A device
+     * leaves the ordered list, and stops being ticked, only once it is registered under no name at all,
+     * which is when the SDK's own list would lose it too.
+     */
+    @Override
+    public boolean remove(SerialNumber serialNumber, String deviceName, HardwareDevice device) {
+        synchronized (lock) {
+            boolean removed = super.remove(serialNumber, deviceName, device);
+            if (!isRegisteredUnderAnyName(device)) {
+                for (int i = 0; i < allDevicesInFirstPutOrder.size(); i++) {
+                    if (allDevicesInFirstPutOrder.get(i) == device) {
+                        allDevicesInFirstPutOrder.remove(i);
+                        break;
+                    }
+                }
+            }
+            allDevicesList = new ArrayList<>(allDevicesInFirstPutOrder);
+            stopTickingDevicesNoLongerInTheMap();
+            return removed;
+        }
+    }
+
+    /** Whether {@code device} is still registered under at least one name in the inherited map. */
+    private boolean isRegisteredUnderAnyName(Object device) {
+        for (List<HardwareDevice> devicesUnderOneName : allDevicesMap.values()) {
+            if (containsThisExactObject(devicesUnderOneName, device)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Whether {@code list} holds this very object — compared with {@code ==}, not {@code equals}, because
+     * "the same device" here means the same fake instance, whatever a device class might define equality as.
+     */
+    private static boolean containsThisExactObject(List<?> list, Object object) {
+        for (Object element : list) {
+            if (element == object) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -113,7 +244,12 @@ public class FakeHardwareMap extends HardwareMap {
      * <p>The lookup itself is the SDK's, line for line: trim the name, walk the devices registered under it,
      * return the first one that is an instance of the requested type. The two things left out are the
      * Control-Hub IMU warning above, and {@code initializeDeviceIfNecessary}, which is private and only ever
-     * does anything for an {@code I2cDeviceSynchDevice} — no fake in this package is one.
+     * does anything for an {@code I2cDeviceSynchDevice}: it calls that device's {@code initialize()} the first
+     * time it is looked up. One fake here is one - {@code FakeGoBildaPinpoint} - and this map does not
+     * initialize it. Nothing observable is lost: the Pinpoint driver's initialization is only its
+     * {@code doInitialize()}, which sets a REV hub's I2C bus speed and which the fake makes a no-op; the rest
+     * of the SDK's {@code initialize()} is bookkeeping (an "is initialized" flag, the SDK's I2C warning list,
+     * a log line) that needs the Android runtime.
      *
      * @param classOrInterface the type the caller wants back
      * @param deviceName       the config name, trimmed here exactly as the SDK trims it
@@ -135,12 +271,12 @@ public class FakeHardwareMap extends HardwareMap {
     }
 
     /**
-     * Advances every registered fake device's plant by one harness tick.
+     * Advances every registered fake device's plant by one harness tick, once each, in registration order.
      *
      * @param deltaTime how far to advance, in seconds; the harness passes its fixed tick
      */
     public void updateAll(double deltaTime) {
-        for (FakeDevice device : devicesInRegistrationOrder) {
+        for (FakeDevice device : devicesToTickInRegistrationOrder) {
             device.update(deltaTime);
         }
     }

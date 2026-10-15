@@ -2,14 +2,16 @@ package org.horizon36596.simloop.config;
 
 /**
  * Season-glue interface: drivetrain geometry + motor-model + field-bound constants the core
- * plant needs, supplied by the season layer in {@code TeamCode} (architecture §3, domain R7).
+ * plant needs, supplied by the season layer in {@code TeamCode}.
  *
  * <p>The core never hard-codes a season's numbers; it asks for them through this interface.
- * The DECODE glue implements it from {@code globals/Constants}. Units are inches, seconds,
+ * A season implements it from its own robot constants. Units are inches, seconds,
  * radians, and encoder ticks unless noted.
  *
- * <p>Scope (Batch 1.2): this is the interface surface only. The plant primitives that consume
- * it (FakeMotor first-order model, mecanum-FK pose integrator) are built in Batch 1.4.
+ * <p>The four acceleration methods ({@link #naturalForwardDecelerationInchesPerSecondSquared()} and its
+ * three siblings) are defaulted to "not modelled", which keeps a season that predates them bit-identical.
+ * They are not traps in the way the next two are: leaving them out gives the old, harsher drivetrain, not a
+ * wrong one in a new way.
  *
  * <h2>Read this before writing a new season's config</h2>
  * Two methods here have <b>defaults</b> — {@link #wheelMountingSigns()} and
@@ -19,7 +21,7 @@ package org.horizon36596.simloop.config;
  *
  * <p>They are defaulted rather than abstract so that adding them did not break every existing season config,
  * which is a real benefit and also a real trap: <b>a season that simply forgets them compiles clean and gets
- * a quietly wrong simulation</b> rather than a compiler error. On this repo's own robot, forgetting the
+ * a quietly wrong simulation</b> rather than a compiler error. On the first robot it ran, forgetting the
  * mounting signs made it spin instead of drive, and forgetting the strafe speed made it out-run its own path
  * follower sideways. If you are writing a config for a new robot, answer both deliberately — "we measured it
  * and there is no penalty" is a fine answer, "we never looked" is not.
@@ -77,8 +79,9 @@ public interface DrivetrainSimConfig {
     /**
      * How fast a drive motor's speed chases the power it was commanded, in <b>reciprocal seconds</b>.
      *
-     * <p>{@code FakeMotor} steps as {@code speed += (power - speed) * maxAccel * dt}, so this is the
-     * first-order <b>rate</b> and its reciprocal is the time constant: 4.0 means a 0.25 s time constant, and
+     * <p>{@code FakeMotor} steps as {@code speed += (power - speed) * (1 - exp(-maxAccel * dt))}, the exact
+     * solution of {@code d(speed)/dt = maxAccel * (power - speed)}, so this is the first-order <b>rate</b>
+     * and its reciprocal is the time constant: 4.0 means a 0.25 s time constant, and
      * a drivetrain reaches roughly 95% of its top speed in three of those. <b>The name says acceleration
      * and the number is not one</b> — it is not in/s² and it does not scale with wheel size. The name is
      * kept because renaming a core interface method would churn every season that implements it.
@@ -98,6 +101,82 @@ public interface DrivetrainSimConfig {
      * @return the first-order response rate in 1/s; must be positive
      */
     double maxAccel();
+
+    /**
+     * How hard the chassis slows itself down <b>forwards</b> when every drive motor is commanded zero power
+     * with {@code FLOAT} as its zero-power behaviour, in inches/second², as a positive magnitude.
+     *
+     * <p><b>Why {@link #maxAccel()} cannot express this.</b> The motor model has one rate for speeding up and
+     * slowing down, so at zero power it sheds speed at {@code maxAccel × topSpeed} — several hundred in/s² on a
+     * typical drivetrain — while a real floating drivetrain coasts on its own drag, which is several times
+     * gentler. A path follower that plans its stops from the measured coast (as Pedro does) then stops short
+     * in sim. With this set, {@code MecanumPoseIntegrator} ignores the decaying wheels while the motors float
+     * and slows the chassis at exactly this rate instead.
+     *
+     * <p>Measure it the way a path follower's deceleration tuner does: drive forwards, cut power with the
+     * motors floating, and average the deceleration on the way down.
+     *
+     * <p>Defaulted to {@code 0}, which means <b>not modelled</b>: the chassis follows the motor model at zero
+     * power exactly as it did before this method existed. A real chassis never coasts forever, so 0 is free to
+     * mean "absent".
+     *
+     * @return the forward coast deceleration in in/s², finite and {@code >= 0}; 0 for "not modelled"
+     */
+    default double naturalForwardDecelerationInchesPerSecondSquared() {
+        return 0.0;
+    }
+
+    /**
+     * {@link #naturalForwardDecelerationInchesPerSecondSquared()} for <b>sideways</b> coasting, in
+     * inches/second², as a positive magnitude. A separate number because a mecanum coasts very differently
+     * sideways: the load rides on free-spinning rollers the gearbox never feels, so it typically sheds speed
+     * at well under half the forward rate.
+     *
+     * <p>Defaulted to {@code 0}, not modelled, for the same reason as the forward figure.
+     *
+     * @return the lateral coast deceleration in in/s², finite and {@code >= 0}; 0 for "not modelled"
+     */
+    default double naturalLateralDecelerationInchesPerSecondSquared() {
+        return 0.0;
+    }
+
+    /**
+     * The most the chassis's <b>forward</b> velocity can change in one second, whether speeding up or braking
+     * (reversed power included), in inches/second²: the point where the wheels stop gripping and start to
+     * spin or skid.
+     *
+     * <p><b>Why the motor model needs a ceiling.</b> The first-order motor model above accelerates fastest
+     * when the commanded power is furthest from the current speed, so a full-power reversal at top speed asks
+     * for {@code 2 × maxAccel × topSpeed} — far more than tyres on foam tiles can transmit. The motor model
+     * still decides what the wheels <i>want</i>; this caps how much of it the floor delivers, whatever the
+     * controller commands. Measure it from a hard stop: a follower's braking tuner that fits stopping
+     * distance against speed gives it as {@code 1 / (2 × quadratic term)}.
+     *
+     * <p>Defaulted to {@link Double#POSITIVE_INFINITY} — no ceiling, the chassis follows its wheels exactly
+     * — so a season that has not chosen a value behaves exactly as this core did before the method existed.
+     *
+     * @return the forward traction limit in in/s², {@code > 0}; may be {@link Double#POSITIVE_INFINITY}
+     */
+    default double maxForwardAccelerationInchesPerSecondSquared() {
+        return Double.POSITIVE_INFINITY;
+    }
+
+    /**
+     * {@link #maxForwardAccelerationInchesPerSecondSquared()} for the <b>sideways</b> axis, in
+     * inches/second².
+     *
+     * <p>Defaulted to the forward figure. Grip is a property of the floor contact, not of the direction the
+     * chassis is pushed: the floor resists a skid the same way in every direction, so a traction limit with
+     * no measurement saying otherwise is the same on both axes. The roller slip that makes a mecanum slower
+     * sideways is already applied to the speed the wheels ask for
+     * ({@link #maxLateralVelocityTicksPerSecond()}); scaling the ceiling by it as well would count it twice.
+     * Override it only with a number measured sideways.
+     *
+     * @return the lateral traction limit in in/s², {@code > 0}; may be {@link Double#POSITIVE_INFINITY}
+     */
+    default double maxLateralAccelerationInchesPerSecondSquared() {
+        return maxForwardAccelerationInchesPerSecondSquared();
+    }
 
     /**
      * Which way each drive motor is physically bolted in, as a sign per wheel in
@@ -127,9 +206,25 @@ public interface DrivetrainSimConfig {
         return new double[] {1.0, 1.0, 1.0, 1.0};
     }
 
-    /** {@return the field half-width, in inches}; the kinematic pose clamp bounds x to [-this, +this] (domain R6) */
+    /**
+     * Half the field's <b>right-left</b> extent, along field X ({@code +X} is field right), in inches.
+     *
+     * <p>The drivetrain's pose is integrated in the localizer frame, where localizer {@code y} is field
+     * {@code -X}, so {@code MecanumPoseIntegrator} clamps the localizer {@code y} coordinate to
+     * {@code [-this, +this]}. The robot's centre is what is clamped, not its outline.
+     *
+     * @return the field half-width in inches; must be finite and positive
+     */
     double fieldHalfWidth();
 
-    /** {@return the field half-height, in inches}; the kinematic pose clamp bounds y to [-this, +this] (domain R6) */
+    /**
+     * Half the field's <b>forward-back</b> extent, along field Y ({@code +Y} is field forward), in inches.
+     *
+     * <p>Localizer {@code x} is field {@code +Y}, so {@code MecanumPoseIntegrator} clamps the localizer
+     * {@code x} coordinate to {@code [-this, +this]}. The robot's centre is what is clamped, not its
+     * outline.
+     *
+     * @return the field half-height in inches; must be finite and positive
+     */
     double fieldHalfHeight();
 }

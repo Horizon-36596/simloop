@@ -28,12 +28,15 @@ public final class LinearJointDefinition extends JointDefinition {
      *                              {@link RobotVector3#normalized()}.
      * @param retractedLengthInches drawn length of this stage when fully retracted (in), {@code >= 0}. For a
      *                              cascading slide this is the collapsed length of the stage's own tube.
-     * @param minTravelInches       lowest extension along {@code axis} (in). Usually {@code 0}.
+     * @param minTravelInches       lowest extension along {@code axis} (in). Usually {@code 0}. May be
+     *                              negative only as far as {@code retractedLengthInches} allows: the drawn
+     *                              length {@code retracted + min} must be {@code >= 0}.
      * @param maxTravelInches       highest extension along {@code axis} (in). Must exceed {@code min}.
      * @param colorHex              stroke colour as {@code "#RRGGBB"}.
      * @param lineWeightPixels      stroke thickness in pixels, {@code > 0}.
      * @throws IllegalArgumentException if any argument is null, blank, non-finite, out of range, if
-     *                                  {@code axis} is not unit length, or if {@code min >= max}.
+     *                                  {@code axis} is not unit length, if {@code min >= max}, or if
+     *                                  {@code retracted + min < 0} (a negative drawn length).
      */
     public LinearJointDefinition(
             String name,
@@ -55,6 +58,13 @@ public final class LinearJointDefinition extends JointDefinition {
             throw new IllegalArgumentException(
                     "joint \"" + name + "\" travel must have min < max, got [" + min + ", " + max + "]");
         }
+        if (retracted + min < 0.0) {
+            // The drawn length is retracted + extension, and the smallest extension is min, so this is the
+            // shortest the stage is ever drawn. A negative length would draw the segment backwards.
+            throw new IllegalArgumentException(
+                    "joint \"" + name + "\" retractedLengthInches + minTravelInches must be >= 0 (it is the"
+                            + " shortest drawn length), got " + retracted + " + " + min);
+        }
         this.retractedLengthInches = retracted;
         this.minTravelInches = min;
         this.maxTravelInches = max;
@@ -66,12 +76,12 @@ public final class LinearJointDefinition extends JointDefinition {
     }
 
     /**
-     * The stage's drawn length at the zero pose (in): its retracted length plus its clamped minimum travel.
+     * The stage's drawn length at the zero pose (in): its retracted length plus its minimum travel.
      * {@link MechanismSketch} grows this as the stage extends.
      */
     @Override
     public double getZeroPoseLengthInches() {
-        return retractedLengthInches + clampTravel(minTravelInches);
+        return retractedLengthInches + minTravelInches;
     }
 
     /** {@return the drawn length when fully retracted (in)} */

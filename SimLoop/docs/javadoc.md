@@ -17,7 +17,7 @@ and open `SimLoop/build/docs/apiDocs/index.html` directly.
 (Run it from the repository root, not from inside `SimLoop/`. The library is a Gradle subproject of a
 repository that holds only it, so the `:SimLoop` prefix is correct.)
 
-## How it is kept honest
+## How it is kept complete
 
 The javadoc is generated with `-Xdoclint:all` and `-Werror`, so a public member with no comment, a missing
 `@param` or `@return`, or a broken `{@link}` **fails the build**. It is not a report somebody is supposed

@@ -9,7 +9,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
@@ -37,6 +40,19 @@ class SeparabilityTest {
             "com.pedropathing.",                 // Pedro Pathing — a TeamCode-only dependency (architecture §3)
     };
 
+    /**
+     * The only lines allowed to name a forbidden package, by file (relative to {@code src/main/java}): the
+     * sim-clock loader's default list of team packages to rewrite, and its constant for Pedro Pathing's
+     * prefix, which a test adds to that list to rewrite Pedro. They are string data naming what to rewrite,
+     * not a reference to any class there, and the loader never loads a class of its own from them.
+     */
+    private static final Map<String, List<String>> NAMED_EXEMPTIONS = Collections.singletonMap(
+            Paths.get("org", "horizon36596", "simloop", "simclock", "SimClockLoader.java").toString(),
+            Arrays.asList(
+                    "\"org.firstinspires.ftc.teamcode.\",",
+                    "\"com.seattlesolvers.solverslib.\"));",
+                    "public static final String PEDRO_PATHING = \"com.pedropathing.\";"));
+
     @Test
     void noSimLoopSourceReferencesTeamCodeSolversLibOrPedroPathing() {
         Path sourceRoot = locateMainSourceRoot();
@@ -52,6 +68,10 @@ class SeparabilityTest {
                         String trimmed = line.trim();
                         // Skip comment lines so a Javadoc/comment naming a forbidden package isn't flagged.
                         if (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*")) {
+                            continue;
+                        }
+                        List<String> exempt = NAMED_EXEMPTIONS.get(sourceRoot.relativize(p).toString());
+                        if (exempt != null && exempt.contains(trimmed)) {
                             continue;
                         }
                         for (String forbidden : FORBIDDEN_PACKAGE_PREFIXES) {

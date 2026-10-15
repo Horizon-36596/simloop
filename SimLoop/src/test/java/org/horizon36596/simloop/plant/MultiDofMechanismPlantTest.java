@@ -43,7 +43,7 @@ import java.util.TreeSet;
  * A composite that did any physics of its own, or that let one degree of freedom see another, could not
  * pass that no matter how it was written.
  *
- * <p>The shape under test is V0's {@code Deposit} (BACKLOG B13): a motor-driven slide in inches, a
+ * <p>The shape under test is an example scoring mechanism: a motor-driven slide in inches, a
  * servo-driven pivot in radians, a continuous-rotation ejector in output revolutions, and a servo-driven
  * latch in radians. Four degrees of freedom, three kinds of actuator, four different units — which is the
  * point, because a composite that assumed one unit or one actuator kind would be useless for it.
@@ -53,9 +53,9 @@ class MultiDofMechanismPlantTest {
     private static final double DT = 0.02;
     private static final int TICKS = 200;
 
-    // ---- The four degrees of freedom of V0's Deposit, as configs ----
+    // ---- The four degrees of freedom of the example scoring mechanism, as configs ----
 
-    /** Slide: inches of carriage travel, hard-stopped at both ends, gravity-loaded (docs/specs/deposit.md §4). */
+    /** Slide: inches of carriage travel, hard-stopped at both ends, gravity-loaded. */
     private static final MechanismSimConfig SLIDE = new MechanismSimConfig() {
         @Override public double timeConstant() { return 0.15; }
         @Override public double maxSpeed() { return 40.0; }
@@ -94,8 +94,8 @@ class MultiDofMechanismPlantTest {
 
     @Test
     void eachDegreeOfFreedomMovesExactlyAsTheSamePlantWouldAlone() {
-        Deposit composed = new Deposit();
-        Deposit standalone = new Deposit();
+        ScoringMechanism composed = new ScoringMechanism();
+        ScoringMechanism standalone = new ScoringMechanism();
         MultiDofMechanismPlant composite = composed.asComposite();
         double furthestSlide = 0.0;
         double furthestEjector = 0.0;
@@ -146,13 +146,13 @@ class MultiDofMechanismPlantTest {
 
     @Test
     void drivingOneDegreeOfFreedomLeavesTheOthersExactlyWhereTheyWere() {
-        Deposit deposit = new Deposit();
-        MultiDofMechanismPlant composite = deposit.asComposite();
+        ScoringMechanism mechanism = new ScoringMechanism();
+        MultiDofMechanismPlant composite = mechanism.asComposite();
 
         // Only the slide is commanded. A composite that coupled its degrees of freedom -- a heavy slide
         // loading the pivot that carries it -- would show it here, and that coupling is rigid-body
         // physics, which domain R6 rules out.
-        deposit.slideMotor.setPower(1.0);
+        mechanism.slideMotor.setPower(1.0);
         for (int tick = 0; tick < TICKS; tick++) {
             composite.update(DT);
         }
@@ -170,8 +170,8 @@ class MultiDofMechanismPlantTest {
     void registrationOrderDoesNotChangeWhatTheDegreesOfFreedomDo() {
         // If any plant read another, the order they are ticked in would show up in the numbers. It must
         // not -- which is also why the order is fixed rather than sorted (domain R5).
-        Deposit forwards = new Deposit();
-        Deposit backwards = new Deposit();
+        ScoringMechanism forwards = new ScoringMechanism();
+        ScoringMechanism backwards = new ScoringMechanism();
         MultiDofMechanismPlant inOrder = forwards.asComposite();
         MultiDofMechanismPlant reversed = MultiDofMechanismPlant.builder()
                 .addDof("latch", backwards.latchPlant, "Rad")
@@ -204,17 +204,17 @@ class MultiDofMechanismPlantTest {
         // of freedom to four DIFFERENT positions, then reads each number back out of the decoded RLOG and
         // requires it to equal that degree of freedom's own plant.
         Path rlog = Paths.get("build", "sim", "multi-dof-keys.rlog");
-        Deposit deposit = new Deposit();
-        MultiDofMechanismPlant composite = deposit.asComposite();
+        ScoringMechanism mechanism = new ScoringMechanism();
+        MultiDofMechanismPlant composite = mechanism.asComposite();
         FakeTimer timer = new FakeTimer();
 
         ScenarioRunner.run("MultiDofKeys", new TestRobotConfig(), timer, 40, DT, rlog, dt -> {
-            deposit.slideMotor.setPower(1.0);
-            deposit.pivotServo.setPosition(1.0);
-            deposit.ejectServo.setPower(1.0);
-            deposit.latchServo.setPosition(0.5);
+            mechanism.slideMotor.setPower(1.0);
+            mechanism.pivotServo.setPosition(1.0);
+            mechanism.ejectServo.setPower(1.0);
+            mechanism.latchServo.setPosition(0.5);
             composite.update(dt);
-            composite.record("DepositPlant");
+            composite.record("ScorerPlant");
         });
 
         // Four genuinely different numbers, so a key wired to the wrong plant cannot pass by coincidence.
@@ -224,15 +224,15 @@ class MultiDofMechanismPlantTest {
         List<Map<String, String>> frames = RlogDecodedCompare.decode(rlog);
         Map<String, String> last = frames.get(frames.size() - 1);
 
-        assertLoggedValue(last, "DepositPlant/slide/positionIn", composite.getPosition("slide"));
-        assertLoggedValue(last, "DepositPlant/slide/velocityInPerSecond", composite.getVelocity("slide"));
-        assertLoggedValue(last, "DepositPlant/pivot/positionRad", composite.getPosition("pivot"));
-        assertLoggedValue(last, "DepositPlant/pivot/velocityRadPerSecond", composite.getVelocity("pivot"));
-        assertLoggedValue(last, "DepositPlant/ejector/positionRev", composite.getPosition("ejector"));
-        assertLoggedValue(last, "DepositPlant/ejector/velocityRevPerSecond",
+        assertLoggedValue(last, "ScorerPlant/slide/positionIn", composite.getPosition("slide"));
+        assertLoggedValue(last, "ScorerPlant/slide/velocityInPerSecond", composite.getVelocity("slide"));
+        assertLoggedValue(last, "ScorerPlant/pivot/positionRad", composite.getPosition("pivot"));
+        assertLoggedValue(last, "ScorerPlant/pivot/velocityRadPerSecond", composite.getVelocity("pivot"));
+        assertLoggedValue(last, "ScorerPlant/ejector/positionRev", composite.getPosition("ejector"));
+        assertLoggedValue(last, "ScorerPlant/ejector/velocityRevPerSecond",
                 composite.getVelocity("ejector"));
-        assertLoggedValue(last, "DepositPlant/latch/positionRad", composite.getPosition("latch"));
-        assertLoggedValue(last, "DepositPlant/latch/velocityRadPerSecond", composite.getVelocity("latch"));
+        assertLoggedValue(last, "ScorerPlant/latch/positionRad", composite.getPosition("latch"));
+        assertLoggedValue(last, "ScorerPlant/latch/velocityRadPerSecond", composite.getVelocity("latch"));
     }
 
     @Test
@@ -241,19 +241,19 @@ class MultiDofMechanismPlantTest {
         // target/measured/error/atTarget to position-controlled mechanisms -- which a plant is not. So the
         // composite must publish exactly eight keys for four degrees of freedom and no more.
         Path rlog = Paths.get("build", "sim", "multi-dof-key-count.rlog");
-        Deposit deposit = new Deposit();
-        MultiDofMechanismPlant composite = deposit.asComposite();
+        ScoringMechanism mechanism = new ScoringMechanism();
+        MultiDofMechanismPlant composite = mechanism.asComposite();
         FakeTimer timer = new FakeTimer();
 
         ScenarioRunner.run("MultiDofKeyCount", new TestRobotConfig(), timer, 3, DT, rlog, dt -> {
-            deposit.command(1);
+            mechanism.command(1);
             composite.update(dt);
-            composite.record("DepositPlant");
+            composite.record("ScorerPlant");
         });
 
         Set<String> ours = new TreeSet<>();
         for (String key : RlogDecodedCompare.decodedKeys(rlog)) {
-            if (key.contains("DepositPlant/")) {
+            if (key.contains("ScorerPlant/")) {
                 ours.add(key);
             }
         }
@@ -263,7 +263,7 @@ class MultiDofMechanismPlantTest {
 
     @Test
     void recordRejectsABlankKeyPrefix() {
-        MultiDofMechanismPlant composite = new Deposit().asComposite();
+        MultiDofMechanismPlant composite = new ScoringMechanism().asComposite();
         assertThrows(IllegalArgumentException.class, () -> composite.record(null));
         assertThrows(IllegalArgumentException.class, () -> composite.record("  "));
     }
@@ -272,7 +272,7 @@ class MultiDofMechanismPlantTest {
 
     @Test
     void namesAreReportedInRegistrationOrder() {
-        MultiDofMechanismPlant composite = new Deposit().asComposite();
+        MultiDofMechanismPlant composite = new ScoringMechanism().asComposite();
         assertEquals(Arrays.asList("slide", "pivot", "ejector", "latch"), composite.getDofNames(),
                 "the log tree lists the degrees of freedom the way the human declared them");
         assertEquals(4, composite.getDofCount());
@@ -280,15 +280,15 @@ class MultiDofMechanismPlantTest {
 
     @Test
     void aDegreeOfFreedomCanBeReachedForWhatTheSharedSurfaceDoesNotCarry() {
-        Deposit deposit = new Deposit();
-        MultiDofMechanismPlant composite = deposit.asComposite();
-        assertSame(deposit.slidePlant, composite.getDof("slide"),
+        ScoringMechanism mechanism = new ScoringMechanism();
+        MultiDofMechanismPlant composite = mechanism.asComposite();
+        assertSame(mechanism.slidePlant, composite.getDof("slide"),
                 "the season layer's own typed reference and the composite's are the same object");
     }
 
     @Test
     void anUnknownDegreeOfFreedomIsAnErrorRatherThanAZero() {
-        MultiDofMechanismPlant composite = new Deposit().asComposite();
+        MultiDofMechanismPlant composite = new ScoringMechanism().asComposite();
         assertThrows(IllegalArgumentException.class, () -> composite.getPosition("wrist"));
         assertThrows(IllegalArgumentException.class, () -> composite.getVelocity("wrist"));
         assertThrows(IllegalArgumentException.class, () -> composite.getDof("wrist"));
@@ -296,25 +296,35 @@ class MultiDofMechanismPlantTest {
 
     @Test
     void aNameThatWouldCorruptTheLogTreeIsRejected() {
-        Deposit deposit = new Deposit();
+        ScoringMechanism mechanism = new ScoringMechanism();
         MultiDofMechanismPlant.Builder builder = MultiDofMechanismPlant.builder();
         // A slash would fabricate an extra level of nesting and the key would land somewhere else.
         assertThrows(IllegalArgumentException.class,
-                () -> builder.addDof("slide/inner", deposit.slidePlant, "In"));
-        assertThrows(IllegalArgumentException.class, () -> builder.addDof("  ", deposit.slidePlant, "In"));
+                () -> builder.addDof("slide/inner", mechanism.slidePlant, "In"));
+        assertThrows(IllegalArgumentException.class, () -> builder.addDof("  ", mechanism.slidePlant, "In"));
         assertThrows(IllegalArgumentException.class, () -> builder.addDof("slide", null, "In"));
-        assertThrows(IllegalArgumentException.class, () -> builder.addDof("slide", deposit.slidePlant, " "));
+        assertThrows(IllegalArgumentException.class, () -> builder.addDof("slide", mechanism.slidePlant, " "));
         assertThrows(IllegalArgumentException.class,
-                () -> builder.addDof("slide", deposit.slidePlant, "In/s"));
+                () -> builder.addDof("slide", mechanism.slidePlant, "In/s"));
+    }
+
+    @Test
+    void aNameWithSurroundingWhitespaceIsRejectedRatherThanTrimmed() {
+        // Lookup is exact, so " slide" silently stored as "slide" would make getPosition(" slide") fail
+        // later with a message that does not explain why. Refusing it at registration is clearer.
+        ScoringMechanism mechanism = new ScoringMechanism();
+        MultiDofMechanismPlant.Builder builder = MultiDofMechanismPlant.builder();
+        assertThrows(IllegalArgumentException.class, () -> builder.addDof(" slide", mechanism.slidePlant, "In"));
+        assertThrows(IllegalArgumentException.class, () -> builder.addDof("slide\t", mechanism.slidePlant, "In"));
     }
 
     @Test
     void twoDegreesOfFreedomCannotShareAName() {
-        Deposit deposit = new Deposit();
+        ScoringMechanism mechanism = new ScoringMechanism();
         MultiDofMechanismPlant.Builder builder = MultiDofMechanismPlant.builder()
-                .addDof("slide", deposit.slidePlant, "In");
+                .addDof("slide", mechanism.slidePlant, "In");
         assertThrows(IllegalArgumentException.class,
-                () -> builder.addDof("slide", deposit.pivotPlant, "Rad"),
+                () -> builder.addDof("slide", mechanism.pivotPlant, "Rad"),
                 "two keys with the same name would silently overwrite each other in the log");
     }
 
@@ -323,11 +333,11 @@ class MultiDofMechanismPlantTest {
         // A copy-paste mistake that is silent without this guard: the shared plant would be ticked twice
         // per update(), so it would move at double speed while the degree of freedom that was meant to be
         // there never moved, and both log keys would carry the same number.
-        Deposit deposit = new Deposit();
+        ScoringMechanism mechanism = new ScoringMechanism();
         MultiDofMechanismPlant.Builder builder = MultiDofMechanismPlant.builder()
-                .addDof("slide", deposit.slidePlant, "In");
+                .addDof("slide", mechanism.slidePlant, "In");
         assertThrows(IllegalArgumentException.class,
-                () -> builder.addDof("ejector", deposit.slidePlant, "Rev"),
+                () -> builder.addDof("ejector", mechanism.slidePlant, "Rev"),
                 "the same plant under two names would be ticked twice per update");
     }
 
@@ -361,11 +371,11 @@ class MultiDofMechanismPlantTest {
     // ---- Fixtures ----
 
     /**
-     * V0's Deposit, built twice per test: the four actuators, the four plants that model them, and one
-     * command schedule that drives all four. Nothing here is a Deposit subsystem — that is work area P
+     * The example scoring mechanism, built twice per test: the four actuators, the four plants that model
+     * them, and one command schedule that drives all four. Nothing here is a real subsystem — that is work area P
      * and building it would be a defect (rule 1); this is only the shape the composite has to express.
      */
-    private static final class Deposit {
+    private static final class ScoringMechanism {
         final FakeMotor slideMotor = new FakeMotor(1000.0, 2.0);
         final FakeServo pivotServo = new FakeServo();
         final FakeCRServo ejectServo = new FakeCRServo();
@@ -386,7 +396,7 @@ class MultiDofMechanismPlantTest {
         }
 
         /**
-         * One scripted deposit cycle, written as a function of the tick index so both copies of the
+         * One scripted scoring cycle, written as a function of the tick index so both copies of the
          * mechanism get an identical command schedule with no shared state between them: extend, aim,
          * eject, unlatch, then reverse out.
          */

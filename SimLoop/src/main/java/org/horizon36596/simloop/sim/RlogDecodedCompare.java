@@ -9,6 +9,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +49,91 @@ public final class RlogDecodedCompare {
     private RlogDecodedCompare() {
     }
 
+    /** How many differing keys {@link #summarise} names before it stops and counts the rest. */
+    private static final int SUMMARY_KEY_LIMIT = 40;
+
+    /**
+     * A mismatch list rendered for a human: how many differed, which KEYS differed and how often, and one
+     * worked example of each, capped at {@link #SUMMARY_KEY_LIMIT} keys.
+     *
+     * <p><b>Why this exists rather than {@code mismatches.toString()}.</b> One divergence early in a run
+     * makes every later frame differ on every key it touches, so the raw list of a real failure runs to
+     * tens of thousands of entries and megabytes. That lands in the JUnit XML, is truncated by whatever
+     * reads it, and answers the one question a person actually has -- WHICH FIELD went wrong and WHEN --
+     * nowhere in the part that survives. Measured 2026-09-22: a single subsystem diverging produced a
+     * 2.5 MiB assertion message from which the offending key could not be read at all.
+     *
+     * @param mismatches the list {@link #compare(Path, Path)} returned
+     * @return a "frame count differs" line when the runs had different lengths, then one line of totals
+     *         followed by one line per differing key, EARLIEST divergence first; {@code "none"} when the
+     *         list is empty
+     */
+    public static String summarise(List<Mismatch> mismatches) {
+        if (mismatches.isEmpty()) {
+            return "none";
+        }
+        // The frame-count mismatch is not a field diff and has no frame, so it is reported on its own line
+        // rather than sorted in with the fields: its frameIndex of -1 would otherwise make it the "earliest
+        // divergence" of every run whose lengths differ, and hide the frame where the fields first differed.
+        Mismatch frameCountMismatch = null;
+        Map<String, Integer> countByKey = new TreeMap<>();
+        Map<String, Mismatch> firstByKey = new TreeMap<>();
+        for (Mismatch mismatch : mismatches) {
+            if (mismatch.isFrameCountMismatch()) {
+                frameCountMismatch = mismatch;
+                continue;
+            }
+            Integer seen = countByKey.get(mismatch.key);
+            countByKey.put(mismatch.key, seen == null ? 1 : seen + 1);
+            if (!firstByKey.containsKey(mismatch.key)) {
+                firstByKey.put(mismatch.key, mismatch);
+            }
+        }
+
+        // EARLIEST FIRST, because the earliest divergence is the CAUSE and every later one is
+        // consequence. Sorting by key name instead reads tidily and buries the answer: a list capped at
+        // SUMMARY_KEY_LIMIT names whichever keys sort first, which on a 77-key failure meant the two
+        // subsystems whose names begin with A and D and not the one that went wrong at frame 30.
+        List<Mismatch> firsts = new ArrayList<>(firstByKey.values());
+        Collections.sort(firsts, new Comparator<Mismatch>() {
+            @Override
+            public int compare(Mismatch a, Mismatch b) {
+                if (a.frameIndex != b.frameIndex) {
+                    return a.frameIndex < b.frameIndex ? -1 : 1;
+                }
+                return a.key.compareTo(b.key);
+            }
+        });
+
+        StringBuilder out = new StringBuilder();
+        if (frameCountMismatch != null) {
+            out.append("frame count differs: ").append(frameCountMismatch.valueA)
+                    .append(" vs ").append(frameCountMismatch.valueB).append('\n');
+        }
+        if (firsts.isEmpty()) {
+            out.append("no field mismatches in the frames both runs have");
+            return out.toString();
+        }
+        out.append(mismatches.size() - (frameCountMismatch == null ? 0 : 1)).append(" field mismatches across ")
+                .append(countByKey.size()).append(" keys, earliest at frame ")
+                .append(firsts.get(0).frameIndex)
+                .append(" (keys listed earliest-divergence first)");
+        int shown = 0;
+        for (Mismatch first : firsts) {
+            if (shown++ == SUMMARY_KEY_LIMIT) {
+                out.append("\n  ... and ").append(firsts.size() - SUMMARY_KEY_LIMIT)
+                        .append(" more keys, all diverging at frame ")
+                        .append(first.frameIndex).append(" or later");
+                break;
+            }
+            out.append("\n  frame ").append(first.frameIndex)
+                    .append("  ").append(first.key)
+                    .append(" x").append(countByKey.get(first.key))
+                    .append(": ").append(first.valueA).append(" vs ").append(first.valueB);
+        }
+        return out.toString();
+    }
+
     /** One decoded-field mismatch between two runs; {@code frameIndex} is -1 for a frame-count mismatch. */
     public static final class Mismatch {
         /** Which frame differed, counting from 0; {@code -1} when the two runs had different frame counts. */
@@ -56,10 +142,14 @@ public final class RlogDecodedCompare {
         /** The RLOG key whose decoded value differed. */
         public final String key;
 
-        /** The value the first run logged under {@link #key}, rendered the way PsiKit renders it. */
+        /**
+         * The value the first run logged under {@link #key}: PsiKit's rendering of the value followed by its
+         * logged type in brackets, e.g. {@code "12.5 [Double]"}; {@code null} if the first run did not log
+         * the key in this frame. For a frame-count mismatch, the first run's frame count.
+         */
         public final String valueA;
 
-        /** The value the second run logged under {@link #key}, rendered the way PsiKit renders it. */
+        /** As {@link #valueA}, for the second run. */
         public final String valueB;
 
         Mismatch(int frameIndex, String key, String valueA, String valueB) {
@@ -87,10 +177,16 @@ public final class RlogDecodedCompare {
      * mismatch outside PsiKit's own writer-metadata exclude list, frame by frame. An empty list means
      * the two runs satisfy the decoded-field-equality contract.
      *
+     * <p>A field matches only if its value AND its logged type match. PsiKit's own
+     * {@code LogValue.toString()} renders the value alone (checked by disassembling the pinned
+     * {@code core-0.2.0-beta2} jar), so the string {@code "1.0"} and the double {@code 1.0}, or two values
+     * logged under different custom type names such as a struct schema, would otherwise compare as equal.
+     *
      * @param pathA the first RLOG to read
      * @param pathB the second RLOG to read
      * @return every mismatch found, in frame order; empty when the two runs agree
-     * @throws IOException if either RLOG cannot be read
+     * @throws IOException              if either RLOG exists but cannot be read
+     * @throws IllegalArgumentException if either RLOG is missing or empty (see {@link #decode(Path)})
      */
     public static List<Mismatch> compare(Path pathA, Path pathB) throws IOException {
         return compare(pathA, pathB, EXCLUDED_KEYS);
@@ -103,12 +199,35 @@ public final class RlogDecodedCompare {
      * @param pathB        the second RLOG to read
      * @param excludedKeys keys to ignore entirely, in place of PsiKit's writer-metadata list
      * @return every mismatch found outside {@code excludedKeys}, in frame order
-     * @throws IOException if either RLOG cannot be read
+     * @throws IOException              if either RLOG exists but cannot be read
+     * @throws IllegalArgumentException if either RLOG is missing or empty (see {@link #decode(Path)})
      */
     public static List<Mismatch> compare(Path pathA, Path pathB, Set<String> excludedKeys) throws IOException {
-        List<Map<String, String>> framesA = decode(pathA);
-        List<Map<String, String>> framesB = decode(pathB);
+        return compareFrames(decodeFrames(pathA, true), decodeFrames(pathB, true), excludedKeys);
+    }
 
+    /**
+     * As {@link #compare(Path, Path, Set)}, but on frames that were already decoded.
+     *
+     * <p>For a caller that decoded a run earlier and must not re-read it from disk: the loop's stop report
+     * compares a replay against the frames it held in memory when it accepted a candidate, because the RLOG
+     * file that candidate was read from may have been overwritten by a later candidate since.
+     *
+     * <p><b>Both lists must be rendered the same way (both typed or both untyped).</b> {@link #compare}
+     * decodes both sides with each
+     * value's logged type appended ({@code "12.5 [Double]"}); {@link #decode(Path)} renders the value alone
+     * ({@code "12.5"}). Comparing one of each would report every field as different. Frames from
+     * {@link #decode(Path)} compare values only: a field whose type changed but whose rendering did not is
+     * not caught.
+     *
+     * @param framesA      the first run's frames; rendered the same way as {@code framesB}
+     * @param framesB      the second run's frames; rendered the same way as {@code framesA}
+     * @param excludedKeys keys to ignore entirely
+     * @return every mismatch found outside {@code excludedKeys}, in frame order; a frame-count difference
+     *         comes first, as one entry with {@code frameIndex == -1}
+     */
+    public static List<Mismatch> compareFrames(List<Map<String, String>> framesA,
+            List<Map<String, String>> framesB, Set<String> excludedKeys) {
         List<Mismatch> mismatches = new ArrayList<>();
         if (framesA.size() != framesB.size()) {
             mismatches.add(new Mismatch(-1, "<frame count>",
@@ -146,7 +265,8 @@ public final class RlogDecodedCompare {
      *
      * @param path the RLOG to read
      * @return the sorted key names, minus PsiKit's own writer metadata
-     * @throws IOException if the RLOG cannot be read
+     * @throws IOException              if the RLOG exists but cannot be read
+     * @throws IllegalArgumentException if the RLOG is missing or empty (see {@link #decode(Path)})
      */
     public static Set<String> decodedKeys(Path path) throws IOException {
         Set<String> keys = new TreeSet<>();
@@ -172,9 +292,22 @@ public final class RlogDecodedCompare {
      *
      * @param path the RLOG to read
      * @return one map per frame, in order, each holding the whole decoded robot state at that frame
-     * @throws IOException if the RLOG cannot be read
+     * @throws IOException              if the RLOG exists but cannot be read
+     * @throws IllegalArgumentException if the RLOG is missing or empty: PsiKit's own reader silently
+     *                                  decodes a missing file as zero frames, which would let two failed
+     *                                  runs compare as a false "no mismatches" pass
      */
     public static List<Map<String, String>> decode(Path path) throws IOException {
+        return decodeFrames(path, false);
+    }
+
+    /**
+     * Reads every frame of one RLOG. With {@code withType} false, each value is PsiKit's own rendering
+     * ({@code "12.5"}); with it true, the logged type follows in brackets ({@code "12.5 [Double]"}, or
+     * {@code "... [Raw:struct:Pose2d]"} when a custom type name was logged), which is what
+     * {@link #compare} needs to tell a string {@code "1.0"} from a double {@code 1.0}.
+     */
+    private static List<Map<String, String>> decodeFrames(Path path, boolean withType) throws IOException {
         if (!Files.exists(path) || Files.size(path) == 0) {
             throw new IllegalArgumentException(
                     "RLOG file missing or empty, cannot decode: " + path
@@ -183,15 +316,28 @@ public final class RlogDecodedCompare {
         }
         RLOGReplay replay = new RLOGReplay(path.toString());
         replay.start();
-        LogTable table = new LogTable(0);
-        List<Map<String, String>> frames = new ArrayList<>();
-        while (replay.updateTable(table)) {
-            Map<String, String> snapshot = new TreeMap<>();
-            for (Map.Entry<String, LogTable.LogValue> entry : table.getAll(true).entrySet()) {
-                snapshot.put(entry.getKey(), String.valueOf(entry.getValue()));
+        // end() closes the file. Without it the stream stayed open until garbage collection, and on Windows
+        // a file held open cannot be deleted - so the next ScenarioRunner.run to the same path had PsiKit's
+        // writer fail its delete and APPEND the new run to the old one (2026-09-26 review).
+        try {
+            LogTable table = new LogTable(0);
+            List<Map<String, String>> frames = new ArrayList<>();
+            while (replay.updateTable(table)) {
+                Map<String, String> snapshot = new TreeMap<>();
+                for (Map.Entry<String, LogTable.LogValue> entry : table.getAll(true).entrySet()) {
+                    LogTable.LogValue value = entry.getValue();
+                    String rendered = String.valueOf(value);
+                    if (withType && value != null) {
+                        rendered = rendered + " [" + value.type
+                                + (value.customTypeStr == null ? "" : ":" + value.customTypeStr) + "]";
+                    }
+                    snapshot.put(entry.getKey(), rendered);
+                }
+                frames.add(snapshot);
             }
-            frames.add(snapshot);
+            return frames;
+        } finally {
+            replay.end();
         }
-        return frames;
     }
 }

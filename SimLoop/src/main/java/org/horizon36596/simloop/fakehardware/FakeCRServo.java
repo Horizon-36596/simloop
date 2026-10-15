@@ -1,14 +1,15 @@
 package org.horizon36596.simloop.fakehardware;
 
 import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.PwmControl;
 import com.qualcomm.robotcore.hardware.ServoController;
 import com.qualcomm.robotcore.util.Range;
 
 /**
- * Fake {@link CRServo}: a continuous-rotation servo, the actuator V0's deposit ejects a line of pollen
- * with ({@code docs/specs/deposit.md} §2). A CR servo is commanded a <b>speed</b>, not a position — it
- * has no travel limit and no feedback of any kind — so unchanged robot code drives it with
- * {@code setPower} exactly as it drives a motor, and a timed eject is the only kind of eject there is.
+ * Fake {@link CRServo}: a continuous-rotation servo, the kind of actuator that spins a roller or a wheel
+ * for as long as it is told to. A CR servo is commanded a <b>speed</b>, not a position — it has no travel
+ * limit and no feedback of any kind — so unchanged robot code drives it with {@code setPower} exactly as it
+ * drives a motor, and anything it moves can only be moved for a time, never to a place.
  *
  * <h2>This fake stores what the hardware stores, which is not what the caller passed</h2>
  * The SDK's {@code CRServoImpl} does not keep the commanded power. It applies the direction, clips to
@@ -21,7 +22,7 @@ import com.qualcomm.robotcore.util.Range;
  *   <li><b>{@code getPower()} reports the caller's own request back, not the direction-applied power.</b>
  *       The reversal is applied on the way in and undone on the way out. So a {@code REVERSE} servo told
  *       {@code 0.5} reports {@code 0.5}, while the horn really turns the other way — the same split
- *       {@code FakeMotor} documents for encoders (BACKLOG B18). {@link #getPhysicalPower()} is the other
+ *       {@code FakeMotor} documents for encoders. {@link #getPhysicalPower()} is the other
  *       half: what the servo is really doing.</li>
  *   <li><b>Changing direction after a {@code setPower} does not change the motion.</b> The stored servo
  *       position is untouched, so the horn keeps turning the way it was; only the next {@code setPower}
@@ -36,27 +37,40 @@ import com.qualcomm.robotcore.util.Range;
  * arithmetic out, <b>so the rounding error here is the same rounding error the real {@code CRServoImpl}
  * has, bit for bit</b> — an equivalent formula written by hand would round differently in the last place
  * and would be a fake that quietly disagrees with the hardware. It is deterministic either way, so replay
- * is unaffected (domain R5); tests compare with a tolerance.
+ * is unaffected; tests compare with a tolerance.
  *
  * <h2>Where the motion is modelled</h2>
  * Nothing here turns power into travel — this class is the device surface only, exactly as
  * {@link FakeServo} is. Because the SDK's {@code CRServo} extends {@code DcMotorSimple}, a
  * {@code Mechanism1DofPlant} takes one of these directly, with no adapter and no separate plant class:
  * <pre>
- *   FakeCRServo ejector = new FakeCRServo();
- *   Mechanism1DofPlant ejectorPlant = new Mechanism1DofPlant(ejector, ejectorConfig);
+ *   FakeCRServo roller = new FakeCRServo();
+ *   Mechanism1DofPlant rollerPlant = new Mechanism1DofPlant(roller, rollerConfig);
  * </pre>
- * where {@code ejectorConfig} is a {@code ContinuousRotationSimConfig} — the first-order model with its
+ * where {@code rollerConfig} is a {@code ContinuousRotationSimConfig} — the first-order model with its
  * end-limit clamp switched off, so travel accumulates without bound. The plant advances on the injected
- * tick from {@code FakeTimer}, never a wall clock (domain R5, B13 Contract clause 3).
+ * tick from {@code FakeTimer}, never a wall clock.
  *
  * <h2>Powering up stopped</h2>
  * A fresh instance holds the servo position that means <b>zero power</b>, so it does not turn until
  * something tells it to. On real hardware neutral is a trimmed pulse width that a mis-trimmed servo
- * creeps away from ({@code docs/specs/deposit.md} §2, open question 5); this fake's neutral is exact,
- * which is a thing the sim cannot warn anyone about and a bench test has to.
+ * creeps away from; this fake's neutral is exact, which is a thing the sim cannot warn anyone about and a
+ * bench test has to.
+ *
+ * <h2>PWM control, and the one lookup that does not work</h2>
+ * On a real robot a CR servo on a REV hub is a {@code CRServoImplEx}, which also implements
+ * {@link PwmControl}; this fake implements {@link PwmControl} the same way {@link FakeServo} does, with the
+ * same {@code LynxServoController} behaviour (PWM disabled until the first command, the SDK's default
+ * 600-2400 microsecond range, every {@link #setPower(double)} sending a whole-microsecond pulse width and
+ * enabling PWM). {@code getPower()} is answered from the hub's cache of the last commanded position, a
+ * double, as {@link FakeServo#setDirection} describes: {@code setPwmRange} leaves that cache alone, while
+ * {@code setPulseWidth} and disabling PWM empty it, after which a real {@code getPower()} is rebuilt from
+ * the whole-microsecond pulse width. This fake does the same rebuild in {@link #setPulseWidth(double)};
+ * after {@link #setPwmDisable()} it keeps reporting the last commanded power.
+ * {@code hardwareMap.get(CRServoImplEx.class, name)} does <b>not</b> work in sim, for the
+ * reason given on {@link FakeServo}: ask for {@link CRServo} or {@link PwmControl} instead.
  */
-public class FakeCRServo extends AbstractFakeDevice implements CRServo {
+public class FakeCRServo extends AbstractFakeDevice implements CRServo, PwmControl {
 
     /** Creates a servo sitting at neutral, so it does not turn until something commands it. */
     public FakeCRServo() {
@@ -79,6 +93,12 @@ public class FakeCRServo extends AbstractFakeDevice implements CRServo {
     private double servoPosition = STOPPED_SERVO_POSITION;
 
     private Direction direction = Direction.FORWARD;
+
+    // ---- PWM state, as LynxServoController holds it for one port (see the class javadoc) ----
+    private PwmRange pwmRange = PwmRange.defaultRange;
+    private boolean pwmEnabled = false;
+    // The pulse width last sent to the port, in whole microseconds; 0 until something is sent.
+    private int pulseWidthMicroseconds = 0;
 
     @Override
     public void update(double deltaTime) {
@@ -106,6 +126,12 @@ public class FakeCRServo extends AbstractFakeDevice implements CRServo {
         double clipped = Range.clip(directedPower, API_POWER_MIN, API_POWER_MAX);
         this.servoPosition = Range.scale(clipped,
                 API_POWER_MIN, API_POWER_MAX, API_SERVO_POSITION_MIN, API_SERVO_POSITION_MAX);
+        // What LynxServoController.setServoPosition then does with that position: map it onto the PWM range,
+        // clip to what the command can carry, truncate to whole microseconds, send it, and enable PWM.
+        double microseconds = Range.scale(servoPosition,
+                API_SERVO_POSITION_MIN, API_SERVO_POSITION_MAX, pwmRange.usPulseLower, pwmRange.usPulseUpper);
+        this.pulseWidthMicroseconds = (int) Range.clip(microseconds, 1.0, 65535.0);
+        this.pwmEnabled = true;
     }
 
     /**
@@ -125,8 +151,8 @@ public class FakeCRServo extends AbstractFakeDevice implements CRServo {
     /**
      * The speed the horn is really turning at, in {@code [-1, 1]}: the direction is already baked in and
      * is not applied again. This is the sim-side truth, the counterpart of
-     * {@code FakeServo.getScaledPosition()} and {@code FakeMotor.getPhysicalPositionTicks()} (BACKLOG
-     * B18). <b>Sim-only — no such method exists on a real {@code CRServo}.</b>
+     * {@code FakeServo.getScaledPosition()} and {@code FakeMotor.getPhysicalPositionTicks()}.
+     * <b>Sim-only — no such method exists on a real {@code CRServo}.</b>
      *
      * @return the horn's real turn rate, unitless, in {@code [-1, 1]}
      */
@@ -165,11 +191,11 @@ public class FakeCRServo extends AbstractFakeDevice implements CRServo {
 
     // ---- HardwareDevice: matched to CRServoImpl rather than to AbstractFakeDevice's defaults ----
 
-    /** {@code 1}, as {@code CRServoImpl} reports. */
-    @Override
-    public int getVersion() {
-        return 1;
-    }
+    /** {@code "Continuous Rotation Servo"}, the string {@code CRServoImpl.getDeviceName} reads out of the SDK. */
+    @Override public String getDeviceName() { return "Continuous Rotation Servo"; }
+
+    /** The controller's connection info plus {@code "; port N"}, in {@code CRServoImpl}'s format. */
+    @Override public String getConnectionInfo() { return "sim; port " + getPortNumber(); }
 
     /**
      * Resets the direction to {@code FORWARD}, which is what {@code CRServoImpl} does here and what
@@ -181,4 +207,45 @@ public class FakeCRServo extends AbstractFakeDevice implements CRServo {
     public void resetDeviceConfigurationForOpMode() {
         this.direction = Direction.FORWARD;
     }
+
+    // ---- PwmControl (what CRServoImplEx adds); same behaviour as FakeServo's ----
+
+    /**
+     * Stores the PWM range, in microseconds, used to turn later commands into pulse widths. Nothing is
+     * resent: the pulse width already on the port is unchanged until the next {@link #setPower(double)}, and
+     * the hub's cached position is kept, so {@link #getPower()} goes on reporting the commanded power.
+     */
+    @Override public void setPwmRange(PwmRange range) { this.pwmRange = range; }
+
+    /** {@return the PWM range in microseconds; the SDK's default 600-2400 us range until set} */
+    @Override public PwmRange getPwmRange() { return pwmRange; }
+
+    /** Enables the PWM signal on this port. */
+    @Override public void setPwmEnable() { this.pwmEnabled = true; }
+
+    /** Disables the PWM signal on this port, so a real servo stops driving; the next power re-enables it. */
+    @Override public void setPwmDisable() { this.pwmEnabled = false; }
+
+    /** {@return whether the PWM signal is on; false on a fresh servo, true after any power command} */
+    @Override public boolean isPwmEnabled() { return pwmEnabled; }
+
+    /**
+     * Sends a raw pulse width, as {@code LynxServoController.setPulseWidth} does: truncated to whole
+     * microseconds, PWM enabled, and the held servo position replaced by the one that pulse width maps back
+     * to through the PWM range — so {@link #getPower()} then reports the speed that pulse width means.
+     *
+     * @param microseconds the pulse width to send, in microseconds
+     */
+    @Override
+    public void setPulseWidth(double microseconds) {
+        this.pulseWidthMicroseconds = (int) microseconds;
+        this.pwmEnabled = true;
+        this.servoPosition = Range.clip(
+                Range.scale(pulseWidthMicroseconds, pwmRange.usPulseLower, pwmRange.usPulseUpper,
+                        API_SERVO_POSITION_MIN, API_SERVO_POSITION_MAX),
+                API_SERVO_POSITION_MIN, API_SERVO_POSITION_MAX);
+    }
+
+    /** {@return the pulse width last sent to this port, in whole microseconds; 0 before anything is sent} */
+    @Override public double getPulseWidth() { return pulseWidthMicroseconds; }
 }

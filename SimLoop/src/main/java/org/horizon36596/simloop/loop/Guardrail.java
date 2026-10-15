@@ -20,7 +20,7 @@ package org.horizon36596.simloop.loop;
  * under its loop-time budget" needs a budget nobody has measured yet. A guardrail for one of those,
  * handed only an RLOG, cannot answer — and if it quietly returns zero penalty, the envelope silently
  * degrades into "whatever happened to be loggable", which is exactly the reward hack the envelope exists
- * to stop. So it says {@code UNKNOWN}, loudly, and E2's acceptance gate decides what to do about it.
+ * to stop. So it says {@code UNKNOWN}, loudly, and the acceptance {@link Gate} decides what to do about it.
  *
  * <p><b>{@code UNKNOWN} is not a pass and not a failure.</b> It carries no penalty — inventing one would
  * be a made-up number — and it must never be read as "holds". {@link Scorer} keeps unknowns in its

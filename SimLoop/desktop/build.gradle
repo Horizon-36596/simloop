@@ -1,0 +1,39 @@
+//
+// build.gradle in SimLoop/desktop  (Gradle project :SimLoop:desktop)
+//
+// The desktop half of SimLoop's live-drive tooling: one window that reports which keys are held down.
+// Horizon (FTC 36596).
+//
+// WHY THIS IS ITS OWN MODULE. SimLoop and a team's TeamCode are Android modules, and Android modules -
+// their unit tests included - compile against android.jar, which has no java.awt or javax.swing. A keyboard
+// needs a window, and the JDK's window toolkit is AWT/Swing. So the window lives here, in a plain Java
+// library built against the full JDK, and nothing else sees an AWT type: its public API is Strings and
+// booleans only. A team's unit tests depend on it (testImplementation) and use it only when a person runs a
+// live session; no test opens a window.
+//
+// NOT PUBLISHED. This repository publishes exactly one module, :SimLoop, so the JitPack coordinate stays
+// `com.github.Horizon-36596:simloop` (see the note at the top of settings.gradle). This module applies no
+// publishing plugin, and jitpack.yml installs :SimLoop alone.
+//
+// No new dependency: the JDK and JUnit 5, at the versions the rest of the repo already pins.
+//
+apply plugin: 'java-library'
+
+tasks.withType(JavaCompile).configureEach {
+    // The same Java level as the robot and SimLoop (Java 8), checked against the JDK's own API list.
+    options.release = 8
+}
+
+dependencies {
+    //noinspection NewerVersionAvailable
+    testImplementation "org.junit.jupiter:junit-jupiter-api:5.11.3"
+    //noinspection NewerVersionAvailable
+    testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.11.3"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.11.3"
+}
+
+tasks.named('test', Test) {
+    useJUnitPlatform()
+    // No test opens a window; this makes sure none can, so CI without a display behaves like a laptop.
+    systemProperty 'java.awt.headless', 'true'
+}

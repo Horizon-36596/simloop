@@ -50,21 +50,6 @@ class FakeDigitalChannelTest {
         assertTrue(beamBreak.getState(), "HIGH on the wire reads back HIGH");
     }
 
-    @Test
-    void aBallInTheBeamIsASimSetBooleanAndNeverAGeometryQuery() {
-        // Domain R6 forbids contact physics, so "ball present" is a bit the scenario sets. This test pins
-        // the SHAPE of that: the channel exposes no position, no geometry and no notion of a ball at all —
-        // it is a wire. The season's polarity (present == !getState(), docs/specs/intake.md §3) is applied
-        // by season code, not here, which is why this core class stays season-agnostic (domain R7).
-        FakeDigitalChannel beamBreak = new FakeDigitalChannel();
-
-        beamBreak.setSimulatedInputState(false);        // something is blocking the beam
-        boolean ballPresent = !beamBreak.getState();    // the season's reading of that
-
-        assertTrue(ballPresent, "beam broken (LOW) is how a break-beam receiver reports a ball");
-        assertFalse(beamBreak.getSimulatedInputState(), "and the raw line is readable as itself");
-    }
-
     // ---- Device fidelity: the two-bit model the SDK actually specifies ----
 
     @Test
@@ -152,7 +137,7 @@ class FakeDigitalChannelTest {
     @Test
     void reportsTheSameVersionTheRealDigitalChannelReports() {
         assertEquals(1, new FakeDigitalChannel().getVersion(),
-                "getVersion() must match DigitalChannelImpl's 1, not AbstractFakeDevice's 0 default");
+                "getVersion() must match DigitalChannelImpl's 1");
     }
 
     @Test

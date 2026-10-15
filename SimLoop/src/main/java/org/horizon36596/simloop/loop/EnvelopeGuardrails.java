@@ -1,6 +1,7 @@
 package org.horizon36596.simloop.loop;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -8,7 +9,7 @@ import java.util.List;
  * the ones a run's log can actually answer and the ones it cannot.
  *
  * <h2>Three of the seven are log facts. Four are not.</h2>
- * This is the sorting the E1 brief asks for, and getting it wrong in the comfortable direction — letting
+ * This is the sorting §3 asks for, and getting it wrong in the comfortable direction — letting
  * an unanswerable term quietly return "holds" — is what turns the safety envelope into "whatever happened
  * to be loggable".
  *
@@ -34,9 +35,28 @@ import java.util.List;
  *           {@link #forwardInverseKinematicsRoundTrip()}</td></tr>
  * </table>
  *
- * <p>The four that cannot answer are still <b>declared</b> rather than omitted. An envelope term that is
- * missing from the list is invisible; one that returns {@code UNKNOWN} with a reason shows up in every
- * score breakdown as a gap somebody chose to leave open. That difference is the entire point.
+ * <p>The three that a log cannot answer at all are still <b>declared</b> here, each one returning
+ * {@code UNKNOWN} with a reason, so the sort above is written in code and not only in prose.
+ *
+ * <p><b>Do not put those three in a loop scorer's envelope.</b> {@link Gate} rejects any candidate whose
+ * envelope holds an {@code UNKNOWN} term, so an always-{@code UNKNOWN} guardrail makes every candidate
+ * unacceptable, forever. Each of the three is enforced somewhere else, and that is where to look:
+ * <ul>
+ *   <li>Invariant-tier tests green: {@link Gate.Clause#TESTS_GREEN}, from
+ *       {@link Gate.SuppliedFacts#testsGreen()} — the caller runs the verify command and says what
+ *       happened.</li>
+ *   <li>FK/IK round trip: an invariant-tier property test, so it runs inside that same verify command and
+ *       is {@link Gate.Clause#TESTS_GREEN} again.</li>
+ *   <li>R8, sim before hardware: the loop only ever runs in sim, so it cannot break R8 by construction.
+ *       Putting a loop's answer on a robot is a human's step, outside the loop.</li>
+ * </ul>
+ *
+ * <p>Separately from the seven, {@link #runIsComplete()} and {@link #metricWasUpdated(String)} close two
+ * cheap reward hacks: scoring better by logging less, and scoring perfectly on a key nobody updated.
+ *
+ * <p><b>Every built-in term returns a verdict and never throws</b>, as {@link Guardrail#evaluate} asks. A
+ * key whose values are not numbers is {@code UNKNOWN} with the key named, not an exception out of the
+ * scorer.
  *
  * <p><b>Every threshold here is {@code GUESSED}</b> until a real loop run tunes it, per the brief's
  * provenance rule. Nothing in this file has been calibrated against a robot.
@@ -202,6 +222,45 @@ public final class EnvelopeGuardrails {
     }
 
     /**
+     * The key really was updated during the run, rather than set once at the start and left alone.
+     *
+     * <p>Not one of §3's seven. It exists for {@link Objective#ofFinalValue}: an RLOG is delta-encoded, so a
+     * key written once at frame 0 and never again still has a "final value" — the frame-0 one. A finish
+     * time initialised to {@code 0} and minimized scores perfectly on a run that never finished. Put this
+     * in the envelope beside such an objective and that run is a violation instead of a win.
+     *
+     * <p>"Updated" means: the key first appears after frame 0 (it was written mid-run), or its value is not
+     * the same in every frame. A key present from frame 0 with one value throughout is VIOLATED. A run of a
+     * single frame cannot show a change either way, so it is {@code UNKNOWN}, as is a run that never logged
+     * the key.
+     *
+     * @param key the RLOG key the objective reads
+     * @return a guardrail that violates when {@code key} held one value from the first frame to the last
+     */
+    public static Guardrail metricWasUpdated(String key) {
+        return named("metricWasUpdated(" + key + ")", run -> {
+            if (!run.hasKey(key)) {
+                return Guardrail.Verdict.unknown("'" + key + "' was never logged, so there is no update to see");
+            }
+            if (run.frameCount() < 2) {
+                return Guardrail.Verdict.unknown("a one-frame run cannot show whether '" + key + "' changed");
+            }
+            List<Double> values = run.metric(key);
+            boolean presentFromFirstFrame = values.size() == run.frameCount();
+            if (!presentFromFirstFrame) {
+                return Guardrail.Verdict.holds();
+            }
+            for (Double value : values) {
+                if (Double.compare(value, values.get(0)) != 0) {
+                    return Guardrail.Verdict.holds();
+                }
+            }
+            return Guardrail.Verdict.violated("'" + key + "' held " + values.get(0) + " from the first frame "
+                    + "to the last, so the objective read a value nobody updated during the run");
+        });
+    }
+
+    /**
      * The run produced every frame it was asked for.
      *
      * <p>Not one of §3's seven, but §7's "reject runs whose logs are missing or short", and it belongs in
@@ -223,35 +282,38 @@ public final class EnvelopeGuardrails {
     }
 
     // ---------------------------------------------------------------------------------------------
-    // NOT answerable from the log — declared anyway, so the gap is visible
+    // NOT answerable from the log — declared so the sort is written in code. Never put these in a
+    // loop scorer's envelope: the gate rejects on UNKNOWN, so they would block every candidate.
     // ---------------------------------------------------------------------------------------------
 
     /**
      * §3: all invariant-tier tests green.
      *
-     * <p><b>A Gradle exit code, not a log fact.</b> Always {@code UNKNOWN} here. E2's acceptance gate
-     * runs the build and answers this; a guardrail handed only an RLOG cannot, and must not pretend to.
+     * <p><b>A Gradle exit code, not a log fact.</b> Always {@code UNKNOWN} here. The loop enforces it as
+     * {@link Gate.Clause#TESTS_GREEN}, from {@link Gate.SuppliedFacts#testsGreen()}; a guardrail handed only
+     * an RLOG cannot answer it, and must not pretend to. Not for a scorer's envelope (see the class javadoc).
      *
      * @return a guardrail that always reports UNKNOWN, because a log cannot show whether the tests ran
      */
     public static Guardrail invariantTestsGreen() {
         return named("invariantTestsGreen", run -> Guardrail.Verdict.unknown(
                 "invariant-tier test results are a Gradle exit code, not a field in the run's log. The "
-                        + "acceptance gate (E2) owns this term; scoring an RLOG cannot answer it."));
+                        + "gate's TESTS_GREEN clause owns this term; scoring an RLOG cannot answer it."));
     }
 
     /**
      * §3 / domain {@code R8}: code may actuate real hardware only after the same code passed in sim.
      *
      * <p><b>A fact about history, not about this run.</b> Always {@code UNKNOWN} here: it is a question
-     * about which commit ran where, which the loop driver (E3) tracks and a single RLOG cannot show.
+     * about which commit ran where, which a single RLOG cannot show. The loop runs only in sim, so it cannot
+     * break R8 itself; moving its answer to a robot is a human's step. Not for a scorer's envelope.
      *
      * @return a guardrail that always reports UNKNOWN, because a log cannot show what ran where
      */
     public static Guardrail passedInSimFirst() {
         return named("passedInSimFirst", run -> Guardrail.Verdict.unknown(
                 "R8 is a fact about this code's history -- did the same commit pass in sim before touching "
-                        + "hardware -- and no single run's log records it. The loop driver (E3) owns it."));
+                        + "hardware -- and no single run's log records it."));
     }
 
     /**
@@ -259,7 +321,8 @@ public final class EnvelopeGuardrails {
      *
      * <p><b>A property of the kinematics, not of a run.</b> Always {@code UNKNOWN} here. It is pinned by
      * an invariant-tier property test over many inputs; a single run exercises whatever path it happened
-     * to drive, which would be a far weaker claim wearing the same name.
+     * to drive, which would be a far weaker claim wearing the same name. That test runs inside the verify
+     * command, so the loop enforces it as {@link Gate.Clause#TESTS_GREEN}. Not for a scorer's envelope.
      *
      * @return a guardrail that always reports UNKNOWN, because a log cannot show a kinematics round trip
      */
@@ -271,18 +334,19 @@ public final class EnvelopeGuardrails {
     }
 
     /**
-     * Every §3 term that cannot be answered from a run, as one list.
+     * Every §3 term that cannot be answered from a run, as one list — for a report that wants to name them.
      *
-     * <p>Handy for a scenario that wants its breakdown to show the whole envelope — including the parts
-     * nothing can check yet — rather than quietly listing only the checkable half.
+     * <p><b>Not for a scorer's envelope.</b> Every term in it is always {@code UNKNOWN}, and the gate rejects
+     * any candidate whose envelope holds an {@code UNKNOWN} term, so a scorer built with this list can never
+     * accept anything. The class javadoc says where each of the three is actually enforced.
      *
-     * @return every guardrail that a single RLOG cannot answer, so a caller can list them out loud
+     * @return an unmodifiable list of the three guardrails a single RLOG cannot answer
      */
     public static List<Guardrail> notAnswerableFromALog() {
-        return Arrays.asList(
+        return Collections.unmodifiableList(Arrays.asList(
                 invariantTestsGreen(),
                 passedInSimFirst(),
-                forwardInverseKinematicsRoundTrip());
+                forwardInverseKinematicsRoundTrip()));
     }
 
     /**
@@ -358,9 +422,22 @@ public final class EnvelopeGuardrails {
             return name;
         }
 
+        /**
+         * Runs the check, turning a non-numeric value into {@code UNKNOWN} rather than an exception.
+         *
+         * <p>{@link Guardrail#evaluate} says "return a verdict; do not throw". Every check above tests
+         * {@code hasKey} first, so a missing key is already {@code UNKNOWN}; what is left is a key that
+         * exists but holds a string or a boolean, which {@link RunResult#metric} refuses with
+         * {@link RunResult.MetricNotNumericException}. A bound cannot be judged on a word, so that is a term
+         * that could not be checked: {@code UNKNOWN}, which still blocks the gate, and not a crashed loop.
+         */
         @Override
         public Verdict evaluate(RunResult run) {
-            return check.evaluate(run);
+            try {
+                return check.evaluate(run);
+            } catch (RunResult.MetricNotNumericException notANumber) {
+                return Verdict.unknown(name + " could not be checked: " + notANumber.getMessage());
+            }
         }
     }
 }

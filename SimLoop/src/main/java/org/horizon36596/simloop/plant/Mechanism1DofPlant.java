@@ -4,31 +4,33 @@ import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import org.horizon36596.simloop.config.MechanismSimConfig;
 
 /**
- * Generic 1-DOF mechanism plant (fakehardware-plant §4, domain R6): the season-agnostic primitive every
- * mechanism (slide, arm, turret) is built on — one class, one config per mechanism. It is driven
- * <b>through its motor</b> — the same {@link DcMotorSimple} surface unchanged robot code touches via
- * {@code setPower} — so the team's own external-encoder + custom closed-loop algorithm runs in sim exactly
- * as on hardware (never RUN_TO_POSITION), and its gains transfer (domain R1/R6/R8). {@link #getPosition()}
- * is the mechanism position the external-encoder fake reports back for that algorithm to read (wired by
- * the season glue in Batch 2.2).
+ * Generic 1-DOF mechanism plant: the season-agnostic primitive every mechanism (slide, arm, turret) is
+ * built on — one class, one config per mechanism. It is driven <b>through its motor</b> — the same
+ * {@link DcMotorSimple} surface unchanged robot code touches via {@code setPower} — so the team's own
+ * external-encoder + custom closed-loop algorithm runs in sim exactly as on hardware (never
+ * RUN_TO_POSITION), and its gains transfer. {@link #getPosition()} is the mechanism position the
+ * external-encoder fake reports back for that algorithm to read (the season glue wires the two together).
  *
  * <p><b>Model.</b> A single-state first-order velocity response to the motor's commanded power minus what
- * gravity takes, then a kinematic position integral with a hard end-limit:
+ * gravity takes, then the exact position integral of that velocity, with a hard end-limit:
  * <pre>
  *   netPower    = effectivePower - gravityHoldPowerFraction        // weight is a constant effort tax
  *   cmdVelocity = clamp(netPower, -1, 1) * maxSpeed                // power in [-1,1] -> commanded rate
- *   velocity   += (cmdVelocity - velocity) * (1 - exp(-dt/tau))    // exact first-order lag toward it
- *   position    = clamp(position + velocity*dt, minPos, maxPos)    // hard end-limit
- *   if driving into a limit: velocity = 0                          // stalled against a hard stop
+ *   decay       = exp(-dt/tau)
+ *   position   += cmdVelocity*dt + (velocity - cmdVelocity)*tau*(1 - decay)  // exact integral over the tick
+ *   velocity   += (cmdVelocity - velocity) * (1 - decay)           // exact first-order lag toward it
+ *   position    = clamp(position, minPos, maxPos)                  // hard end-limit
+ *   if the clamp acted, or driving into a limit: velocity = 0      // stalled against a hard stop
  * </pre>
  * {@code effectivePower} applies the SDK direction contract (a {@code REVERSE} motor flips the sign,
  * mirroring {@code FakeMotor.update}). Under a held power the velocity converges to
- * {@code (power - gravity)*maxSpeed} with time constant {@code timeConstant} (exact exponential, so the
- * response is {@code deltaTime}-independent), giving true first-order motion rather than a kinematic jump
- * (Contract clause 2). Position can never integrate past {@code [minPosition, maxPosition]} under any
- * command (Contract clause 1). This is parameterized first-order dynamics, not rigid-body/contact physics
- * (domain R6); {@code timeConstant}/{@code maxSpeed}/{@code gravityHoldPowerFraction} are the Phase-4
- * calibration surface.
+ * {@code (power - gravity)*maxSpeed} with time constant {@code timeConstant}. Both the velocity step and
+ * the position step are the exact solution over the tick, not an approximation of it, so away from the
+ * end limits the response is {@code deltaTime}-independent: one second reached in 25 ticks or in 200
+ * lands in the same place. It is true first-order motion rather than a kinematic jump, and position can
+ * never integrate past {@code [minPosition, maxPosition]} under any command. This is parameterized
+ * first-order dynamics, not rigid-body/contact physics; {@code timeConstant}, {@code maxSpeed} and
+ * {@code gravityHoldPowerFraction} are the numbers a sim-to-real calibration fits.
  *
  * <p><b>Why gravity is modelled here at all.</b> Without it a mechanism holds any position at zero power,
  * so a controller with no gravity feedforward converges perfectly in sim and sags on the real robot — the
@@ -39,10 +41,10 @@ import org.horizon36596.simloop.config.MechanismSimConfig;
  * unused here: the plant reads the <em>raw commanded power</em> and applies a single mechanism pole, so
  * the modelled dynamics stay first-order rather than compounding two lags into a second-order response.
  *
- * <p>Season-agnostic core: depends only on the SDK {@link DcMotorSimple} surface + {@link MechanismSimConfig}
- * (domain R7, SimLoop rule 2). Deterministic: state changes only in {@link #update(double)} off the injected
- * tick {@code deltaTime}, never a wall-clock, and via {@link StrictMath#exp} so replay is bit-stable across
- * JVMs (domain R5); getters are pure reads (conventions §4).
+ * <p>Season-agnostic core: depends only on the SDK {@link DcMotorSimple} surface + {@link MechanismSimConfig}.
+ * Deterministic: state changes only in {@link #update(double)} off the injected tick {@code deltaTime},
+ * never a wall-clock, and via {@link StrictMath#exp} so replay is bit-stable across JVMs; getters are pure
+ * reads.
  *
  * <h2>A degree of freedom with no end stops</h2>
  * Some actuators simply never run out of travel: a continuous-rotation ejector servo, an intake roller, a
@@ -60,7 +62,7 @@ import org.horizon36596.simloop.config.MechanismSimConfig;
  * compiles and behaves correctly: {@code CRServoImpl.getPower()} hands back the power the caller asked
  * for (its direction reversal is applied on the way in and undone on the way out), and this plant then
  * applies the direction itself, exactly as it does for a motor. Pinned by
- * {@code MultiDofMechanismPlantTest} (BACKLOG B13).
+ * {@code MultiDofMechanismPlantTest}.
  */
 public final class Mechanism1DofPlant implements OneDofPlant {
 
@@ -78,9 +80,9 @@ public final class Mechanism1DofPlant implements OneDofPlant {
      * Builds the plant for one powered 1-DOF mechanism, at rest at the clamped origin.
      *
      * @param motor  the actuator the mechanism's subsystem drives via {@code setPower} — the SAME motor
-     *               instance registered in the {@code FakeHardwareMap} the robot code resolves (domain R1),
-     *               so unchanged code closes the loop in sim.
-     * @param config the mechanism's first-order params + end-limits (glue-injected, domain R7). Starts at
+     *               instance registered in the {@code FakeHardwareMap} the robot code resolves, so
+     *               unchanged code closes the loop in sim.
+     * @param config the mechanism's first-order params + end-limits, supplied by the season glue. Starts at
      *               rest at the clamped origin ({@code 0} clamped into {@code [min, max]}); seed a
      *               different start with {@link #setPosition(double)}.
      * @throws IllegalArgumentException if {@code motor} is null, any config value is non-finite (the end
@@ -98,7 +100,7 @@ public final class Mechanism1DofPlant implements OneDofPlant {
         }
         // Finiteness first: a NaN/Infinity config value would slip every sign/order comparison below
         // (NaN comparisons are always false; Infinity passes `> 0`) and later poison position via the
-        // clamp or the lag formula — fail loud instead (fakehardware-plant §0).
+        // clamp or the lag formula — fail loud instead.
         double tau = requireFinite(config.timeConstant(), "timeConstant");
         double vMax = requireFinite(config.maxSpeed(), "maxSpeed");
         // The two end limits are the ONLY config values allowed to be infinite, and only in the direction
@@ -147,10 +149,14 @@ public final class Mechanism1DofPlant implements OneDofPlant {
         this.velocity = 0.0;
     }
 
-    /** Advance the mechanism one tick from the motor's current commanded power (fakehardware-plant §2). */
+    /**
+     * Advance the mechanism one tick from the motor's current commanded power.
+     *
+     * @param deltaTime the tick length, in seconds; a zero, negative or non-finite tick is ignored
+     */
     public void update(double deltaTime) {
         // A tick advances the clock forward by a finite amount; a non-finite or non-positive deltaTime is
-        // not a real sim tick (FakeTimer is monotonic, domain R5), so treat it as no time passing. Keeps
+        // not a real sim tick (FakeTimer only moves forward), so treat it as no time passing. Keeps
         // any NaN/negative deltaTime from injecting a NaN or backward step into the end-limit invariant.
         if (!Double.isFinite(deltaTime) || deltaTime <= 0.0) {
             return;
@@ -170,15 +176,33 @@ public final class Mechanism1DofPlant implements OneDofPlant {
         // as falling faster than its own maxSpeed.
         double netPower = Math.max(-1.0, Math.min(1.0, effectivePower - gravityHoldPowerFraction));
         double cmdVelocity = netPower * maxSpeed;
-        // Exact first-order lag of velocity toward the commanded rate (deltaTime-independent, StrictMath
-        // for bit-stable cross-JVM replay).
-        velocity += (cmdVelocity - velocity) * (1.0 - StrictMath.exp(-deltaTime / timeConstant));
 
-        position = clampToLimits(position + velocity * deltaTime);
+        // Over this tick the velocity follows v(t) = cmd + (v0 - cmd) * exp(-t/tau), starting from the
+        // velocity v0 it had at the start of the tick. Both updates below are the exact solution of that
+        // curve at t = deltaTime, so the result does not depend on the tick size (StrictMath for bit-stable
+        // cross-JVM replay).
+        double decay = StrictMath.exp(-deltaTime / timeConstant);
+        double velocityAtStartOfTick = velocity;
+        // Position: the exact area under v(t) over the tick. The simpler `position += velocity * dt`
+        // would use the END-of-tick velocity for the whole tick and run ahead of the true motion by about
+        // cmd*dt/2 during every spin-up.
+        double travel = cmdVelocity * deltaTime
+                + (velocityAtStartOfTick - cmdVelocity) * timeConstant * (1.0 - decay);
+        // Velocity: the exact first-order lag toward the commanded rate.
+        velocity = cmdVelocity + (velocityAtStartOfTick - cmdVelocity) * decay;
+
+        double unclampedPosition = position + travel;
+        position = clampToLimits(unclampedPosition);
         // Hit a hard stop: the mechanism stalls, so its (external-encoder) velocity is zero, not the
-        // motor's still-spinning command. Fires the moment it sits on a limit still driving into it —
-        // including an exact landing — preventing wind-up when the command later reverses.
-        if ((position <= minPosition && velocity < 0.0) || (position >= maxPosition && velocity > 0.0)) {
+        // motor's still-spinning command. Two ways to get here:
+        //  - the clamp moved the position, so the mechanism reached a wall part-way through this tick. Its
+        //    speed there was zero, even if a command that reversed mid-tick means the end-of-tick velocity
+        //    formula already points away from the wall;
+        //  - it sits on a limit still driving into it, including an exact landing.
+        // Either way this prevents wind-up when the command later reverses.
+        boolean clampMovedPosition = position != unclampedPosition;
+        if (clampMovedPosition
+                || (position <= minPosition && velocity < 0.0) || (position >= maxPosition && velocity > 0.0)) {
             velocity = 0.0;
         }
     }
@@ -234,7 +258,7 @@ public final class Mechanism1DofPlant implements OneDofPlant {
         return Math.max(minPosition, Math.min(maxPosition, value));
     }
 
-    // Fail loud on a non-finite value (fakehardware-plant §0): a NaN/Infinity would slip through the
+    // Fail loud on a non-finite value: a NaN/Infinity would slip through the
     // Math.min/max clamp (IEEE propagates NaN) and poison state permanently — a caller bug, not a value
     // to fake-correct.
     private static double requireFinite(double value, String name) {

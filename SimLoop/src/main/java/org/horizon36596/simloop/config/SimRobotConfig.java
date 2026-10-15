@@ -2,14 +2,11 @@ package org.horizon36596.simloop.config;
 
 /**
  * Season-glue interface: the device registry the core needs to build a {@code FakeHardwareMap}
- * that mirrors the real robot configuration (architecture §3, domain R7). Implemented by the
- * season layer in {@code TeamCode}; the core never reaches out for these season facts.
+ * that mirrors the real robot configuration. Implemented by the season layer in {@code TeamCode};
+ * the core never reaches out for these season facts.
  *
  * <p>Device names MUST match the names the real subsystems pass to {@code hardwareMap.get(...)}
- * so the same subsystem code resolves devices in sim and on the robot (domain R1).
- *
- * <p>Scope (Batch 1.2): interface surface only. {@code FakeHardwareMap} population from these
- * names is built in Batch 1.4.
+ * so the same, unchanged subsystem code resolves devices in sim and on the robot.
  */
 public interface SimRobotConfig {
 

@@ -30,7 +30,7 @@ package org.horizon36596.simloop.field;
  * halves of that sentence live in this module, so the rotation has to live here too: a season's copy of
  * it would not be reachable from here, because nothing in this module may import season code. Before
  * this class existed the rotation was only written in a season's localization package, so every consumer
- * of this module had to rewrite it and nothing told them they had to. That was the defect (BACKLOG B37).
+ * of this module had to rewrite it and nothing told them they had to. That was the defect this class fixes.
  *
  * <p><b>Which frame is which, per type.</b> Worth checking rather than guessing:
  * <ul>

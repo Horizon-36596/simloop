@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -19,7 +20,7 @@ import java.util.regex.Pattern;
  * <h2>Decoded fields only, never raw bytes</h2>
  * Every number this class exposes comes from {@link RlogDecodedCompare#decode(Path)} — PsiKit's own
  * decoder — and never from the RLOG's bytes. Two identical runs write byte-different RLOGs because
- * PsiKit's key ordering comes from a hash map ({@code docs/BACKLOG.md} B3); the decoded numeric fields
+ * PsiKit's key ordering comes from a hash map; the decoded numeric fields
  * are what is actually deterministic, and they are the only thing worth scoring.
  *
  * <h2>A short log is a violation, not a low score</h2>
@@ -366,9 +367,10 @@ public final class RunResult {
     /** Up to five logged keys sharing the most leading characters with {@code key}, for error messages. */
     private List<String> closestKeys(String key) {
         List<String> sorted = new ArrayList<>(keys);
-        String needle = key.toLowerCase();
+        String needle = key.toLowerCase(Locale.ROOT);
         sorted.sort((a, b) -> Integer.compare(
-                sharedPrefixLength(b.toLowerCase(), needle), sharedPrefixLength(a.toLowerCase(), needle)));
+                sharedPrefixLength(b.toLowerCase(Locale.ROOT), needle),
+                sharedPrefixLength(a.toLowerCase(Locale.ROOT), needle)));
         return sorted.subList(0, Math.min(5, sorted.size()));
     }
 

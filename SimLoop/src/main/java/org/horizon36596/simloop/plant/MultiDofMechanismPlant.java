@@ -10,13 +10,14 @@ import java.util.Map;
 
 /**
  * How one subsystem with several real degrees of freedom is simulated: <b>one plant per degree of
- * freedom, held side by side, ticked together and logged apart</b> (BACKLOG B13, decided 2026-09-14).
+ * freedom, held side by side, ticked together and logged apart</b>.
  *
- * <p>V0's {@code Deposit} is the shape this exists for. It is deliberately <b>one</b> subsystem in code,
- * because that is how the hardware reads, but it carries four independent things that move:
+ * <p>A typical scoring mechanism is the shape this exists for. It is deliberately <b>one</b> subsystem in
+ * code, because that is how the hardware reads, but it can carry several independent things that move —
+ * for example:
  *
  * <table border="1">
- *   <caption>The four degrees of freedom of V0's Deposit, and the plant each one gets</caption>
+ *   <caption>Four degrees of freedom of an example scoring mechanism, and the plant each one gets</caption>
  *   <tr><th>Degree of freedom</th><th>Actuator</th><th>Plant</th><th>Unit</th></tr>
  *   <tr><td>slide extension</td><td>2 motors driving one rig</td><td>{@link Mechanism1DofPlant}</td>
  *       <td>inches</td></tr>
@@ -35,21 +36,22 @@ import java.util.Map;
  * <ul>
  *   <li><b>It does no physics of its own.</b> Every number it reports comes straight out of one of the
  *       plants above. A degree of freedom inside a composite moves exactly as the same plant would move
- *       alone, tick for tick — pinned by {@code MultiDofMechanismPlantTest} (B13 Contract clause 1).</li>
+ *       alone, tick for tick — pinned by {@code MultiDofMechanismPlantTest}.</li>
  *   <li><b>It never lets one plant see another.</b> Nothing here hands a plant a reference to a sibling,
  *       and none of the plant classes accepts one. Coupling between degrees of freedom — a heavy slide
- *       loading the pivot that carries it — is rigid-body physics, which domain R6 rules out. If a
+ *       loading the pivot that carries it — is rigid-body physics, which this library deliberately does
+ *       not model. If a
  *       mechanism ever appears to need it, stop and flag it rather than adding it here.</li>
  *   <li><b>It does not build the plants.</b> The season layer constructs each one, keeps its own typed
  *       reference (the slide's glue still needs {@code Mechanism1DofPlant.getVelocityFractionOfMaxSpeed()}
  *       to feed its motor's current model, which is not on the shared {@link OneDofPlant} surface), and
  *       registers it here. Construction staying outside is what keeps this class free of any knowledge
- *       about which actuator is underneath (domain R7).</li>
+ *       about which actuator is underneath.</li>
  * </ul>
  *
  * <h2>Using it</h2>
  * <pre>
- *   MultiDofMechanismPlant deposit = MultiDofMechanismPlant.builder()
+ *   MultiDofMechanismPlant scorer = MultiDofMechanismPlant.builder()
  *           .addDof("slide",   slidePlant,   "In")    // inches
  *           .addDof("pivot",   pivotPlant,   "Rad")   // radians
  *           .addDof("ejector", ejectorPlant, "Rev")   // output revolutions
@@ -57,8 +59,8 @@ import java.util.Map;
  *           .build();
  *
  *   // once per sim tick:
- *   deposit.update(deltaTime);
- *   deposit.record("DepositPlant");
+ *   scorer.update(deltaTime);
+ *   scorer.record("ScorerPlant");
  * </pre>
  *
  * <h2>What it logs</h2>
@@ -66,8 +68,8 @@ import java.util.Map;
  * (rule 2), so a reader in AdvantageScope can tell which degree of freedom a number belongs to and what
  * it is measured in without opening any code:
  * <pre>
- *   &lt;prefix&gt;/&lt;dof&gt;/position&lt;Unit&gt;            e.g. DepositPlant/slide/positionIn
- *   &lt;prefix&gt;/&lt;dof&gt;/velocity&lt;Unit&gt;PerSecond    e.g. DepositPlant/slide/velocityInPerSecond
+ *   &lt;prefix&gt;/&lt;dof&gt;/position&lt;Unit&gt;            e.g. ScorerPlant/slide/positionIn
+ *   &lt;prefix&gt;/&lt;dof&gt;/velocity&lt;Unit&gt;PerSecond    e.g. ScorerPlant/slide/velocityInPerSecond
  * </pre>
  * These are <b>sim-side truth</b>, not the subsystem's own telemetry: they are what the model believes,
  * logged next to what the robot's own sensors reported so the two can be compared. The subsystem keeps
@@ -76,8 +78,8 @@ import java.util.Map;
  * substitute for that and does not log those fields. Same standing as {@code GamePieceTracker}: sim
  * bookkeeping, so the mechanism field set does not apply to it.
  *
- * <p><b>Season-agnostic core</b> (domain R7, SimLoop rule 1): it knows nothing about a Deposit, a slide or
- * a pollen. Every name and unit above arrives from the caller. <b>Deterministic</b> (domain R5): state
+ * <p><b>Season-agnostic core</b>: it knows nothing about any particular subsystem, slide or game piece.
+ * Every name and unit above arrives from the caller. <b>Deterministic</b>: state
  * changes only in {@link #update(double)} off the injected tick, the degrees of freedom are ticked in
  * registration order every time, and {@link #record(String)} is a pure read.
  */
@@ -96,7 +98,7 @@ public final class MultiDofMechanismPlant {
         }
     }
 
-    // Registration order, kept: the ticking order is part of the deterministic replay (domain R5), and a
+    // Registration order, kept: the ticking order is part of the deterministic replay, and a
     // log tree that lists the degrees of freedom in the order the human declared them reads better than
     // one sorted alphabetically.
     private final List<Dof> dofsInOrder;
@@ -124,8 +126,7 @@ public final class MultiDofMechanismPlant {
      * Advance every degree of freedom by {@code deltaTime} seconds, in registration order.
      *
      * <p>Each plant reads its own actuator and nothing else, so the order is invisible in the result —
-     * it is fixed anyway, because a replay that ticked in a different order would be a different run
-     * (domain R5).
+     * it is fixed anyway, because a replay that ticked in a different order would be a different run.
      *
      * @param deltaTime the tick length, in seconds
      */
@@ -139,7 +140,7 @@ public final class MultiDofMechanismPlant {
      * Write every degree of freedom's modelled position and velocity to the log, under
      * {@code <keyPrefix>/<dof>/...}. Pure read — call it once per tick, at the bottom.
      *
-     * @param keyPrefix the mechanism's log-key root, e.g. {@code "DepositPlant"}. Non-blank. Naming it
+     * @param keyPrefix the mechanism's log-key root, e.g. {@code "ScorerPlant"}. Non-blank. Naming it
      *                  distinctly from the subsystem's own prefix keeps sim truth and robot telemetry
      *                  apart in the log tree, where a reader can hold them side by side.
      * @throws IllegalArgumentException if {@code keyPrefix} is null or blank.
@@ -224,10 +225,11 @@ public final class MultiDofMechanismPlant {
          * Add one degree of freedom.
          *
          * @param name               what this degree of freedom is called, e.g. {@code "slide"}. Becomes
-         *                           one segment of its log key, so it must be non-blank and must not
-         *                           contain {@code '/'} — a slash would fabricate an extra level of
-         *                           nesting and the key would quietly land somewhere else in the tree.
-         *                           Names must be unique within one mechanism.
+         *                           one segment of its log key, so it must be non-blank, must not start
+         *                           or end with whitespace, and must not contain {@code '/'} — a slash
+         *                           would fabricate an extra level of nesting and the key would quietly
+         *                           land somewhere else in the tree. Names must be unique within one
+         *                           mechanism, and are looked up exactly as given.
          * @param plant              the plant that moves it — a {@link Mechanism1DofPlant} for anything
          *                           power-driven, a {@link PositionalServoPlant} for anything commanded
          *                           to a position. Already constructed by the season layer, which keeps
@@ -238,8 +240,9 @@ public final class MultiDofMechanismPlant {
          *                           a log key is read in AdvantageScope with no javadoc attached, so the
          *                           key is the only place the unit can live
          *                           ({@code docs/process/logging-contract.md} rule 2).
-         * @throws IllegalArgumentException if any argument is null or blank, the name contains
-         *                                  {@code '/'}, the name is already used, or {@code plant} is an
+         * @throws IllegalArgumentException if any argument is null or blank, the name has leading or
+         *                                  trailing whitespace or contains {@code '/'}, the name is already
+         *                                  used, or {@code plant} is an
          *                                  instance already registered under another name (which would
          *                                  tick it twice per update).
          * @return this builder
@@ -248,17 +251,23 @@ public final class MultiDofMechanismPlant {
             if (name == null || name.trim().isEmpty()) {
                 throw new IllegalArgumentException("degree-of-freedom name must be a non-blank string");
             }
-            String trimmedName = name.trim();
-            if (trimmedName.contains("/")) {
+            // Rejected rather than trimmed: getPosition("slide") looks the name up exactly, so a DOF
+            // registered as " slide" and silently stored as "slide" would read fine here and then fail to
+            // match anywhere the caller kept the original string. Only the caller can say which it meant.
+            if (!name.equals(name.trim())) {
                 throw new IllegalArgumentException(
-                        "degree-of-freedom name must not contain '/', got \"" + trimmedName + "\"");
+                        "degree-of-freedom name must not start or end with whitespace, got \"" + name + "\"");
+            }
+            if (name.contains("/")) {
+                throw new IllegalArgumentException(
+                        "degree-of-freedom name must not contain '/', got \"" + name + "\"");
             }
             if (plant == null) {
                 throw new IllegalArgumentException(
-                        "degree of freedom \"" + trimmedName + "\" needs a plant to move it");
+                        "degree of freedom \"" + name + "\" needs a plant to move it");
             }
             if (positionUnitSuffix == null || positionUnitSuffix.trim().isEmpty()) {
-                throw new IllegalArgumentException("degree of freedom \"" + trimmedName
+                throw new IllegalArgumentException("degree of freedom \"" + name
                         + "\" needs a position unit suffix for its log key, e.g. \"In\"");
             }
             String trimmedSuffix = positionUnitSuffix.trim();
@@ -267,8 +276,8 @@ public final class MultiDofMechanismPlant {
                         "position unit suffix must not contain '/', got \"" + trimmedSuffix + "\"");
             }
             for (Dof existing : dofs) {
-                if (existing.name.equals(trimmedName)) {
-                    throw new IllegalArgumentException("degree of freedom \"" + trimmedName
+                if (existing.name.equals(name)) {
+                    throw new IllegalArgumentException("degree of freedom \"" + name
                             + "\" is already registered; names must be unique within one mechanism");
                 }
                 // The same plant under two names is a copy-paste mistake, and a silent one: update()
@@ -277,12 +286,12 @@ public final class MultiDofMechanismPlant {
                 // would carry the same number. Nothing downstream could tell that from a real reading.
                 if (existing.plant == plant) {
                     throw new IllegalArgumentException("the plant registered as \"" + existing.name
-                            + "\" is being registered again as \"" + trimmedName + "\"; one plant models "
+                            + "\" is being registered again as \"" + name + "\"; one plant models "
                             + "one degree of freedom, and registering it twice would tick it twice per "
                             + "update and log the same number under both names");
                 }
             }
-            dofs.add(new Dof(trimmedName, plant, trimmedSuffix));
+            dofs.add(new Dof(name, plant, trimmedSuffix));
             return this;
         }
 

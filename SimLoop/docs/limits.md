@@ -1,93 +1,122 @@
 # What SimLoop does not do
 
-Read this page before you plan anything around SimLoop. Everything here is a deliberate boundary, not a
-gap waiting to be filled — each one is a decision with a reason, and several of them are the reason the
-rest works.
+Read this page before you plan anything around SimLoop. Everything here is a deliberate boundary or a
+known limit, not a gap waiting to be filled quietly. Each package page ends with its own list; this page
+collects the ones that shape a plan.
 
 !!! warning "If you are an AI agent"
     This page is the authoritative list of what is out of scope. If a task needs something on it, the
-    answer is not to look harder for the API — there isn't one. Say so and propose the alternative named
+    answer is not to look harder for the API: there isn't one. Say so and propose the alternative named
     here.
 
-## It is not a physics engine
+## The robot is not a rigid body
 
-**No rigid-body dynamics. No collisions. No contact.** Nothing in SimLoop can tell you what happens when
-your robot hits a wall, when two robots touch, when a game piece bounces, or whether an intake will
-actually pick something up.
+Mechanisms and the drivetrain are **parameterized first-order models**: one time constant, one speed
+ceiling, end stops, a gravity term. That answers "does my controller settle where I told it, in about the
+time I expect, without running past its own limit", which is the question most control bugs are.
 
-What it models instead is **parameterized first-order dynamics per mechanism**: one time constant, one
-speed ceiling, one pair of end stops, one gravity term. That is enough to answer "does my controller
-settle where I told it, in about the time I expect, without running past its own limit", which is the
-question most control bugs are.
+What that leaves out:
 
-If a model you want seems to need contact physics, that is the signal to stop and check the design rather
-than to go looking for a method.
+- **The robot does not collide by itself.** The drive plant knows nothing about the field. You ask
+  `FootprintContact` or `RobotContact` whether the robot overlaps something and move it back out. See
+  [`field`](packages/field.md).
+- **Robots do not push each other.** A `StaticRobot` is a solid box that stands still; there is no second
+  driven robot.
+- **A game piece never pushes the robot back.** To a piece the robot is immovable.
+- **No tipping, no backlash, no motor heating.**
 
-## It does not simulate vision
+## Game pieces: physics, with stated limits
 
-No cameras, no AprilTags, no colour blobs, no Limelight, no TensorFlow. A vision-dependent auto cannot be
-tested end to end here. What you can do is test everything *downstream* of vision by feeding your
-subsystem the pose or the detection as an input — which is usually the part that has the bug anyway.
+Game pieces do have physics: they roll, bounce, collide, fly and score
+([`field`](packages/field.md)). The limits:
 
-## It does not model the field
+- **Intaking is a box test.** A running mechanism with a piece in its box and room to carry it takes the
+  piece. Rollers and compliance are not simulated, so "will my intake grab it" is out of scope.
+- **Obstacle contact is not swept.** A small, fast piece can pass through a thin obstacle. Goals are swept.
+- **A flying piece passes through pieces lying on the floor.**
+- **`ObstacleBox` has no top**, so pieces cannot rest on one. Use a `KinematicBody`.
+- **The physics numbers are defaults** for a foam ball a few inches across. Measure yours.
 
-There is no field geometry, no walls, no scoring elements with shape. The drivetrain plant clamps the
-robot's pose to a rectangle so a runaway integration does not produce coordinates in the next county, and
-that rectangle is the whole of the field model.
+## Vision is geometry only
 
-Game pieces exist (see [`field`](packages/field.md)) as positions and possession states with trigger
-volumes — "was a piece inside this box relative to the robot" — which is a model of *intake logic*, not a
-model of *intaking*.
+`vision` says which pieces and AprilTags a camera would see and where, and `FakeLimelight3A` turns that
+into Limelight results. There is **no image**. So:
+
+- Colour thresholds, blob detection and lighting cannot be tested, and a synthetic scene must never be
+  used to tune them.
+- No lens distortion, no motion blur, no dropouts. The robot's own body does not block the view.
+- Limelight: AprilTag pipelines only. Its network-only calls throw.
+- **No webcams.** A `WebcamName` lookup fails in `init()`.
+
+## Sensors are simple
+
+- A distance sensor is a single ray, not a 25 degree cone, and sees every surface.
+- A colour sensor reads one set of counts per kind of piece, whatever the distance or angle.
+- No noise or drift on the IMU, Pinpoint, OTOS, distance or colour fakes. The Limelight has optional
+  seeded noise.
+- No legacy `BNO055IMU`, and no generic I2C devices.
+
+## It ships no field
+
+No season's field, goals, tag layout or game pieces. You build a `FieldWorld` and an `AprilTagLayout` from
+numbers you are entitled to use. **Do not build them from the FIRST field CAD**: its licence forbids
+redistribution.
 
 ## It does not schedule anything
 
-SimLoop has no command scheduler, no subsystem registry, no requirements or exclusivity. If you use
-SolversLib, SolversLib keeps owning your control flow exactly as it does on the robot; SimLoop replaces
-hardware, underneath all of it. A scenario body is a plain lambda that runs once per tick.
+No command scheduler, no subsystem registry, no requirements. If you use SolversLib, SolversLib keeps
+owning your control flow exactly as it does on the robot. SimLoop replaces hardware underneath it.
 
-## It does not know what your robot is
+## Some timers stay on the real clock
 
-No season code, no subsystem classes, no drivetrain of yours. SimLoop never imports your
-package — the dependency runs one way, through the [`config`](packages/config.md) interfaces that your
-code implements. This is what makes it survive a season change, and it is enforced by a test.
-
-## It is not a robot-side library
-
-Nothing here is meant to run on a Control Hub. It is a `testImplementation` dependency. The fakes would
-technically construct on a robot; there is no reason to want that.
+`OpModeRunner.forTeamClass` moves your own `ElapsedTime`, `sleep`, `Thread.sleep` and `System.nanoTime()`
+onto sim time. It does **not** move clock reads inside the SDK or other libraries, the real date and
+time, `Object.wait`, `Thread.join`, latches, futures or executors. Threads your OpMode starts run in real
+time. See [Running your timer code unchanged](unchanged-team-code.md).
 
 ## It does not tune your controller
 
-There is no auto-tuner, no system identification, no optimizer over gains. The `loop` package runs an
-edit-and-replay iteration — it scores runs, holds guardrails and decides whether a candidate is better —
-but *what to change* comes from you or from an AI agent driving it, not from SimLoop.
+There is no auto-tuner and no optimizer over gains. `fit` measures the plant from a real log (free speed,
+time constant, friction); choosing gains is still yours. The `loop` package scores runs and decides
+whether a candidate is better, but *what to change* comes from you or from an AI agent driving it.
 
 ## Its numbers are as good as your numbers
 
 A plant is a model with constants in it. If `timeConstant` and `maxSpeed` were guessed, the simulation is
-a plausible story, not a prediction. SimLoop will not warn you about this, because it cannot tell a
-measured constant from an invented one — that is why the configs ask for real units and why the
-documentation states them everywhere.
+a plausible story, not a prediction. SimLoop cannot tell a measured constant from an invented one.
 
-Calibrating against a real robot, and reporting the sim-to-real gap, is future work and is not here today.
+`fit` compares the sim's numbers with a real robot log and writes the gap as a report. It changes no
+constant, and it fits only a first-order velocity plant. Logs from closed-loop control can fool it;
+read its warnings first.
+
+## It does not know what your robot is
+
+No season code, no subsystem classes, no drivetrain of yours. SimLoop never imports your package. The
+dependency runs one way, through the [`config`](packages/config.md) interfaces your code implements. A test
+enforces it.
+
+## It is not a robot-side library
+
+Nothing here is meant to run on a Control Hub. It is a `testImplementation` dependency.
+
+## Live driving is keyboard only
+
+No real game controller. The keyboard window is a separate module that is not published; see
+[`sim.live`](packages/live.md).
 
 ## Known rough edges
 
-These are defects or unfinished corners rather than boundaries, and they are worth knowing before you
-trip over them.
+These are defects or unfinished corners rather than boundaries.
 
 - **Nothing calibrated has shipped.** Every constant in every example on this site is plausible, not
-  measured.
+  measured. The hub's motor-loop firmware constants are labelled APPROXIMATION
+  ([RUN_TO_POSITION in the sim](run-to-position.md)).
 - **There are two frames, ninety degrees apart, and converting is your job.** The drivetrain integrates
-  into the localizer frame (+x forward / +y left); game pieces and trigger volumes live in the field
-  frame (+X right / +Y forward). Both are deliberate. `FieldFrameTransform` does the rotation, but
-  nothing calls it for you and nothing warns you when you forget — a pose passed across unrotated puts
-  the robot somewhere plausible, facing the wrong way. See [`field`](packages/field.md).
-- **The drivetrain's field clamp is written on the field's axes, not the localizer's.**
-  `MecanumPoseIntegrator` clamps its `x` (localizer forward) to `fieldHalfWidth` and its `y` (localizer
-  left) to `fieldHalfHeight`, which are the *field* frame's half-extents — so the two bounds are
-  transposed by the same ninety degrees. It changes nothing on a square field, which every configuration
-  here uses, and it would be wrong the moment one is not square.
-- **Loop-time guardrails have nothing to check.** `EnvelopeGuardrails.loopTimeUnderBudget` exists and
-  returns `UNKNOWN` until some scenario logs a loop time — which no scenario does yet. An envelope with
-  unknowns in it is guarding less than it looks like it is; `Scorer.Score.unknowns()` is how you find out.
+  into the localizer frame (+x forward / +y left); game pieces, sensors, cameras and trigger volumes live
+  in the field frame (+X right / +Y forward). `FieldFrameTransform` does the rotation, but nothing calls
+  it for you and nothing warns you when you forget. See [`field`](packages/field.md).
+- **Loop-time guardrails have nothing to check.** `EnvelopeGuardrails.loopTimeUnderBudget` returns
+  `UNKNOWN` until a scenario logs a loop time, which none does yet. `Scorer.Score.unknowns()` is how you
+  find out.
+- **OpMode tests cannot run in parallel inside one JVM.** Runs share `OpMode.blackboard` and PsiKit's
+  static `Logger`.
