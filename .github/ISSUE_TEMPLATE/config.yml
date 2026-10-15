@@ -1,6 +1,8 @@
 blank_issues_enabled: true
-# When the team's Discord server exists, add it here so people can ask questions there, e.g.:
-# contact_links:
-#   - name: Horizon 36596 Discord
-#     url: <Discord invite link>
-#     about: Ask questions and chat with other SimLoop users.
+contact_links:
+  - name: Ask a question
+    url: https://github.com/Horizon-36596/simloop/discussions
+    about: How do I...? Is this a bug or my setup? Ask in Discussions, where other teams can see the answer.
+  - name: Report a security problem
+    url: https://github.com/Horizon-36596/simloop/security/advisories/new
+    about: Please report security problems privately, not as a public issue.

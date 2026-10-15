@@ -1,0 +1,4 @@
+# Every pull request needs an approving review from a code owner before it can merge.
+# There are no organisation teams yet, so the owner's account stands in. When Horizon creates a
+# maintainers team, replace this with it, e.g. `* @Horizon-36596/simloop-maintainers`.
+* @featurescript
