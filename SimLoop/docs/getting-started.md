@@ -2,23 +2,31 @@
 
 There are two ways in, and the first one is three steps.
 
-!!! success "`v0.1.0-beta1` is out, and this page was checked against it"
-    Not "should work" — run, on 2026-09-19. A throwaway stock-layout FTC project copied the starter
-    folder in, added the one line, and resolved `com.github.Horizon-36596:simloop:v0.1.0-beta1` from the
-    real JitPack repository with no local publishing of any kind. Three test classes ran and passed: the
-    two example ones, and an ordinary JUnit 4 test the project already had.
+!!! warning "Your project must be on FTC SDK 12.0"
+    SimLoop `v0.2.0-alpha.1` is built against **FTC SDK 12.0.0**, and the earlier beta was built against
+    11.2.1. Update your FTC project to SDK 12.0 before you add SimLoop. See
+    [Why SDK 12.0](#why-sdk-120) below.
 
-    It is a **beta**. The APIs are tested but have been used by one team on one robot, so pin the exact
-    version and expect names to move before `0.1.0`.
+!!! note "Status: alpha"
+    `v0.2.0-alpha.1` is the current alpha. The API may change between alpha versions, so pin the exact
+    version. `v0.1.0-beta1` is superseded and gets no fixes. Questions go to
+    [Discussions](https://github.com/Horizon-36596/simloop/discussions).
 
 ## What you need first
 
 - **Java 17 or newer** to run Gradle. Android Studio ships one.
-- **An FTC SDK project**, any recent one. SimLoop compiles against SDK 12.0.0 and passes those types
-  through to you, so if your project pins a different version, yours wins.
+- **An FTC SDK 12.0 project.** `RobotCore` and `Hardware` at `12.0.0`.
 
 That is the whole list. You do **not** need to clone this repository, and you do not need SolversLib,
-Pedro Pathing, Road Runner, FTC Dashboard or Robolectric — SimLoop depends on none of them.
+Pedro Pathing, Road Runner, FTC Dashboard or Robolectric. SimLoop depends on none of them.
+
+### Why SDK 12.0
+
+SimLoop's fakes **are** SDK types: `FakeMotor` is a `DcMotorEx`, and the goBILDA Pinpoint, SparkFun OTOS
+and Limelight 3A fakes are the SDK 12.0 driver classes themselves. SimLoop passes the SDK through to your
+build at compile scope. If your project pins 11.x, Gradle quietly promotes your test classpath to 12.0
+while your robot code is compiled against 11.x, so your tests run against a different SDK from the one
+your robot runs. Update the project first.
 
 ## The three-step way: copy the starter folder
 
@@ -42,11 +50,8 @@ Two tests run and pass in a few seconds, with no robot and no Driver Station. Th
 driving itself in simulation.
 
 !!! tip "Why a folder and not a quickstart repository"
-    Plenty of FTC libraries ship a quickstart you clone and start your season in. That is a fine pattern
-    and this is not one, on purpose: a team can only start their season in one repository, and if you are
-    already in Pedro Pathing's or SolversLib's, a second quickstart is a thing you have to merge rather
-    than a thing you can adopt. A folder you drop in competes with nothing, and removing it is deleting
-    the folder and one line.
+    A team starts its season in one repository. A folder you drop into that repository needs no merge,
+    and removing it is deleting the folder and one line.
 
 The starter's own [README](https://github.com/Horizon-36596/simloop/tree/main/simloop-starter#readme)
 says what is in it, and [Your first simulated test](first-test.md) walks through the same code line by
@@ -150,6 +155,25 @@ SDK types — `FakeMotor` **is** a `DcMotorEx`, `FakeHardwareMap` **is** a `Hard
 so much as name the type you got back without the SDK in front of you.
 
 Those three are the whole dependency list. SimLoop pulls in nothing else.
+
+### Two test settings some fakes need
+
+The starter folder does not set these yet, so add them yourself if you use the fakes that need them:
+
+```groovy
+android {
+    testOptions {
+        unitTests.returnDefaultValues = true   // FakeImu: the SDK's orientation types call an Android method
+    }
+}
+
+dependencies {
+    testRuntimeOnly "org.json:json:20250517"   // FakeLimelight3A: Android's org.json is a stub in JVM tests
+}
+```
+
+Without the first, `new RevHubOrientationOnRobot(...)` throws "not mocked". Without the second, every
+fake Limelight result is empty or throws.
 
 ## Building it yourself (works today)
 

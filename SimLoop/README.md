@@ -7,16 +7,21 @@ your subsystems and your OpMode run **unchanged** against fake hardware in a JVM
 from a fake clock rather than the wall, so the same run produces the same log every time; and the log
 is a PsiKit RLOG, which AdvantageScope opens and which the `loop` package can score automatically.
 
-Package root: `org.horizon36596.simloop`. Status: **alpha** — the API may change between alpha versions,
-so pin an exact version. Support is best effort. The next release is `v0.2.0-alpha.1`, which supersedes
-`v0.1.0-beta1`.
+Package root: `org.horizon36596.simloop`. Status: **alpha**. The API may change between alpha versions,
+so pin an exact version. Support is best effort. `v0.2.0-alpha.1` is the current alpha; it supersedes
+`v0.1.0-beta1`, which gets no fixes. It needs **FTC SDK 12.0**. Questions go to
+[Discussions](https://github.com/Horizon-36596/simloop/discussions), bugs to
+[Issues](https://github.com/Horizon-36596/simloop/issues). Every feature, one line each:
+[`docs/features.md`](docs/features.md).
 
 ## Installing
 
-**`v0.1.0-beta1` is released and the coordinate below was confirmed against it on 2026-09-19** — not
-read off JitPack's documentation, but resolved for real by a throwaway stock-layout FTC project with
-nothing published locally. Beta means pin the exact version: the API is tested, and it has been used by
-one team on one robot.
+**Your project must be on FTC SDK 12.0.** SimLoop passes the SDK 12.0.0 through at compile scope (see the
+end of this section), and its Pinpoint, OTOS and Limelight 3A fakes are the SDK 12.0 driver classes.
+
+The coordinate spelling below was confirmed on 2026-09-19 against `v0.1.0-beta1`, the earlier build:
+a throwaway stock-layout FTC project resolved it for real from JitPack, with nothing published locally.
+`v0.2.0-alpha.1` uses the same spelling with its own tag.
 
 Note the two spellings, because mixing them up fails with `Could not find`, which reads like a missing
 library rather than a wrong name. **JitPack derives its own coordinate from the repository address** and
@@ -90,8 +95,9 @@ writing an OpMode that uses the fakes on the Control Hub, which is a strange thi
 
 SimLoop pulls in the FTC SDK (`RobotCore` and `Hardware`, 12.0.0) and PsiKit at **compile** scope,
 because its own public types are SDK types — `FakeMotor` is a `DcMotorEx`, `FakeHardwareMap` is a
-`HardwareMap`. If your project pins a different SDK version, yours wins; the note in `build.gradle`
-says why the two have to agree anyway.
+`HardwareMap`. If your project pins an older SDK, Gradle quietly moves your test classpath up to 12.0.0
+while your robot code still compiles against the older one, so the two disagree. Keep your project on
+12.0; the note in `build.gradle` says why the versions have to agree.
 
 ## The documentation
 

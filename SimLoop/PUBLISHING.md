@@ -30,10 +30,14 @@ same time.
 
 ## Version scheme
 
-`MAJOR.MINOR.PATCH`, with a `-betaN` suffix while the API is still moving.
+`MAJOR.MINOR.PATCH`, with an `-alpha.N` suffix while the API is still moving. The current release is
+`0.2.0-alpha.1`, the first public alpha. `0.1.0-beta1` came before it and is superseded; it gets no fixes.
 
-- **`-betaN`** says the API may change without a major bump. That is the honest state today and should
-  stay until someone outside the team has used it for a season.
+- **`-alpha.N`** says the API may change between alpha versions without a major bump. That is the true
+  state today and should stay until teams outside Horizon have used it for a season.
+- **Before 1.0, MINOR carries what MAJOR would.** `0.2.0-alpha.1` moved the FTC SDK from 11.2.1 to
+  12.0.0, which the rule below makes a MAJOR change; under `0.x` that is a MINOR bump, and the release
+  notes say so prominently. A consumer's project must be on SDK 12.0.
 - **MINOR** for new capability and for any source-compatible change.
 - **MAJOR** for anything a consumer has to edit code for — a renamed method, a changed signature, a
   removed class, or a bumped FTC SDK version, because the SDK is `api` and a consumer compiles against
@@ -42,11 +46,12 @@ same time.
 ### Behaviour changes since `0.1.0-beta1` was tagged
 
 Signature-compatible, so no MAJOR bump under the rule above, but each one changes what existing consumer
-code *does* and belongs in the next release's notes. All from the 2026-09-17 adversarial review.
+code *does* and belongs in the `0.2.0-alpha.1` release notes. All from the 2026-09-17 adversarial review,
+except where a row says it was overtaken.
 
 | What changed | What a consumer sees |
 |---|---|
-| `FakeMotor.setMode(RUN_TO_POSITION)` | Now throws `UnsupportedOperationException` instead of being accepted and silently ignored. Code that set the mode and waited on `isBusy()` used to hang forever against the fake; it now fails at the call. |
+| `FakeMotor.setMode(RUN_TO_POSITION)` | Overtaken in `0.2.0-alpha.1`: `RUN_TO_POSITION` is now modelled, the SDK side exactly and the hub firmware as a labelled approximation ([docs/run-to-position.md](docs/run-to-position.md)). For a while between the two releases it threw `UnsupportedOperationException`; it no longer does. |
 | `FakeMotor.setVelocity`, `setMotorDisable`, `STOP_AND_RESET_ENCODER` | Now actually affect the shaft, the encoder count and the reported current. A test that passed because these were no-ops can legitimately go red. |
 | `FakeServo.setPosition` with `REVERSE` + `scaleRange` | Direction is applied before scaling, matching `ServoImpl`. `getScaledPosition()` returns a different number than before for that combination — the old one was a mirror image. `scaleRange` now clips out-of-range endpoints rather than throwing. |
 | `EnvelopeGuardrails` guardrail names | `withinBound`, `loopTimeUnderBudget` and `safeStopAtEnd` now embed their thresholds in `Guardrail.name()`. Any persisted last-best score from an earlier version will read as a different envelope in `Gate` and must be re-baselined. Non-finite and negative thresholds are now rejected at construction. |
@@ -57,7 +62,7 @@ it is written: `README.md`'s install snippet, the coordinates table above and th
 below all quote it, and none of them is generated. Step 2 of the checklist below exists because of
 that — a bump that misses the README leaves teams copying a version that was never tagged.
 
-## Cutting a beta release
+## Cutting a release
 
 1. **Green first.** `./gradlew :SimLoop:testDebugUnitTest` — all of it, not the tests you touched.
    Then `./gradlew :SimLoop:apiDocs`, which must report **zero warnings**: the API reference is published
@@ -66,10 +71,10 @@ that — a bump that misses the README leaves teams copying a version that was n
 2. **Bump** `version` in `SimLoop/build.gradle`, **and the two copies of it**: `README.md`'s install
    snippet, and the `copyright:` line in `SimLoop/mkdocs.yml`, which is the version stamped in the footer
    of every documentation page. None of the three is linked to the others; see the note above.
-   `Select-String -Path SimLoop\README.md,SimLoop\mkdocs.yml -Pattern '0\.1\.0-beta1'` finds them.
+   `Select-String -Path SimLoop\README.md,SimLoop\mkdocs.yml -Pattern '0\.2\.0-alpha\.1'` finds them.
 3. **Verify the artifact locally before anyone can consume it** — the section below says how, and it is
    the part people skip.
-4. **Commit, tag, push the tag.** The tag is the version, e.g. `v0.1.0-beta1`.
+4. **Commit, tag, push the tag.** The tag is the version, e.g. `v0.2.0-alpha.1`.
 5. **Build that tag on JitPack yourself, and read the log**, at
    `https://jitpack.io/#Horizon-36596/simloop`. This is a gate, not a warm-up, and until it has passed
    once nobody should be given the coordinate. Two specific things can only be learned here:
@@ -292,7 +297,7 @@ and depends on your registrar. Both are waiting, not failure.
 
 ## What a Maven Central release would additionally need
 
-Not done, and not needed for a beta with a handful of teams. For when it is:
+Not done, and not needed for an alpha with a handful of teams. For when it is:
 
 - A verified namespace on Sonatype Central for `org.horizon36596`, which means proving control of
   `horizon36596.org` with a DNS TXT record. That is the reason the declared group is a domain rather
@@ -312,7 +317,7 @@ Not done, and not needed for a beta with a handful of teams. For when it is:
   build, which is also why there is nothing to keep in sync.
 - A `repositories { maven { url = ...; credentials { ... } } }` block, with credentials read from an
   environment variable or `~/.gradle/gradle.properties` and never from a file in the repository.
-- Releases become **immutable**. A beta tag can be re-cut after a mistake; a Central version cannot.
+- Releases become **immutable**. An alpha tag can be re-cut after a mistake; a Central version cannot.
 
 The POM already carries everything else Central validates — name, description, url, licence, developer
 and SCM — so this is a known and bounded list, not an unknown.
@@ -342,10 +347,10 @@ file assumes.
 - **The library is a Gradle subproject of a repository that holds only it.** The reasoning is above,
   under "Why the library is a subproject and not the root project"; the short version is that
   flattening the layout would rename the published artifact.
-- **Documentation is not versioned** until the library is past beta. One site, no version selector, with
+- **Documentation is not versioned** until the library is past alpha. One site, no version selector, with
   the version stamped on every page.
-- **Bugs and questions go to GitHub Issues** on `Horizon-36596/simloop`. One channel, public, and it
-  leaves a record the next person with the same problem can find.
+- **Bugs go to GitHub Issues, questions to GitHub Discussions,** both on `Horizon-36596/simloop`. Both
+  are public and leave a record the next person with the same problem can find.
 
 ### Settled on 2026-09-17: the package and the Maven group
 

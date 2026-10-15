@@ -9,10 +9,14 @@ score automatically.
 
 No robot, no Driver Station, no emulator. A test run is a few seconds.
 
-!!! warning "Status: beta"
-    The API is settled enough to use and not settled enough to promise. `v0.1.0-beta1` is released and
-    the install coordinate on the next page resolves — that was checked by installing it into a fresh
-    FTC project rather than assumed. Pin the exact version, and expect names to move before `0.1.0`.
+!!! warning "Status: alpha"
+    `v0.2.0-alpha.1` is the current release and the first public alpha. The API may change between
+    alpha versions, so **pin the exact version** in your build. It needs **FTC SDK 12.0**. Questions go
+    to [Discussions](https://github.com/Horizon-36596/simloop/discussions); bugs go to
+    [Issues](https://github.com/Horizon-36596/simloop/issues). `v0.1.0-beta1` is superseded and gets no
+    fixes.
+
+[Every feature](features.md) lists what it does, one line each.
 
 ## The fastest way in
 
@@ -56,13 +60,19 @@ the log is what you assert on afterwards.
 
 | Package | What it gives you |
 |---|---|
-| [`fakehardware`](packages/fakehardware.md) | Fake devices that implement the real SDK interfaces, and the `FakeHardwareMap` you hand to `init()`. |
+| [`fakehardware`](packages/fakehardware.md) | Fake devices that implement the real SDK interfaces, including the IMU, Pinpoint, OTOS, Limelight 3A and REV sensors, and the `FakeHardwareMap` you hand to `init()`. |
 | [`plant`](packages/plant.md) | The physics behind those fakes: drivetrain, 1-DOF and multi-DOF mechanisms, positional servos. |
 | [`config`](packages/config.md) | The interfaces your season code implements to state its own numbers. The one-way seam. |
 | [`sim`](packages/sim.md) | `FakeTimer`, `ScenarioRunner`, and decoding an RLOG back to fields. |
-| [`field`](packages/field.md) | Game pieces and possession, without contact physics. |
+| [`opmode`](packages/opmode.md) | Running your `OpMode` or `LinearOpMode` unchanged, with scripted gamepads. |
+| [`simclock`](packages/simclock.md) | Moving your own timer code onto sim time without changing it. |
+| [`sim.live`](packages/live.md) | Driving from the keyboard, recording the session, and replaying it to the same log. |
+| [`field`](packages/field.md) | Game pieces with possession and physics, goals, field structures, and robot contact. |
+| [`sensor`](packages/sensor.md) | What a touch, distance or colour sensor on the robot sees on the field. |
+| [`vision`](packages/vision.md) | Which game pieces and AprilTags a camera sees, and where. No image. |
+| [`fit`](packages/fit.md) | Fitting the motor model to a real robot log, and a sim-against-robot gap report. |
 | [`loop`](packages/loop.md) | Scoring a run, and the automated edit-and-replay iteration built on top of it. |
-| [`viz`](packages/viz.md) | Drawing a mechanism's pose into the log so AdvantageScope can show it. |
+| [`viz`](packages/viz.md) | Mechanisms, robot parts and shot arcs drawn into the log for AdvantageScope. |
 
 The generated API reference — every class, method and field, with units and frame on every number — is
 built by `./gradlew :SimLoop:apiDocs` and ships in the release as `SimLoop-<version>-javadoc.jar`.
@@ -73,7 +83,7 @@ These are enforced by tests in the module, not by good intentions.
 
 - **No season imports.** No file in `org.horizon36596.simloop` imports `org.firstinspires.ftc.teamcode`.
   Season facts arrive through the `config` interfaces.
-- **Depends only on** the FTC SDK hardware interfaces and PsiKit. No SolversLib, no follower library.
+- **Depends only on** the FTC SDK 12.0 and PsiKit. No SolversLib, no follower library.
 - **Deterministic.** No wall-clock reads on any sim path. `update(deltaTime)` mutates state; getters are
   pure reads.
 - **The fakes replicate real device semantics exactly** — every method of the interface, including the

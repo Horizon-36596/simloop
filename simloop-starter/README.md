@@ -4,12 +4,16 @@ Copy **this folder** into the root of your FTC project, add **one line** to `Tea
 run the tests. That is the whole installation. You do not clone the SimLoop repository, you do not build
 it, and you do not copy any of its source into your project.
 
-> ## `v0.1.0-beta1` is out, and these steps were run against it
+> ## Your FTC project must be on SDK 12.0
 >
-> On 2026-09-19 a throwaway stock-layout FTC project did exactly what is written below — copied this
-> folder in, added the one line, ran the command — and resolved the library from JitPack with nothing
-> published locally. It is a **beta** — the API is tested, and it has been used by one team on one
-> robot. Pin the exact version, and expect names to move before `0.1.0`.
+> SimLoop `v0.2.0-alpha.1` is built against **FTC SDK 12.0.0** (the earlier beta used 11.2.1). Update
+> your project to SDK 12.0 first. On 11.x your tests would run against a different SDK from the one your
+> robot runs.
+>
+> **Status: alpha.** `v0.2.0-alpha.1` is the current alpha. The API may change between alpha versions,
+> so keep the exact version pinned below. `v0.1.0-beta1` is superseded. Questions go to
+> [Discussions](https://github.com/Horizon-36596/simloop/discussions), bugs to
+> [Issues](https://github.com/Horizon-36596/simloop/issues).
 >
 > If step 3 fails with `Could not find`, check the spelling of the coordinate before anything else. The
 > group is `com.github.Horizon-36596`, the artifact is `simloop` in lower case, and the version keeps
