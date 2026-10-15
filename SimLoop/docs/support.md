@@ -2,11 +2,14 @@
 
 ## Where
 
-**GitHub Issues on [`Horizon-36596/simloop`](https://github.com/Horizon-36596/simloop/issues).**
+- **Bugs:** GitHub Issues on [`Horizon-36596/simloop`](https://github.com/Horizon-36596/simloop/issues).
+  Use the bug form, or the "Sim doesn't match my robot" form when the sim runs but its numbers differ
+  from your robot's.
+- **Questions and ideas:**
+  [GitHub Discussions](https://github.com/Horizon-36596/simloop/discussions).
 
-That is the only channel. There is no Discord, no mailing list and no support address, and pretending
-there is would waste your time. An issue is also the only route that leaves a record the next person
-with the same problem can find.
+There is no Discord, no mailing list and no support address. Issues and Discussions are also the only
+routes that leave a record the next person with the same problem can find.
 
 ## What to put in it
 
@@ -24,10 +27,10 @@ determinism bug, which is a different and more serious thing than a wrong number
 
 ## What is a bug and what is a boundary
 
-Before filing, check [What it does not do](limits.md). Several reasonable-sounding requests — contact
-physics, vision, a field model, tuning — are deliberate boundaries rather than gaps, and the page says why
-for each. A request to cross one is still worth making; it is just a different conversation from "this is
-broken".
+Before filing, check [What it does not do](limits.md). Several reasonable-sounding requests, such as an
+intake that really grips, a rendered camera image, a shipped field or an auto-tuner, are deliberate
+boundaries rather than gaps, and the page says why for each. A request to cross one is still worth
+making; it is just a different conversation from "this is broken".
 
 ## Contributing a fix
 
