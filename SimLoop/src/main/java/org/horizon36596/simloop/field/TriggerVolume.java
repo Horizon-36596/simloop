@@ -2,14 +2,15 @@ package org.horizon36596.simloop.field;
 
 /**
  * A rectangular region bolted to the robot that decides whether a game piece is close enough to be
- * acquired — the "mouth" of an intake, expressed as geometry instead of contact physics (domain R6).
+ * acquired — the "mouth" of an intake, expressed as geometry instead of roller-on-ball contact. Acquisition
+ * is a "teleport": a loose piece inside this rectangle while the mechanism runs is simply taken.
  *
  * <p><b>Why a rectangle on the floor and not a 3-D volume.</b> Acquisition happens where a mechanism
  * meets a piece lying on the field, so the only question this class has to answer is a footprint
- * question: is the piece within the mouth's rectangle. Modelling height would only matter if pieces could
- * be knocked, stacked, or dropped, and R6 rules that class of physics out. The name says "volume" because
- * that is the term the project uses for the concept; the geometry is deliberately 2-D and the sim has no
- * Z axis for pieces.
+ * question: is the piece within the mouth's rectangle. Only {@link PossessionState#LOOSE} pieces are ever
+ * tested, and a loose piece is by definition resting on the floor, so height never enters into it — a
+ * piece still in the air ({@link PossessionState#IN_FLIGHT}) cannot be intaken. The name says "volume"
+ * because that is the term the project uses for the concept; the geometry is deliberately 2-D.
  *
  * <p><b>Robot frame and units — read this before writing one down.</b> The rectangle is defined in the
  * robot's own frame in inches, using the two directions a person naturally describes a robot with:

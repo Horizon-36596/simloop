@@ -2,8 +2,8 @@ package org.horizon36596.simloop.config;
 
 /**
  * Season-glue interface: everything a {@code PositionalServoPlant} needs to turn a servo command in
- * {@code [0, 1]} into a real mechanism position that takes time to get there (architecture §3, domain
- * R6/R7).
+ * {@code [0, 1]} into a real mechanism position that takes time to get there. Implemented by the season
+ * layer; the core hard-codes no season numbers.
  *
  * <p>The first four numbers are inherited from {@link MechanismSimConfig} and mean exactly what they mean
  * there, so a servo-driven joint and a motor-driven one are described by the same vocabulary:
@@ -123,7 +123,7 @@ public interface PositionalServoSimConfig extends MechanismSimConfig {
      * <p>It is defaulted rather than left abstract so that nobody has to type a number the plant throws
      * away, and it is documented rather than quietly inherited so that nobody spends an afternoon
      * wondering why their 0.35 changed nothing. Closing the gap means teaching the servo plant the same
-     * effort tax {@code Mechanism1DofPlant} already applies -- tracked as {@code docs/BACKLOG.md} B27.
+     * effort tax {@code Mechanism1DofPlant} already applies, which has not been done.
      *
      * <p>Overriding it today is harmless and equally useless. Do not.
      */

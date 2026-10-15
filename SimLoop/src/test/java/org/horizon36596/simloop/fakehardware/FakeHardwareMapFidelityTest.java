@@ -12,6 +12,7 @@ import com.qualcomm.robotcore.hardware.Servo;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -117,5 +118,86 @@ class FakeHardwareMapFidelityTest {
         map.updateAll(0.02);
 
         assertTrue(motor.getSpeed() > 0.0, "updateAll still advances the plants it always did");
+    }
+
+    // ---- 2026-09-26 review ----
+
+    @Test
+    void aDeviceRegisteredMoreThanOnceIsStillTickedOncePerUpdate() {
+        // It used to be appended to the tick list on every register call, so a motor registered twice was
+        // integrated twice per tick and ran at double speed in sim.
+        FakeHardwareMap map = new FakeHardwareMap();
+        FakeMotor registeredThrice = aMotor();
+        map.register("lift", registeredThrice);
+        map.register("lift", registeredThrice);
+        map.register("liftAlias", registeredThrice);
+        registeredThrice.setPower(1.0);
+
+        FakeMotor reference = aMotor();
+        reference.setPower(1.0);
+
+        map.updateAll(0.02);
+        reference.update(0.02);
+
+        assertEquals(reference.getSpeed(), registeredThrice.getSpeed(), 0.0,
+                "three registrations, one tick: the same speed as a motor ticked once");
+        assertEquals(1, map.size(), "and the SDK counts it as one device, as a real HardwareMap does");
+    }
+
+    @Test
+    void aSecondDeviceOfTheSameTypeUnderATakenNameReplacesTheFirstAndOnlyItIsTicked() {
+        // DeviceMapping.put removes whatever its mapping held under the name before adding the new device
+        // (SDK 12.0.0 bytecode), so the second motor replaces the first. The first is then no longer part of
+        // the robot, so it must not keep being ticked either.
+        FakeHardwareMap map = new FakeHardwareMap();
+        FakeMotor first = aMotor();
+        FakeMotor second = aMotor();
+        map.register("lift", first);
+        map.register("lift", second);
+        first.setPower(1.0);
+        second.setPower(1.0);
+
+        map.updateAll(0.02);
+
+        assertSame(second, map.get(DcMotor.class, "lift"), "the later registration replaces the earlier");
+        assertEquals(1, map.size(), "and the SDK no longer holds the first at all");
+        assertTrue(second.getSpeed() > 0.0, "the replacement is ticked");
+        assertEquals(0.0, first.getSpeed(), 0.0, "and the replaced device is not");
+    }
+
+    @Test
+    void reRegisteringTheSameDeviceKeepsItsPlaceInTheOrder() {
+        FakeHardwareMap map = new FakeHardwareMap();
+        FakeMotor a = aMotor();
+        FakeMotor b = aMotor();
+        map.register("a", a);
+        map.register("b", b);
+        map.register("a", a);
+
+        assertEquals(List.of(a, b), map.getAll(DcMotor.class), "a stays first");
+    }
+
+    @Test
+    void getAllEnumeratesInRegistrationOrderSoRunsAreRepeatable() {
+        // The SDK builds this list from a HashSet of devices, and a fake hashes by identity, so the order
+        // used to change from one JVM run to the next. Thirty devices make an accidental pass vanishingly
+        // unlikely if that ever comes back.
+        FakeHardwareMap map = new FakeHardwareMap();
+        List<DcMotor> inRegistrationOrder = new ArrayList<>();
+        for (int i = 0; i < 30; i++) {
+            FakeMotor motor = aMotor();
+            map.register("motor" + i, motor);
+            inRegistrationOrder.add(motor);
+        }
+
+        assertEquals(inRegistrationOrder, map.getAll(DcMotor.class), "getAll comes back in registration order");
+        assertEquals(30, map.size());
+
+        DcMotor removed = inRegistrationOrder.remove(5);
+        assertTrue(map.dcMotor.remove("motor5"), "precondition: the SDK removes it");
+        assertEquals(inRegistrationOrder, map.getAll(DcMotor.class),
+                "and after a removal the rest keep their order, without the removed one");
+        assertNull(map.tryGet(DcMotor.class, "motor5"));
+        assertTrue(!map.getAll(DcMotor.class).contains(removed));
     }
 }

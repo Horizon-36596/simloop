@@ -59,8 +59,8 @@ androidComponents {
 
 dependencies {
     // MAIN gets the SDK, exactly as TeamCode does. Not SimLoop - see the header.
-    implementation 'org.firstinspires.ftc:RobotCore:11.2.1'
-    implementation 'org.firstinspires.ftc:Hardware:11.2.1'
+    implementation 'org.firstinspires.ftc:RobotCore:12.0.0'
+    implementation 'org.firstinspires.ftc:Hardware:12.0.0'
 
     // TEST gets SimLoop, exactly as a consumer's `testImplementation` line does. The project dependency
     // stands in for the JitPack coordinate a real team writes; it is the same code either way, and using

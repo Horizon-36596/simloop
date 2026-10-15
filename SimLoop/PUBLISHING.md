@@ -9,14 +9,14 @@ Central. The build wiring this describes lives at the bottom of `SimLoop/build.g
 |---|---|
 | Group (in the POM) | `org.horizon36596` |
 | Artifact (in the POM) | `SimLoop` |
-| Version (in the POM) | `0.1.0-beta1` |
-| **What a consumer actually writes** | **`com.github.Horizon-36596:simloop:v0.1.0-beta1`** |
+| Version (in the POM) | `0.2.0-alpha.1` |
+| **What a consumer actually writes** | **`com.github.Horizon-36596:simloop:v0.2.0-alpha.1`** |
 | Packaging | `aar`, plus sources and javadoc jars |
 
 **JitPack ignores every one of those first three values and derives its own.** The group becomes
 `com.github.<owner>`, the artifact becomes the **repository** name, and the version is the git tag
-verbatim, leading `v` included. So a consumer writes `com.github.Horizon-36596:simloop:v0.1.0-beta1`
-while the POM inside says `org.horizon36596:SimLoop:0.1.0-beta1`, and both are correct at once — the
+verbatim, leading `v` included. So a consumer writes `com.github.Horizon-36596:simloop:v0.2.0-alpha.1`
+while the POM inside says `org.horizon36596:SimLoop:0.2.0-alpha.1`, and both are correct at once — the
 declared values are what `publishToMavenLocal` and any future Maven Central release use.
 
 That is JitPack's **single-module** spelling, and this build gets it because `jitpack.yml` installs

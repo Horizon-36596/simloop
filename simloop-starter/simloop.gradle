@@ -22,9 +22,9 @@
 // The SimLoop release this project builds against. ONE place, so a bump is one edit.
 //
 // JitPack's version IS the git tag, letter for letter, including the leading `v`. There is no translation
-// step: ask for `0.1.0-beta1` when the tag is `v0.1.0-beta1` and resolution fails with "Could not find",
+// step: ask for `0.2.0-alpha.1` when the tag is `v0.2.0-alpha.1` and resolution fails with "Could not find",
 // which reads like the library is missing rather than like a typo.
-ext.simloopVersion = 'v0.1.0-beta1'
+ext.simloopVersion = 'v0.2.0-alpha.1'
 
 // The coordinate is `com.github.<owner>:<repository>`, all of it derived by JitPack from the repository
 // address and none of it from what this project calls itself. SimLoop's own build declares the group

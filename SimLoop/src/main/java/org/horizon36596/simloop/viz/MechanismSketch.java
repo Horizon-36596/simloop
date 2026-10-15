@@ -146,6 +146,10 @@ public final class MechanismSketch {
      * Builds the drawing at the mechanism's zero pose — every linear stage retracted, every pivot at the
      * angle CAD drew it at.
      *
+     * <p>The mount point is projected onto the canvas plane: only its components along the two canvas axes
+     * place the drawn root, and any component out of that plane is ignored, not rejected. A mechanism
+     * mounted 5 in to the side of a side-view canvas is drawn exactly as if it were mounted on the plane.
+     *
      * @param definition what to draw; see {@link MechanismSketchDefinition}.
      * @throws IllegalArgumentException if {@code definition} is null, if any joint's zero-pose direction
      *                                  does not lie in the canvas plane (which would draw it
@@ -228,8 +232,7 @@ public final class MechanismSketch {
 
             if (joint.getKind() == JointDefinition.Kind.LINEAR) {
                 LinearJointDefinition stage = (LinearJointDefinition) joint;
-                extensionInchesByLinearJoint.put(
-                        stage.getName(), stage.clampTravel(stage.getMinTravelInches()));
+                extensionInchesByLinearJoint.put(stage.getName(), stage.getMinTravelInches());
             } else {
                 // Zero is always reachable — RevoluteJointDefinition rejects a range that excludes it — so
                 // the drawing starts at exactly the pose CAD drew (Contract clause 3).
@@ -291,11 +294,15 @@ public final class MechanismSketch {
      * off one encoder, where the robot code knows the total but not the per-stage split. Pivots in the same
      * chain are left exactly where they are.
      *
-     * <p>The total is clamped to {@code [0, }{@link MechanismSketchDefinition#getMaxTotalTravelInches()}
-     * {@code ]} first, so an over-command extends every stage to its own stop and no further. Each stage's
-     * share is {@code minTravelInches + (maxTravelInches - minTravelInches) * fractionExtended} — general
-     * enough to stay correct even if a future stage has a non-zero {@code minTravelInches} (every stage in
-     * this repo today has {@code min = 0}, so the extra term is currently always zero).
+     * <p>The total is the <b>sum</b> of the stage extensions, the same number
+     * {@link #getTotalTravelInches()} reads back. It is clamped first to what the stages can reach together:
+     * no less than the sum of their {@code minTravelInches}, no more than the sum of their
+     * {@code maxTravelInches} ({@link MechanismSketchDefinition#getMaxTotalTravelInches()}), so an
+     * over-command extends every stage to its own stop and no further. The part of the total above the
+     * summed minimum is then shared out in proportion to each stage's range: every stage sits at
+     * {@code minTravelInches + (maxTravelInches - minTravelInches) * fractionExtended}, where
+     * {@code fractionExtended = (clampedTotal - summedMin) / summedRange}. For stages that all start at
+     * zero this is simply {@code clampedTotal / maxTotalTravel}.
      *
      * @param totalExtensionInches total extension of the whole mechanism (in).
      * @throws IllegalStateException if the mechanism has no linear stages at all — a pure pivot chain has
@@ -309,21 +316,18 @@ public final class MechanismSketch {
                             + " to split — setTotalTravelInches is the cascading-slide helper. Use"
                             + " setJointAngleRadians for a pivot.");
         }
-        double totalTravel = definition.getMaxTotalTravelInches();
-        if (totalTravel <= 0.0) {
-            // Every stage is required to have min < max, but nothing stops max from being zero or negative,
-            // so a chain of such stages sums to no travel at all. Dividing by it would give NaN, which
-            // clamps back to each stage's minimum — the mechanism would sit still and look correct while
-            // ignoring every command.
-            throw new IllegalStateException(
-                    "mechanism \"" + definition.getName() + "\" has linear stages but no positive travel"
-                            + " (their maxTravelInches sum to " + totalTravel + "), so there is nothing to"
-                            + " split. Check the stage travel limits.");
+        double summedMinInches = 0.0;
+        double summedRangeInches = 0.0;
+        for (LinearJointDefinition stage : stages) {
+            summedMinInches += stage.getMinTravelInches();
+            summedRangeInches += stage.getMaxTravelInches() - stage.getMinTravelInches();
         }
+        // summedRangeInches is positive: there is at least one stage, and every stage has min < max.
+        double summedMaxInches = summedMinInches + summedRangeInches;
         double clampedTotal = Double.isFinite(totalExtensionInches)
-                ? Math.max(0.0, Math.min(totalTravel, totalExtensionInches))
-                : 0.0;
-        double fractionExtended = clampedTotal / totalTravel;
+                ? Math.max(summedMinInches, Math.min(summedMaxInches, totalExtensionInches))
+                : summedMinInches;
+        double fractionExtended = (clampedTotal - summedMinInches) / summedRangeInches;
         for (LinearJointDefinition stage : stages) {
             double stageRange = stage.getMaxTravelInches() - stage.getMinTravelInches();
             setJointExtensionInches(
@@ -428,6 +432,59 @@ public final class MechanismSketch {
      */
     public double getDrawnAngleDegrees(String jointName) {
         return drawnJoints.get(indexOfJoint(jointName)).ligament.getAngle();
+    }
+
+    /**
+     * How far along the canvas horizontal axis the tip of the last joint is drawn right now, measured from the
+     * robot's origin, in inches.
+     *
+     * <p>This is the same robot-relative number {@link #getMountAcrossRobotInches()} speaks, <b>not</b> the
+     * shifted canvas coordinate that is logged, so a caller can place something at the tip in the robot's own
+     * frame. {@link TurretSketch} uses it to put the aim cone at the shooter's exit.
+     *
+     * @return the chain tip's robot-relative position along the canvas horizontal axis, in inches
+     */
+    public double getTipAcrossInches() {
+        double acrossInches = mountAcrossRobotInches;
+        double absoluteDegrees = 0.0;
+        for (DrawnJoint drawn : drawnJoints) {
+            absoluteDegrees += drawn.ligament.getAngle();
+            acrossInches += toInches(drawn.ligament.getLength())
+                    * StrictMath.cos(absoluteDegrees * (Math.PI / 180.0));
+        }
+        return acrossInches;
+    }
+
+    /**
+     * How far along the canvas vertical axis the tip of the last joint is drawn right now, measured from the
+     * robot's origin (floor level), in inches.
+     *
+     * @return the chain tip's height along the canvas vertical axis, in inches
+     */
+    public double getTipUpInches() {
+        double upInches = rootCanvasYInches;
+        double absoluteDegrees = 0.0;
+        for (DrawnJoint drawn : drawnJoints) {
+            absoluteDegrees += drawn.ligament.getAngle();
+            upInches += toInches(drawn.ligament.getLength())
+                    * StrictMath.sin(absoluteDegrees * (Math.PI / 180.0));
+        }
+        return upInches;
+    }
+
+    /**
+     * Which way the last joint points right now, as an absolute angle in the canvas plane: radians
+     * counter-clockwise from the canvas horizontal axis toward the canvas vertical axis. For a hood drawn on
+     * a forward-and-up canvas, this is the exit angle above horizontal.
+     *
+     * @return the last segment's absolute in-plane angle, in radians
+     */
+    public double getTipAngleRadians() {
+        double absoluteDegrees = 0.0;
+        for (DrawnJoint drawn : drawnJoints) {
+            absoluteDegrees += drawn.ligament.getAngle();
+        }
+        return absoluteDegrees * (Math.PI / 180.0);
     }
 
     /** {@return what this sketch was built from} */
@@ -604,8 +661,11 @@ public final class MechanismSketch {
         return canvasWidthInches / 2.0 + acrossRobotInches;
     }
 
-    /** Inches in, metres out — the one place this class crosses into AdvantageScope's units. */
-    private static double toMetres(double inches) {
+    /**
+     * Inches in, metres out: the one conversion into AdvantageScope's units. Package-private so
+     * {@link TurretSketch} crosses the same boundary with the same constant rather than a copy of it.
+     */
+    static double toMetres(double inches) {
         return inches * METRES_PER_INCH;
     }
 

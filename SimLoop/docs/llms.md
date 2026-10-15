@@ -4,7 +4,7 @@ A flat index of this site. Every page, what is on it, and when to read it — so
 the right page instead of crawling navigation.
 
 **SimLoop** is a season-agnostic JVM simulation library for FIRST Tech Challenge robot code. Package root
-`org.horizon36596.simloop`. Version `0.1.0-beta1`. Licence BSD-3-Clause: use, modify and ship it freely, and license your own robot code however you like; keep the copyright notice with any copy. Status: alpha, so pin an exact version. Released and resolvable: the coordinate is `com.github.Horizon-36596:simloop:v0.1.0-beta1` from JitPack, and the version keeps its leading `v` because JitPack version IS the git tag.
+`org.horizon36596.simloop`. Version `0.2.0-alpha.1`. Licence BSD-3-Clause: use, modify and ship it freely, and license your own robot code however you like; keep the copyright notice with any copy. Status: alpha, so pin an exact version. Released and resolvable: the coordinate is `com.github.Horizon-36596:simloop:v0.2.0-alpha.1` from JitPack, and the version keeps its leading `v` because JitPack version IS the git tag.
 
 ## Read this first
 

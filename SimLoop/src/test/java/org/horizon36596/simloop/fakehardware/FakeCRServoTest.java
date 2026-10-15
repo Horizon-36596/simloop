@@ -1,13 +1,15 @@
 package org.horizon36596.simloop.fakehardware;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.qualcomm.robotcore.hardware.CRServoImpl;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
-import com.qualcomm.robotcore.hardware.HardwareDevice;
+import com.qualcomm.robotcore.hardware.PwmControl;
 import com.qualcomm.robotcore.hardware.ServoController;
 
 import org.junit.jupiter.api.Test;
@@ -140,7 +142,7 @@ class FakeCRServoTest {
     void reportsTheSameVersionTheRealCrServoReports() {
         CRServoImpl real = new CRServoImpl(new RecordingServoController(), 0);
         assertEquals(real.getVersion(), new FakeCRServo().getVersion(),
-                "getVersion() must match CRServoImpl, not AbstractFakeDevice's 0 default");
+                "getVersion() must match CRServoImpl's");
     }
 
     @Test
@@ -186,13 +188,34 @@ class FakeCRServoTest {
     }
 
     @Test
-    void isAHardwareDeviceSoTheFakeHardwareMapCanRegisterIt() {
+    void theFakeHardwareMapResolvesItByName() {
         FakeCRServo fake = new FakeCRServo();
         FakeHardwareMap map = new FakeHardwareMap();
         map.register("ejectLeft", fake);
         assertEquals(fake, map.get(com.qualcomm.robotcore.hardware.CRServo.class, "ejectLeft"),
                 "unchanged robot code resolves a CR servo by name, as it does on the real robot (R1)");
-        assertTrue(fake instanceof HardwareDevice, "and it is a HardwareDevice like every other fake");
+        assertEquals(fake, map.get(PwmControl.class, "ejectLeft"),
+                "and robot code asking for the PwmControl surface a real CRServoImplEx has gets it too");
+    }
+
+    @Test
+    void pwmControlBehavesAsTheHubsServoControllerDoes() {
+        // LynxServoController, read off the SDK 12.0.0 bytecode: PWM is off until the first command, the
+        // default range is 600-2400 us, and every power command sends a whole-microsecond pulse width.
+        FakeCRServo fake = new FakeCRServo();
+        assertFalse(fake.isPwmEnabled(), "the hub floats every servo port at start-up");
+        assertSame(PwmControl.PwmRange.defaultRange, fake.getPwmRange());
+
+        fake.setPower(1.0);
+        assertTrue(fake.isPwmEnabled(), "a power command sends a pulse width, which enables PWM");
+        assertEquals(2400.0, fake.getPulseWidth(), 0.0, "full forward is the top of the range");
+
+        fake.setPwmDisable();
+        assertFalse(fake.isPwmEnabled());
+
+        fake.setPulseWidth(1500.0);
+        assertTrue(fake.isPwmEnabled());
+        assertEquals(0.0, fake.getPower(), 1e-12, "1500 us is the middle of 600-2400 us: stopped");
     }
 
     @Test

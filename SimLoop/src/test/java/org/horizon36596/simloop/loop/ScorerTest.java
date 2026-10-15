@@ -240,6 +240,27 @@ public class ScorerTest {
     }
 
     /**
+     * Contract: an objective that keeps its name but flips its direction, or reads a different number, is
+     * not comparable with the old one. Invariant tier — the name is a label; the totals of a MINIMIZE and a
+     * MAXIMIZE objective, or of two different keys, mean different things, and a "better" total across that
+     * change is noise.
+     */
+    @Test
+    public void anObjectiveWithTheSameNameButAnotherDirectionOrMetricIsNotComparable() throws IOException {
+        RunResult run = runWithFinishTime("same-name-other-objective", 12.0);
+        Scorer.Score minimized = new Scorer(finishTimeObjective(), Collections.emptyList()).score(run);
+        Scorer.Score maximized = new Scorer(Objective.ofFinalValue("auto finish time", "auto", FINISH_TIME,
+                Objective.Direction.MAXIMIZE, Objective.Budget.unstated()), Collections.emptyList()).score(run);
+        Scorer.Score otherReducer = new Scorer(Objective.ofMaxValue("auto finish time", "auto", FINISH_TIME,
+                Objective.Direction.MINIMIZE, Objective.Budget.unstated()), Collections.emptyList()).score(run);
+
+        assertFalse(minimized.isComparableTo(maximized), "same name, other direction");
+        assertFalse(minimized.isComparableTo(otherReducer), "same name and key, other reducer");
+        assertTrue(minimized.objectiveIdentity().contains("MINIMIZE final value of " + FINISH_TIME),
+                minimized.objectiveIdentity());
+    }
+
+    /**
      * Contract: a guardrail that returns {@code null} is rejected, not read as "fine". Invariant tier —
      * this is the UNKNOWN clause's back door: a null that scored as zero penalty would be exactly the
      * silent pass the whole design refuses.

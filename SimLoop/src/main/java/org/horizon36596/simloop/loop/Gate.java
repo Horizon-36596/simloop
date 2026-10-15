@@ -15,7 +15,7 @@ import java.util.Map;
  * <p><b>What it is for.</b> {@link Scorer} measures; this judges. Keeping those apart is the point of both
  * classes: a score is a number plus a breakdown and says nothing about whether the change should be kept,
  * and a gate makes exactly one decision and shows every clause it used to make it. The loop
- * ({@code LoopDriver}, E3) does the bookkeeping around both.
+ * ({@link LoopDriver}) does the bookkeeping around both.
  *
  * <h2>The four clauses (§6), all of them, every time</h2>
  * <ol>
@@ -33,7 +33,7 @@ import java.util.Map;
  *
  * <h2>UNKNOWN is a rejection, never a pass</h2>
  * A clause this gate could not check does not hold. That is the whole reason {@link Guardrail.Status#UNKNOWN}
- * exists as a separate status from {@code HOLDS} — E1 built it so that an envelope term nobody managed to
+ * exists as a separate status from {@code HOLDS} — it was built so that an envelope term nobody managed to
  * evaluate could not be quietly counted as a term that was fine. The gate is where that pays off: a
  * candidate whose envelope contains one unchecked term is rejected, and the verdict names the term. The
  * alternative is promoting a change on the strength of an invariant that was never tested, which is exactly
@@ -92,8 +92,8 @@ public final class Gate {
          * Could not be checked. Blocks acceptance, and is never treated as a pass.
          *
          * <p>Reached when an envelope term came back {@link Guardrail.Status#UNKNOWN}, when a supplied fact
-         * was {@link Fact#NOT_CHECKED}, or when two scores are not comparable so no improvement can be
-         * measured.
+         * was {@link Fact#NOT_CHECKED}, when two scores are not comparable so no improvement can be
+         * measured, or when the run could not be scored at all ({@link #judgeUnscorable}).
          */
         UNKNOWN,
         /**
@@ -101,7 +101,7 @@ public final class Gate {
          * {@link Clause#IMPROVES_ON_LAST_BEST}, and only when there is no last-best to improve on.
          *
          * <p>It is a distinct outcome rather than a {@link #HOLDS} because the first candidate did not beat
-         * anything, and a verdict that claimed it did would be a small lie that compounds: E3's milestone
+         * anything, and a verdict that claimed it did would be a small lie that compounds: the loop's milestone
          * report prints these clause outcomes, and "improved on last-best" against an empty field is the
          * kind of sentence that later gets quoted as evidence.
          */
@@ -367,7 +367,7 @@ public final class Gate {
 
     /**
      * The gate's answer: accepted or not, plus every clause and why. Never a bare boolean — a decision with
-     * no breakdown is a decision nobody can argue with, which is the same rule E1 applied to
+     * no breakdown is a decision nobody can argue with, which is the same rule {@link Scorer} applies to
      * {@link Scorer.Score#breakdown()}.
      */
     public static final class Verdict {
@@ -427,7 +427,7 @@ public final class Gate {
 
         /**
          * The verdict as a block of text, one line per clause, for a milestone report or a console.
-         * Mirrors the shape of {@link Scorer.Score#breakdown()} so the two read as one document when E3
+         * Mirrors the shape of {@link Scorer.Score#breakdown()} so the two read as one document when the loop
          * prints them together.
          *
          * @return the multi-line report, ending in a newline
@@ -449,7 +449,7 @@ public final class Gate {
          * The same text as {@link #explain()}.
          *
          * <p>Deliberately not a one-line summary. {@link Scorer.Score#toString()} returns its full
-         * {@code breakdown()}, and E3 prints a score and a verdict side by side; if one of them answered
+         * {@code breakdown()}, and the loop prints a score and a verdict side by side; if one of them answered
          * {@code println} with a paragraph and the other with a single word, the milestone report would
          * quietly lose half the reasoning depending on which object a caller happened to pass.
          */
@@ -489,6 +489,41 @@ public final class Gate {
                 "the verify command was not run for this candidate"));
         results.put(Clause.ENVELOPE_HOLDS, envelopeClause(candidate, lastBest));
         results.put(Clause.IMPROVES_ON_LAST_BEST, improvementClause(candidate, lastBest));
+        results.put(Clause.REVIEW_PASSED, fromSuppliedFact(Clause.REVIEW_PASSED, facts.reviewPassed(),
+                "an independent review approved the change", "an independent review rejected the change",
+                "no independent review was run for this candidate"));
+        return new Verdict(results);
+    }
+
+    /**
+     * Judge a candidate whose run could not be scored at all — the objective read a key the run never
+     * logged, read a value that is not a number, or measured {@code NaN}.
+     *
+     * <p>That is a rejected candidate, never a crashed loop. A long autonomous run should discard the
+     * edit that broke the measurement, say so in the verdict, and carry on. The two measured clauses are
+     * {@link Outcome#UNKNOWN}, because nothing about the envelope or the improvement is known; the two
+     * supplied facts are reported as supplied, so the verdict still shows all four.
+     *
+     * @param whyItCouldNotBeScored the scoring failure, in words, quoted in the verdict. Required.
+     * @param facts                 the two things the gate cannot read from a log. Required.
+     * @return a verdict that always rejects, naming why the run could not be scored
+     */
+    public Verdict judgeUnscorable(String whyItCouldNotBeScored, SuppliedFacts facts) {
+        if (whyItCouldNotBeScored == null || whyItCouldNotBeScored.trim().isEmpty()) {
+            throw new IllegalArgumentException("say why the run could not be scored; the verdict quotes it");
+        }
+        if (facts == null) {
+            throw new IllegalArgumentException(
+                    "SuppliedFacts is required; the gate never infers tests-green or review-passed");
+        }
+        Map<Clause, ClauseResult> results = new LinkedHashMap<>();
+        results.put(Clause.TESTS_GREEN, fromSuppliedFact(Clause.TESTS_GREEN, facts.testsGreen(),
+                "the verify command passed", "the verify command failed",
+                "the verify command was not run for this candidate"));
+        results.put(Clause.ENVELOPE_HOLDS, new ClauseResult(Clause.ENVELOPE_HOLDS, Outcome.UNKNOWN,
+                "the run could not be scored, so no guardrail verdict exists for it: " + whyItCouldNotBeScored));
+        results.put(Clause.IMPROVES_ON_LAST_BEST, new ClauseResult(Clause.IMPROVES_ON_LAST_BEST,
+                Outcome.UNKNOWN, "the objective could not be measured on this run: " + whyItCouldNotBeScored));
         results.put(Clause.REVIEW_PASSED, fromSuppliedFact(Clause.REVIEW_PASSED, facts.reviewPassed(),
                 "an independent review approved the change", "an independent review rejected the change",
                 "no independent review was run for this candidate"));
@@ -608,10 +643,15 @@ public final class Gate {
      * <p>A tie is not an improvement. Equal scores leave last-best standing, so the loop cannot churn
      * through equivalent rewrites and call each one progress.
      *
-     * <p>A NaN on either side is {@link Outcome#UNKNOWN}, checked before the comparison. Every comparison
-     * against NaN is false in Java, so without that check a NaN candidate would fall through to
-     * {@code FAILED} and be reported as an ordinary non-improving run — filing a broken measurement under
-     * "tried it, did not help", which is how a real defect hides for a hundred iterations.
+     * <p>There is no NaN check here because a {@link Scorer.Score} total cannot be NaN: {@link Objective}
+     * refuses a non-finite metric and {@link Guardrail.Verdict} refuses a non-finite soft penalty, so a
+     * total is finite or negative infinity (a violation), and {@code GateTest} pins that upstream.
+     *
+     * <p>The numbers in the detail are printed with {@code %s}, the shortest decimal that identifies the
+     * double exactly, and the margin is printed beside them. A fixed {@code %.6f} printed a one-ulp gain as
+     * "12.000000 beats 12.000000", which reads like the gate accepting a tie. Any strictly positive margin
+     * counts, however small. Whether a minimum margin should exist, so that numerical noise is not
+     * accepted as progress, is an open decision; today there is none.
      */
     private static ClauseResult improvementClause(Scorer.Score candidate, LastBest knownLastBest) {
         if (knownLastBest.isUnavailable()) {
@@ -626,25 +666,18 @@ public final class Gate {
         Scorer.Score lastBest = knownLastBest.score();
         if (!candidate.isComparableTo(lastBest)) {
             return new ClauseResult(Clause.IMPROVES_ON_LAST_BEST, Outcome.UNKNOWN,
-                    "not comparable: candidate is " + candidate.objectiveName() + " on "
-                            + candidate.scenarioName() + ", last-best is " + lastBest.objectiveName()
-                            + " on " + lastBest.scenarioName());
+                    "not comparable: candidate is " + candidate.objectiveIdentity()
+                            + ", last-best is " + lastBest.objectiveIdentity());
         }
-        if (Double.isNaN(candidate.total()) || Double.isNaN(lastBest.total())) {
-            return new ClauseResult(Clause.IMPROVES_ON_LAST_BEST, Outcome.UNKNOWN,
-                    String.format(Locale.ROOT,
-                            "not measurable: candidate total is %s and last-best total is %s; "
-                                    + "a NaN score is a broken measurement, not a worse run",
-                            candidate.total(), lastBest.total()));
-        }
+        double margin = candidate.total() - lastBest.total();
         if (candidate.total() > lastBest.total()) {
             return new ClauseResult(Clause.IMPROVES_ON_LAST_BEST, Outcome.HOLDS,
-                    String.format(Locale.ROOT, "%.6f beats %.6f (bigger is better)",
-                            candidate.total(), lastBest.total()));
+                    String.format(Locale.ROOT, "%s beats %s by %s (bigger is better)",
+                            candidate.total(), lastBest.total(), margin));
         }
         return new ClauseResult(Clause.IMPROVES_ON_LAST_BEST, Outcome.FAILED,
                 String.format(Locale.ROOT,
-                        "%.6f does not beat %.6f (bigger is better; a tie is not an improvement)",
-                        candidate.total(), lastBest.total()));
+                        "%s does not beat %s (margin %s; bigger is better; a tie is not an improvement)",
+                        candidate.total(), lastBest.total(), margin));
     }
 }

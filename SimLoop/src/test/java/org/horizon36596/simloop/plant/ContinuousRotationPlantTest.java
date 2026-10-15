@@ -82,21 +82,19 @@ class ContinuousRotationPlantTest {
     }
 
     @Test
-    void travelTracksTheSimClockToWithinTheIntegratorsOwnError() {
-        // Travel is NOT exactly tick-size-independent, and pretending otherwise would be a lie in a test.
-        // Mechanism1DofPlant integrates position as `position += velocity * dt` -- a rectangle rule -- so
-        // during a transient a coarser tick under-counts the area by O(dt). It converges as the tick
-        // shrinks, and at the tick rates this sim actually runs the gap is well under a percent. This is a
-        // property of the plant that has been there since Batch 2.1, not something B13 introduced;
-        // replay determinism (domain R5) is unaffected because a replay reuses the SAME tick schedule.
+    void travelTracksTheSimClockAndNotTheNumberOfCalls() {
+        // Mechanism1DofPlant integrates position with the exact integral of its exponential velocity over
+        // each tick, so travel is tick-size-independent as well as speed. From rest at full power the
+        // travel after T seconds is maxSpeed * (T - tau * (1 - exp(-T/tau))) = 6.790 rev for T = 2 s,
+        // whichever way the 2 s was ticked. (Before the exact integral, a rectangle rule gave 6.852 rev at
+        // 0.04 s ticks and 6.807 rev at 0.01 s ticks: the coarser tick OVER-counted.)
         double coarse = travelAfter(0.04, 50);   // 2.0 s of sim time
         double fine = travelAfter(0.01, 200);    // the same 2.0 s, four times as many ticks
 
-        // Measured 2026-09-15: coarse 6.807 rev vs fine 6.852 rev, a gap of 0.045 -- about 0.66%, so the
-        // 1% tolerance below sits just above the real error rather than being a round number picked to
-        // make the test pass. If a change to the integrator widens this, the test should fail.
-        assertEquals(coarse, fine, 0.01 * fine,
-                "2 seconds of sim time is 2 seconds of travel to within the integrator's own error");
+        double tau = EJECTOR.timeConstant();
+        double exact = EJECTOR.maxSpeed() * (2.0 - tau * (1.0 - StrictMath.exp(-2.0 / tau)));
+        assertEquals(exact, coarse, 1e-9, "coarse ticks land on the exact travel");
+        assertEquals(exact, fine, 1e-9, "fine ticks land on the exact travel");
     }
 
     @Test
@@ -114,7 +112,7 @@ class ContinuousRotationPlantTest {
         }
 
         double spinUpLoss = EJECTOR.maxSpeed() * EJECTOR.timeConstant();  // area under the ramp
-        assertEquals(EJECTOR.maxSpeed() * timer.time() - spinUpLoss, plant.getPosition(), 0.05,
+        assertEquals(EJECTOR.maxSpeed() * timer.time() - spinUpLoss, plant.getPosition(), 1e-6,
                 "steady-state travel is maxSpeed times the elapsed sim time, less the spin-up ramp");
     }
 

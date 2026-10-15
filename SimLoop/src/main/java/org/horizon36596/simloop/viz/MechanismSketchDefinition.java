@@ -16,7 +16,7 @@ import java.util.List;
  * is a silent guess. Storing both axes explicitly means the exporter — which can see the whole CAD — makes
  * the decision once, and the emitter is a pure projection with nothing to get wrong (CLAUDE.md rule 12).
  *
- * <p><b>Frame and units.</b> Robot-local: {@code +X} robot-right, {@code +Y} robot-forward, {@code +Z} up,
+ * <p><b>Frame and units.</b> The robot frame: {@code +X} robot-forward, {@code +Y} robot-left, {@code +Z} up,
  * origin at the centre of the drivetrain footprint at floor level. All lengths <b>inches</b>. The canvas is
  * unitless in AdvantageScope, and this repo draws it in inches so the numbers on screen are the numbers in
  * CAD.
@@ -98,7 +98,9 @@ public final class MechanismSketchDefinition {
     }
 
     /**
-     * Where the mechanism attaches to the robot. Becomes the drawn root.
+     * Where the mechanism attaches to the robot. Becomes the drawn root; only its components along the two
+     * canvas axes are drawn, and any out-of-plane component is ignored (see {@link MechanismSketch}'s
+     * constructor).
      *
      * @return the mount point in inches, in the robot frame
      */
@@ -219,9 +221,9 @@ public final class MechanismSketchDefinition {
          * both be unit length and perpendicular to each other.
          *
          * <p><b>This choice also decides a setting a human must make in AdvantageScope's 3D Field tab</b>,
-         * and nothing checks that the two agree. AdvantageScope's robot frame is WPILib's — <b>+X forward,
-         * +Y left, +Z up</b> — while this repo's is <b>+X right, +Y forward, +Z up</b>. So a canvas of
-         * robot-forward x up is AdvantageScope's <b>XZ</b> plane, and a canvas of robot-right x up is its
+         * and nothing checks that the two agree. AdvantageScope's robot frame is the same as this one —
+         * <b>+X forward, +Y left, +Z up</b> — so the setting reads straight off the axes: a canvas whose
+         * horizontal axis is along {@code ±X} is the <b>XZ</b> plane, and one along {@code ±Y} is the
          * <b>YZ</b> plane. Pick the wrong one in the tab and the mechanism leans out the side of the robot.
          *
          * <p><b>Canvas coordinates are not robot-relative offsets.</b> AdvantageScope centres the robot's
@@ -241,7 +243,8 @@ public final class MechanismSketchDefinition {
         }
 
         /**
-         * Where the mechanism attaches to the robot.
+         * Where the mechanism attaches to the robot. Only its components along the two canvas axes place the
+         * drawing; a component out of the canvas plane is kept here but not drawn.
          *
          * @param mountPointInches the mount point in inches, in the robot frame
          * @return this builder

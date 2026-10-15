@@ -37,15 +37,15 @@ import org.junit.jupiter.api.Test;
  */
 class StackedJointMechanismSketchTest {
 
-    /** Canvas is the robot's side view: right is robot-forward (+Y), up is world up (+Z). */
-    private static final RobotVector3 CANVAS_HORIZONTAL = new RobotVector3(0.0, 1.0, 0.0);
+    /** Canvas is the robot's side view: right is robot-forward (+X), up is world up (+Z). */
+    private static final RobotVector3 CANVAS_HORIZONTAL = new RobotVector3(1.0, 0.0, 0.0);
     private static final RobotVector3 CANVAS_VERTICAL = new RobotVector3(0.0, 0.0, 1.0);
 
     /**
-     * The axis an arm pitches about on a side-view canvas: robot-right, which is exactly
+     * The axis an arm pitches about on a side-view canvas: robot-right (-Y), which is exactly
      * {@code CANVAS_HORIZONTAL × CANVAS_VERTICAL}. A positive angle about it raises the arm.
      */
-    private static final RobotVector3 PITCH_AXIS = new RobotVector3(1.0, 0.0, 0.0);
+    private static final RobotVector3 PITCH_AXIS = new RobotVector3(0.0, -1.0, 0.0);
 
     /** The axis a turret yaws about — straight up, which no side-view canvas can show. */
     private static final RobotVector3 YAW_AXIS = new RobotVector3(0.0, 0.0, 1.0);
@@ -84,7 +84,7 @@ class StackedJointMechanismSketchTest {
     /** A unit direction in the canvas plane, {@code degrees} above robot-forward. */
     private static RobotVector3 inCanvasPlaneAt(double degrees) {
         double radians = Math.toRadians(degrees);
-        return new RobotVector3(0.0, Math.cos(radians), Math.sin(radians));
+        return new RobotVector3(Math.cos(radians), 0.0, Math.sin(radians));
     }
 
     /** The arm pivot on its own — a chain with no linear stage at all. */
@@ -131,10 +131,10 @@ class StackedJointMechanismSketchTest {
                         SHOULDER_LENGTH_INCHES, Math.toRadians(-90.0), Math.toRadians(90.0),
                         "#FF9F4C", 8.0))
                 .addJoint(new RevoluteJointDefinition(
-                        // Turns about -X, so a positive command lowers what it carries. The two pivots
+                        // Turns about +Y (robot-left), so a positive command lowers what it carries. The two pivots
                         // disagree on sign on purpose: that is where a sign bug would hide.
                         "elbow", inCanvasPlaneAt(ELBOW_ZERO_POSE_DEGREES),
-                        new RobotVector3(-1.0, 0.0, 0.0),
+                        new RobotVector3(0.0, 1.0, 0.0),
                         ELBOW_LENGTH_INCHES, Math.toRadians(-90.0), Math.toRadians(90.0),
                         "#7FD17F", 8.0))
                 .addJoint(new LinearJointDefinition(
@@ -274,7 +274,7 @@ class StackedJointMechanismSketchTest {
                 .canvasSizeInches(48.0, 48.0)
                 .canvasAxes(CANVAS_HORIZONTAL, CANVAS_VERTICAL)
                 .mountPointInches(MOUNT)
-                .addJoint(pivot(new RobotVector3(-1.0, 0.0, 0.0)))
+                .addJoint(pivot(new RobotVector3(0.0, 1.0, 0.0)))
                 .build();
 
         MechanismSketch sketch = new MechanismSketch(flipped);
@@ -347,8 +347,8 @@ class StackedJointMechanismSketchTest {
         sketch.setJointExtensionInches("wrist", 6.0);
 
         // Each segment's absolute angle is its own CAD pose plus every commanded rotation at or below it in
-        // the chain, signed by that pivot's rotation axis. The shoulder turns about +X, so +25 raises what
-        // it carries; the elbow turns about -X, so +15 lowers it.
+        // the chain, signed by that pivot's rotation axis. The shoulder turns about -Y (robot-right), so +25
+        // raises what it carries; the elbow turns about +Y, so +15 lowers it.
         double liftDegrees = LIFT_ZERO_POSE_DEGREES;
         double shoulderDegrees = SHOULDER_ZERO_POSE_DEGREES + 25.0;
         double elbowDegrees = ELBOW_ZERO_POSE_DEGREES + 25.0 - 15.0;
@@ -384,12 +384,12 @@ class StackedJointMechanismSketchTest {
 
         MechanismSketchDefinition definition = MechanismSketchDefinition.builder("Arm")
                 .canvasSizeInches(48.0, 48.0)
-                .canvasAxes(new RobotVector3(0.0, edge, 0.0), new RobotVector3(0.0, 0.0, edge))
+                .canvasAxes(new RobotVector3(edge, 0.0, 0.0), new RobotVector3(0.0, 0.0, edge))
                 .mountPointInches(MOUNT)
                 .addJoint(new RevoluteJointDefinition(
                         "pivot",
-                        new RobotVector3(0.0, armDirection.y * edge, armDirection.z * edge),
-                        new RobotVector3(edge, 0.0, 0.0),
+                        new RobotVector3(armDirection.x * edge, 0.0, armDirection.z * edge),
+                        new RobotVector3(0.0, -edge, 0.0),
                         ARM_LENGTH_INCHES,
                         Math.toRadians(ARM_MIN_ANGLE_DEGREES),
                         Math.toRadians(ARM_MAX_ANGLE_DEGREES),
@@ -477,22 +477,28 @@ class StackedJointMechanismSketchTest {
     }
 
     /**
-     * A chain whose stages have no travel between them cannot have a total split across it. Without this
-     * guard the split divides by zero, every stage silently lands at its minimum, and the mechanism looks
-     * fine on screen while ignoring every command.
+     * A stage whose travel range sits entirely at or below zero still splits a total correctly. This used to
+     * be rejected, because the split divided by the summed MAXIMUM travel (zero here) instead of the summed
+     * RANGE; with the split measured from the summed minimum, the range is what matters, and every stage has
+     * a positive one.
      */
     @Test
-    void splittingTotalTravelAcrossStagesWithNoTravelIsRejected() {
-        MechanismSketchDefinition noTravel = MechanismSketchDefinition.builder("Slide")
+    void splittingTotalTravelAcrossAStageThatTravelsBelowZeroWorks() {
+        MechanismSketchDefinition belowZero = MechanismSketchDefinition.builder("Slide")
                 .canvasSizeInches(48.0, 48.0)
                 .canvasAxes(CANVAS_HORIZONTAL, CANVAS_VERTICAL)
                 .mountPointInches(MOUNT)
                 .addJoint(new LinearJointDefinition(
                         "stage1", inCanvasPlaneAt(90.0), 5.0, -3.0, 0.0, "#4C9AFF", 6.0))
                 .build();
-        MechanismSketch sketch = new MechanismSketch(noTravel);
+        MechanismSketch sketch = new MechanismSketch(belowZero);
 
-        assertThrows(IllegalStateException.class, () -> sketch.setTotalTravelInches(1.0));
+        sketch.setTotalTravelInches(-1.5);
+        assertEquals(-1.5, sketch.getJointExtensionInches("stage1"), 1.0e-12, "a reachable total is drawn");
+        assertEquals(3.5, sketch.getDrawnLengthInches("stage1"), 1.0e-9, "retracted 5 in, pulled in 1.5 in");
+
+        sketch.setTotalTravelInches(1.0);
+        assertEquals(0.0, sketch.getJointExtensionInches("stage1"), 1.0e-12, "clamped to the stage's maximum");
     }
 
     // ---------------------------------------------------------------------------------------------
@@ -527,7 +533,7 @@ class StackedJointMechanismSketchTest {
     @Test
     void anUnNormalizedRotationAxisIsRejected() {
         assertThrows(IllegalArgumentException.class, () -> new RevoluteJointDefinition(
-                "pivot", inCanvasPlaneAt(30.0), new RobotVector3(2.0, 0.0, 0.0), 10.0,
+                "pivot", inCanvasPlaneAt(30.0), new RobotVector3(0.0, -2.0, 0.0), 10.0,
                 Math.toRadians(-10.0), Math.toRadians(10.0), "#FF9F4C", 8.0));
     }
 

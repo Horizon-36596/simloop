@@ -84,7 +84,7 @@ class ScoreIntegrityTest {
     @Test
     void scoringMeasuresTheRunExactlyOnce() throws Exception {
         AtomicInteger timesMeasured = new AtomicInteger();
-        Objective counting = Objective.of("counted", "any-scenario", Objective.Direction.MAXIMIZE,
+        Objective counting = Objective.of("counted", "any-scenario", "calls counted", Objective.Direction.MAXIMIZE,
                 Objective.Budget.of("a test"), run -> timesMeasured.incrementAndGet());
 
         RunResult run = aTinyRun("loop-integrity-measured-once");
@@ -99,7 +99,7 @@ class ScoreIntegrityTest {
 
     @Test
     void anObjectiveThatMeasuresNonFiniteIsStillRejected() throws Exception {
-        Objective broken = Objective.of("broken", "any-scenario", Objective.Direction.MAXIMIZE,
+        Objective broken = Objective.of("broken", "any-scenario", "always NaN", Objective.Direction.MAXIMIZE,
                 Objective.Budget.of("a test"), run -> Double.NaN);
 
         RunResult run = aTinyRun("loop-integrity-nonfinite");

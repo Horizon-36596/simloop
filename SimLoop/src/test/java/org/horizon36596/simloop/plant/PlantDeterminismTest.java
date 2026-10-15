@@ -10,9 +10,10 @@ import org.horizon36596.simloop.sim.FakeTimer;
 import org.junit.jupiter.api.Test;
 
 /**
- * Batch 1.4 determinism: the core plant (fake motors + mecanum integrator + FakeTimer) run twice
- * with an identical command schedule produces a byte-for-byte identical pose trajectory. This is the
- * deterministic substrate the Claude loop (Phase 3) depends on (sim-harness §5, domain R5).
+ * Determinism of the drivetrain plant chain as a sim run uses it: four fake motors ticked through a
+ * {@link FakeHardwareMap}, a real {@link MecanumDrivePlant} reading them, and a {@link FakeTimer}
+ * advanced alongside. Run twice with an identical command schedule, it must produce a bit-for-bit
+ * identical pose trajectory — the property replay depends on.
  */
 class PlantDeterminismTest {
 
@@ -36,7 +37,7 @@ class PlantDeterminismTest {
                 "two identical plant runs must yield bit-identical pose trajectories");
     }
 
-    /** One headless run; returns the flattened [x,y,heading] trajectory. */
+    /** One headless run; returns the flattened [x, y, heading] trajectory, one triple per loop. */
     private static double[] runOnce() {
         FakeTimer timer = new FakeTimer();
         FakeHardwareMap map = new FakeHardwareMap();
@@ -46,32 +47,27 @@ class PlantDeterminismTest {
             motors[i] = new FakeMotor(CONFIG.maxVelocityTicksPerSecond(), CONFIG.maxAccel());
             map.register(names[i], motors[i]);
         }
-        MecanumPoseIntegrator integrator = new MecanumPoseIntegrator(CONFIG);
+        MecanumDrivePlant drivePlant = new MecanumDrivePlant(motors, CONFIG);
 
         double[] trajectory = new double[LOOPS * 3];
         for (int loop = 0; loop < LOOPS; loop++) {
-            // Scripted routine: forward, then arc, then strafe — deterministic, no wall-clock.
-            double power = loop < 100 ? 1.0 : 0.5;
+            // Scripted routine: forward, then an arc, then a strafe — deterministic, no wall-clock.
+            double forward = loop < 100 ? 1.0 : 0.5;
             double turn = loop >= 100 && loop < 175 ? 0.3 : 0.0;
-            motors[0].setPower(power - turn); // FL
-            motors[1].setPower(power + turn); // FR
-            motors[2].setPower(power - turn); // BL
-            motors[3].setPower(power + turn); // BR
+            double strafe = loop >= 175 ? 0.4 : 0.0;
+            motors[0].setPower(forward - turn - strafe); // FL
+            motors[1].setPower(forward + turn + strafe); // FR
+            motors[2].setPower(forward - turn + strafe); // BL
+            motors[3].setPower(forward + turn - strafe); // BR
 
+            // Same order as the harness: motors first, then the plant reads their new speeds.
             map.updateAll(DT);
+            drivePlant.update(DT);
             timer.advance(DT);
 
-            double scale = CONFIG.maxVelocityTicksPerSecond() / CONFIG.ticksPerInch(); // ticks/s -> in/s
-            integrator.integrate(
-                    motors[0].getSpeed() * scale,
-                    motors[1].getSpeed() * scale,
-                    motors[2].getSpeed() * scale,
-                    motors[3].getSpeed() * scale,
-                    DT);
-
-            trajectory[loop * 3] = integrator.getX();
-            trajectory[loop * 3 + 1] = integrator.getY();
-            trajectory[loop * 3 + 2] = integrator.getHeading();
+            trajectory[loop * 3] = drivePlant.getX();
+            trajectory[loop * 3 + 1] = drivePlant.getY();
+            trajectory[loop * 3 + 2] = drivePlant.getHeading();
         }
         return trajectory;
     }

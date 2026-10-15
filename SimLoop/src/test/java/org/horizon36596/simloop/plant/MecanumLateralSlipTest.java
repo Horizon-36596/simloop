@@ -15,7 +15,7 @@ import org.junit.jupiter.api.Test;
  *
  * <p>Why this is worth pinning rather than trusting. Strafing spins the wheels just as fast as driving
  * forward, but the chassis does not travel as far, because sideways motion comes from the rollers and
- * rollers slip. On the V0 robot the two were measured on 2026-08-30 as 96.7 in/s forward and 84.6 in/s
+ * rollers slip. On one real mecanum robot the two were measured on 2026-08-30 as 96.7 in/s forward and 84.6 in/s
  * sideways. Until 2026-09-02 the core modelled one speed for every direction, so the simulated robot
  * strafed about 14% faster than <i>its own path follower</i> believed it could — and a follower that
  * under-brakes every lateral move shows overshoot the real robot does not have.
@@ -34,7 +34,7 @@ class MecanumLateralSlipTest {
     /** Wheel speed used for every run below, in/s. Arbitrary but well inside the config's ceiling. */
     private static final double WHEEL_SPEED_IN_PER_SEC = 20.0;
 
-    /** The V0 robot's measured pair, in/s (2026-08-30): it loses about 13% going sideways. */
+    /** A real mecanum robot's measured pair, in/s (2026-08-30): it loses about 13% going sideways. */
     private static final double MEASURED_FORWARD_IN_PER_SEC = 96.7176;
     private static final double MEASURED_STRAFE_IN_PER_SEC = 84.5661;
 
@@ -172,7 +172,7 @@ class MecanumLateralSlipTest {
         return integrator.getHeading();
     }
 
-    /** The V0 robot's measured pair. */
+    /** A real mecanum robot's measured pair. */
     private static DrivetrainSimConfig measuredConfig() {
         return configWithLateral(MEASURED_STRAFE_IN_PER_SEC);
     }

@@ -204,7 +204,8 @@ public class EnvelopeGuardrailsTest {
     /**
      * <b>Contract, invariant tier.</b> The three §3 terms that are not log facts <i>at all</i> always say
      * UNKNOWN — never HOLDS — no matter how clean the run is. A perfect run does not make a Gradle exit
-     * code or a fact about commit history true.
+     * code or a fact about commit history true. (Which is also why they stay out of a loop scorer's
+     * envelope: {@code GateTest} pins that they would block every candidate.)
      *
      * <p>Deliberately does not include {@code loopTimeUnderBudget}: that one <i>is</i> a log fact, and is
      * only unknown when a particular run does not log the key. Folding it in here would claim it is
@@ -254,6 +255,56 @@ public class EnvelopeGuardrailsTest {
         assertEquals(Guardrail.Status.UNKNOWN,
                 safeStop.evaluate(runLogging("no-drive", SLIDE_OUTPUT, 0.0)).status(),
                 "no logged output means the check did not run, which is not the same as a safe stop");
+    }
+
+    /**
+     * <b>Contract, invariant tier.</b> A built-in term handed a key whose values are not numbers returns
+     * UNKNOWN naming the key; it does not throw. {@link Guardrail#evaluate} asks every term to return a
+     * verdict, and an exception out of a built-in stopped the whole loop instead of blocking one candidate.
+     */
+    @Test
+    public void aBuiltInTermHandedANonNumericKeySaysUnknownRatherThanThrowing() throws IOException {
+        Path rlog = LoopTestRlogs.write("loop-envelope-non-numeric",
+                table -> table.put(SLIDE_OUTPUT, "HOLDING"));
+        RunResult run = RunResult.fromRlog("NonNumeric", rlog, 1);
+
+        for (Guardrail guardrail : new Guardrail[] {
+                EnvelopeGuardrails.withinBound(SLIDE_OUTPUT, -1.0, 1.0),
+                EnvelopeGuardrails.loopTimeUnderBudget(SLIDE_OUTPUT, 20.0),
+                EnvelopeGuardrails.safeStopAtEnd(SLIDE_OUTPUT, 1e-6),
+                EnvelopeGuardrails.metricWasUpdated(SLIDE_OUTPUT)}) {
+            Guardrail.Verdict verdict = guardrail.evaluate(run);
+            assertEquals(Guardrail.Status.UNKNOWN, verdict.status(), guardrail.name());
+            assertTrue(verdict.reason().contains(SLIDE_OUTPUT), verdict.reason());
+        }
+    }
+
+    /**
+     * <b>Contract, invariant tier.</b> A key set at the first frame and never changed is a violation of
+     * {@code metricWasUpdated}; a key that changes, or is first written mid-run, holds. This is what stops
+     * a minimized final-value objective scoring perfectly on a finish time nobody ever set.
+     */
+    @Test
+    public void metricWasUpdatedCatchesAKeyNobodyUpdated() throws IOException {
+        String finish = "RealOutputs/Auto/finishTimeSec";
+        Guardrail updated = EnvelopeGuardrails.metricWasUpdated(finish);
+
+        RunResult neverSet = RunResult.fromRlog("NeverSet",
+                LoopTestRlogs.writeOneKeyPerFrame("loop-envelope-never-set", finish, 0.0, 0.0, 0.0), 3);
+        RunResult changed = RunResult.fromRlog("Changed",
+                LoopTestRlogs.writeOneKeyPerFrame("loop-envelope-changed", finish, 0.0, 0.0, 9.5), 3);
+        RunResult writtenLate = RunResult.fromRlog("WrittenLate", LoopTestRlogs.write("loop-envelope-late",
+                table -> table.put("RealOutputs/Robot/heartbeat", 1.0),
+                table -> table.put(finish, 9.5)), 2);
+        RunResult oneFrame = RunResult.fromRlog("OneFrame",
+                LoopTestRlogs.writeOneKeyPerFrame("loop-envelope-one-frame", finish, 0.0), 1);
+
+        assertTrue(updated.evaluate(neverSet).isViolation(), "held 0.0 from first frame to last");
+        assertTrue(updated.evaluate(changed).holdsCleanly());
+        assertTrue(updated.evaluate(writtenLate).holdsCleanly(), "first written mid-run is an update");
+        assertEquals(Guardrail.Status.UNKNOWN, updated.evaluate(oneFrame).status());
+        assertEquals(Guardrail.Status.UNKNOWN,
+                EnvelopeGuardrails.metricWasUpdated("RealOutputs/Nope").evaluate(changed).status());
     }
 
     /**

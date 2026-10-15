@@ -20,14 +20,16 @@ import java.util.function.ToDoubleFunction;
  *
  * <h2>Scenario and budget</h2>
  * {@link #scenarioName()} says which run this is measured over, so a score can never be compared across
- * two different scenarios by accident. {@link #budget()} is the human's rough estimate; per §2 it tunes
+ * two different scenarios by accident. {@link #metricDescription()} says what number is read out of that
+ * run ({@code "final value of Auto/finishTimeSec"}), and it rides along on every score for the same reason:
+ * two objectives with the same name that read different numbers are not the same objective. {@link #budget()} is the human's rough estimate; per §2 it tunes
  * milestone cadence and is deliberately <b>not</b> part of the score.
  */
 public final class Objective {
 
     /** Which way a raw metric points. */
     public enum Direction {
-        /** The raw metric is already "bigger is better" — pollen scored, distance covered. */
+        /** The raw metric is already "bigger is better" — points scored, distance covered. */
         MAXIMIZE,
         /** The raw metric is "smaller is better" — finish time, path error, loop period. */
         MINIMIZE
@@ -35,14 +37,16 @@ public final class Objective {
 
     private final String name;
     private final String scenarioName;
+    private final String metricDescription;
     private final Direction direction;
     private final Budget budget;
     private final ToDoubleFunction<RunResult> metric;
 
-    private Objective(String name, String scenarioName, Direction direction, Budget budget,
-            ToDoubleFunction<RunResult> metric) {
+    private Objective(String name, String scenarioName, String metricDescription, Direction direction,
+            Budget budget, ToDoubleFunction<RunResult> metric) {
         this.name = name;
         this.scenarioName = scenarioName;
+        this.metricDescription = metricDescription;
         this.direction = direction;
         this.budget = budget;
         this.metric = metric;
@@ -52,15 +56,18 @@ public final class Objective {
      * Declares an objective computed by an arbitrary function of the run.
      *
      * @param name         what a human calls this, e.g. {@code "auto finish time"}
-     * @param scenarioName the scenario it is measured over; scores from different scenarios are not
-     *                     comparable, and {@link Scorer} refuses to mix them
-     * @param direction    which way {@code metric} points
-     * @param budget       the human's rough estimate; tunes milestone cadence only
-     * @param metric       reads the headline number out of a finished run
+     * @param scenarioName      the scenario it is measured over; scores from different scenarios are not
+     *                          comparable, and {@link Scorer} refuses to mix them
+     * @param metricDescription what {@code metric} reads, in words, e.g. {@code "tips logged minus fouls"}.
+     *                          Part of what makes two scores comparable: {@code metric} is a function and
+     *                          cannot be compared, so this sentence is how a changed metric is noticed.
+     * @param direction         which way {@code metric} points
+     * @param budget            the human's rough estimate; tunes milestone cadence only
+     * @param metric            reads the headline number out of a finished run
      * @return the declared objective
      */
-    public static Objective of(String name, String scenarioName, Direction direction, Budget budget,
-            ToDoubleFunction<RunResult> metric) {
+    public static Objective of(String name, String scenarioName, String metricDescription,
+            Direction direction, Budget budget, ToDoubleFunction<RunResult> metric) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("an objective needs a name a human can read in a milestone");
         }
@@ -68,6 +75,10 @@ public final class Objective {
             throw new IllegalArgumentException("objective '" + name + "' needs a scenario name -- a score "
                     + "with no scenario can be compared against a score from a different scenario, which "
                     + "is how a loop 'improves' by measuring something else");
+        }
+        if (metricDescription == null || metricDescription.trim().isEmpty()) {
+            throw new IllegalArgumentException("objective '" + name + "' needs a metric description -- it is "
+                    + "how two scores tell whether they read the same number");
         }
         if (direction == null) {
             throw new IllegalArgumentException("objective '" + name + "' needs a direction");
@@ -79,7 +90,7 @@ public final class Objective {
         if (metric == null) {
             throw new IllegalArgumentException("objective '" + name + "' needs a metric");
         }
-        return new Objective(name, scenarioName, direction, budget, metric);
+        return new Objective(name, scenarioName, metricDescription, direction, budget, metric);
     }
 
     /**
@@ -88,6 +99,13 @@ public final class Objective {
      *
      * <p>Resolving the key through {@link RunResult#finalValue(String)} means a typo'd key throws with the
      * key named rather than scoring zero.
+     *
+     * <p><b>A key that is logged once and never updated scores whatever it was set to.</b> An RLOG is
+     * delta-encoded, so the last value of a key written at frame 0 and never again is that frame-0 value.
+     * For a {@link Direction#MINIMIZE} finish time initialised to {@code 0} and only set when the routine
+     * finishes, a candidate that never finishes scores a perfect zero. Guard it with
+     * {@link EnvelopeGuardrails#metricWasUpdated(String)} in the envelope, or initialise the key to a value
+     * that scores badly.
      *
      * @param name         what a human calls this, e.g. {@code "auto finish time"}
      * @param scenarioName the scenario it is measured over
@@ -98,7 +116,8 @@ public final class Objective {
      */
     public static Objective ofFinalValue(String name, String scenarioName, String metricKey,
             Direction direction, Budget budget) {
-        return of(name, scenarioName, direction, budget, run -> run.finalValue(metricKey));
+        return of(name, scenarioName, "final value of " + metricKey, direction, budget,
+                run -> run.finalValue(metricKey));
     }
 
     /**
@@ -113,7 +132,8 @@ public final class Objective {
      */
     public static Objective ofMaxValue(String name, String scenarioName, String metricKey,
             Direction direction, Budget budget) {
-        return of(name, scenarioName, direction, budget, run -> run.maxValue(metricKey));
+        return of(name, scenarioName, "largest value of " + metricKey, direction, budget,
+                run -> run.maxValue(metricKey));
     }
 
     /**
@@ -128,7 +148,8 @@ public final class Objective {
      */
     public static Objective ofMeanValue(String name, String scenarioName, String metricKey,
             Direction direction, Budget budget) {
-        return of(name, scenarioName, direction, budget, run -> run.meanValue(metricKey));
+        return of(name, scenarioName, "mean value of " + metricKey, direction, budget,
+                run -> run.meanValue(metricKey));
     }
 
     /**
@@ -147,6 +168,16 @@ public final class Objective {
      */
     public String scenarioName() {
         return scenarioName;
+    }
+
+    /**
+     * What number this objective reads out of a run, in words: {@code "final value of Auto/finishTimeSec"}
+     * for the key-based factories, or the caller's own sentence for {@link #of}.
+     *
+     * @return the metric description; never null or blank
+     */
+    public String metricDescription() {
+        return metricDescription;
     }
 
     /**
@@ -222,7 +253,7 @@ public final class Objective {
     /**
      * Thrown when an objective's metric measured {@code NaN} or an infinity.
      *
-     * <p>A named type rather than a bare {@code IllegalStateException} so the acceptance gate (E2) can
+     * <p>A named type rather than a bare {@code IllegalStateException} so {@link LoopDriver#offer} can
      * catch exactly this -- "the objective could not be measured on this candidate" is a run to discard,
      * and it should not have to be told apart from an unrelated illegal-state bug by reading a message.
      */

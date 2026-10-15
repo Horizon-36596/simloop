@@ -52,10 +52,10 @@ class MechanismSketchTest {
     private static final double HALF_DEGREE = 0.5;
 
     /** Mount point: 6 in forward of robot centre, 2 in off the floor. */
-    private static final RobotVector3 MOUNT = new RobotVector3(0.0, 6.0, 2.0);
+    private static final RobotVector3 MOUNT = new RobotVector3(6.0, 0.0, 2.0);
 
-    /** Canvas is the robot's side view: right is robot-forward (+Y), up is world up (+Z). */
-    private static final RobotVector3 CANVAS_HORIZONTAL = new RobotVector3(0.0, 1.0, 0.0);
+    /** Canvas is the robot's side view: right is robot-forward (+X), up is world up (+Z). */
+    private static final RobotVector3 CANVAS_HORIZONTAL = new RobotVector3(1.0, 0.0, 0.0);
     private static final RobotVector3 CANVAS_VERTICAL = new RobotVector3(0.0, 0.0, 1.0);
 
     // ---------------------------------------------------------------------------------------------
@@ -69,7 +69,7 @@ class MechanismSketchTest {
      */
     private static MechanismSketchDefinition sar230Slide() {
         double leanRadians = Math.toRadians(LEAN_FROM_VERTICAL_DEGREES);
-        RobotVector3 travelAxis = new RobotVector3(0.0, Math.sin(leanRadians), Math.cos(leanRadians));
+        RobotVector3 travelAxis = new RobotVector3(Math.sin(leanRadians), 0.0, Math.cos(leanRadians));
 
         MechanismSketchDefinition.Builder builder = MechanismSketchDefinition.builder("Slide")
                 .canvasSizeInches(24.0, 48.0)
@@ -282,14 +282,14 @@ class MechanismSketchTest {
     /** An axis tilted out of the canvas plane is rejected, not silently drawn foreshortened. */
     @Test
     void anAxisOutsideTheCanvasPlaneIsRejected() {
-        // Travel points along robot-right (+X), but the canvas plane is the Y-Z side view, so this axis
+        // Travel points along robot-right (-Y), but the canvas plane is the X-Z side view, so this axis
         // projects to a point. Drawing it would show a stage that never appears to move.
         MechanismSketchDefinition definition = MechanismSketchDefinition.builder("Sideways")
                 .canvasSizeInches(24.0, 48.0)
                 .canvasAxes(CANVAS_HORIZONTAL, CANVAS_VERTICAL)
                 .mountPointInches(RobotVector3.origin())
                 .addJoint(new LinearJointDefinition(
-                        "stage1", new RobotVector3(1.0, 0.0, 0.0), 1.0, 0.0, 5.0, "#FFFFFF", 4.0))
+                        "stage1", new RobotVector3(0.0, -1.0, 0.0), 1.0, 0.0, 5.0, "#FFFFFF", 4.0))
                 .build();
 
         IllegalArgumentException thrown =
@@ -358,6 +358,40 @@ class MechanismSketchTest {
                 "stage1", CANVAS_VERTICAL, 1.0, 0.0, 5.0, "#FFFFFF", 4.0)));
     }
 
+    /**
+     * The chain-tip getters ({@link MechanismSketch#getTipAcrossInches()}, {@link MechanismSketch#getTipUpInches()},
+     * {@link MechanismSketch#getTipAngleRadians()}) against hand-computed geometry, on a canvas whose horizontal
+     * axis is robot-<b>backward</b> {@code (-1, 0, 0)}, so a sign slip in "across" cannot hide.
+     *
+     * <p>Hand geometry. Mount at robot {@code (-3, 0, 4)}: across = mount · (-1,0,0) = 3 in, up = 4 in. A slide
+     * straight up, 5 in retracted, extended 2 in, so 7 in long: its tip is at across 3, up 11. On it, a 4 in pivot
+     * whose CAD pose points robot-backward (canvas angle 0), about the canvas normal
+     * {@code (-1,0,0) x (0,0,1) = (0,1,0)}, so a positive angle swings it from across toward up. At 0.5 rad the
+     * tip is at across {@code 3 + 4 cos 0.5}, up {@code 11 + 4 sin 0.5}, pointing 0.5 rad from the canvas
+     * horizontal.
+     */
+    @Test
+    void theChainTipIsWhereHandGeometryPutsItOnABackwardFacingCanvas() {
+        MechanismSketch sketch = new MechanismSketch(MechanismSketchDefinition.builder("TipCheck")
+                .canvasSizeInches(24.0, 24.0)
+                .backgroundColorHex("#202020")
+                .canvasAxes(new RobotVector3(-1.0, 0.0, 0.0), CANVAS_VERTICAL)
+                .mountPointInches(new RobotVector3(-3.0, 0.0, 4.0))
+                .addJoint(new LinearJointDefinition(
+                        "slide", new RobotVector3(0.0, 0.0, 1.0), 5.0, 0.0, 10.0, "#4C9AFF", 6.0))
+                .addJoint(new RevoluteJointDefinition(
+                        "wrist", new RobotVector3(-1.0, 0.0, 0.0), new RobotVector3(0.0, 1.0, 0.0),
+                        4.0, -1.0, 2.0, "#FF9F4C", 4.0))
+                .build());
+
+        sketch.setJointExtensionInches("slide", 2.0);
+        sketch.setJointAngleRadians("wrist", 0.5);
+
+        assertEquals(3.0 + 4.0 * Math.cos(0.5), sketch.getTipAcrossInches(), 1.0e-9, "tip across");
+        assertEquals(11.0 + 4.0 * Math.sin(0.5), sketch.getTipUpInches(), 1.0e-9, "tip up");
+        assertEquals(0.5, sketch.getTipAngleRadians(), 1.0e-9, "tip angle");
+    }
+
     // ---------------------------------------------------------------------------------------------
     // LinearJointDefinition validation — each throw branch of its constructor, R9 guardrails
     // ---------------------------------------------------------------------------------------------
@@ -402,6 +436,49 @@ class MechanismSketchTest {
     void aZeroOrNegativeLineWeightIsRejected() {
         assertThrows(IllegalArgumentException.class, () -> new LinearJointDefinition(
                 "stage1", CANVAS_VERTICAL, 1.0, 0.0, 5.0, "#FFFFFF", 0.0));
+    }
+
+    /**
+     * A negative minimum travel deeper than the retracted length would draw a negative-length segment.
+     * A negative minimum that the retracted length can absorb is still allowed.
+     */
+    @Test
+    void aMinimumTravelThatWouldDrawANegativeLengthIsRejected() {
+        assertThrows(IllegalArgumentException.class, () -> new LinearJointDefinition(
+                "stage1", CANVAS_VERTICAL, 1.0, -2.0, 5.0, "#FFFFFF", 4.0));
+        assertEquals(0.0, new LinearJointDefinition(
+                "stage1", CANVAS_VERTICAL, 2.0, -2.0, 5.0, "#FFFFFF", 4.0).getZeroPoseLengthInches(), 0.0);
+    }
+
+    /**
+     * The total-travel split is right when the stages do not start at zero: a total is the SUM of the stage
+     * extensions, so it can be no less than the stages' summed minimum, and a total inside the range is
+     * drawn as exactly that total.
+     */
+    @Test
+    void totalTravelIsSplitCorrectlyWhenStagesHaveANonZeroMinimum() {
+        MechanismSketchDefinition definition = MechanismSketchDefinition.builder("Offset")
+                .canvasSizeInches(24.0, 48.0)
+                .canvasAxes(CANVAS_HORIZONTAL, CANVAS_VERTICAL)
+                .mountPointInches(RobotVector3.origin())
+                .addJoint(new LinearJointDefinition(
+                        "stage1", CANVAS_VERTICAL, 1.0, 2.0, 10.0, "#FFFFFF", 4.0))
+                .addJoint(new LinearJointDefinition(
+                        "stage2", CANVAS_VERTICAL, 0.0, 2.0, 10.0, "#FFFFFF", 4.0))
+                .build();
+        MechanismSketch sketch = new MechanismSketch(definition);
+
+        sketch.setTotalTravelInches(10.0);
+        assertEquals(10.0, sketch.getTotalTravelInches(), 1e-12, "a reachable total is drawn as itself");
+        assertEquals(5.0, sketch.getJointExtensionInches("stage1"), 1e-12, "split evenly: equal ranges");
+        assertEquals(5.0, sketch.getJointExtensionInches("stage2"), 1e-12);
+
+        sketch.setTotalTravelInches(0.0);
+        assertEquals(4.0, sketch.getTotalTravelInches(), 1e-12,
+                "below the summed minimum clamps to it: every stage at its own minimum");
+
+        sketch.setTotalTravelInches(50.0);
+        assertEquals(20.0, sketch.getTotalTravelInches(), 1e-12, "above the summed maximum clamps to it");
     }
 
     /** {@link RobotVector3#normalized()} has no direction to return for the zero vector. */

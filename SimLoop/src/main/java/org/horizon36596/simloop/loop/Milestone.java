@@ -10,7 +10,8 @@ import java.util.List;
  *
  * <h2>Event-driven, never on a clock</h2>
  * A milestone is emitted because something happened — the best improved by at least the loop's declared
- * threshold, or a clause or guardrail that was not holding before is holding now. It is never emitted
+ * threshold since the last milestone, or a guardrail that was over its soft budget then is holding now.
+ * It is never emitted
  * because an interval elapsed. That is not a style preference: a time-sliced milestone stream is mostly
  * made of entries that say nothing changed, and a reader who has learned that milestones are usually
  * empty stops reading them. §5 puts the point plainly — the milestone is where gaming becomes visible, so
@@ -31,49 +32,36 @@ import java.util.List;
  */
 public final class Milestone {
 
-    /** Why a milestone was emitted. More than one can apply to the same milestone. */
+    /**
+     * Why a milestone was emitted. More than one can apply to the same milestone.
+     *
+     * <p>There is no "a gate clause now holds" reason, though §5's "qualitatively new capability" sounds
+     * like one: both sides of a milestone are accepted answers, and an accepted verdict already has every
+     * clause HOLDS or NOT_YET_APPLICABLE, so no clause can newly start holding between them.
+     */
     public enum Reason {
         /**
-         * The first candidate the gate ever accepted. There was no best before it, so the loop went from
-         * having no working answer to having one, which is the largest qualitative step it can take.
+         * The first answer the gate accepted, when the loop's baseline had not passed the gate. The loop went
+         * from having no working answer to having one, which is the largest qualitative step it can take.
+         * An accepted baseline is the starting point rather than a milestone, so this does not fire then.
          */
         FIRST_ACCEPTED_CANDIDATE,
         /**
-         * The total improved on the previous best by at least the loop's milestone threshold. An
-         * improvement smaller than the threshold still becomes the new best — it passed the gate — but it
-         * does not get a milestone, which is what stops a long run from producing hundreds of them.
+         * The total rose by at least the loop's milestone threshold since the last milestone (or since the
+         * accepted baseline, before the first one). An accepted improvement smaller than that still becomes
+         * the new best — it passed the gate — but does not get a milestone yet, which is what stops a long
+         * run from producing hundreds of them. The gains accumulate: ten small steps that together clear the
+         * threshold emit one.
          */
         IMPROVED_BY_AT_LEAST_THE_THRESHOLD,
         /**
-         * A gate clause that was not holding for the previous best is holding now. §5's "qualitatively new
-         * working capability": the answer is not merely better-scoring, it satisfies something it did not
-         * satisfy before.
+         * A guardrail that was over its soft budget at the last milestone (or in the accepted baseline) is
+         * checked and holding now: the answer stopped doing something it was being penalised for, which is a
+         * real gain even when the score barely moves.
          *
-         * <p><b>No transition can reach this today, and that is written down on purpose.</b> Both scores
-         * being compared belong to accepted candidates, and an accepted verdict has every clause either
-         * HOLDS or NOT_YET_APPLICABLE — the gate rejects anything else. The one move available,
-         * {@code IMPROVES_ON_LAST_BEST} going NOT_YET_APPLICABLE to HOLDS on the second candidate ever
-         * accepted, is explicitly excluded: it means the clause stopped being vacuous because there is
-         * finally something to beat, not that the answer gained anything. Counting it would emit a
-         * milestone on every second acceptance however small the improvement, defeating the threshold and
-         * captioning it as a new capability.
-         *
-         * <p>The check is kept rather than deleted because it is the alarm for a change to the gate's
-         * clause set — a fifth clause, or one that can hold conditionally, makes it load-bearing
-         * immediately, and a loop that had quietly stopped noticing new capabilities is a bad thing to
-         * discover late.
-         */
-        A_GATE_CLAUSE_NOW_HOLDS,
-        /**
-         * A guardrail that was over budget for the previous best, or was not in its envelope at all, is
-         * checked and holding now. The envelope is guarding something it was not guarding before, which is
-         * a real gain in what the loop knows about its own answer even when the score barely moves.
-         *
-         * <p>Note that "was UNKNOWN, is now holding" is <b>not</b> one of the routes here, though it
-         * sounds like the obvious one. An UNKNOWN guardrail blocks the gate, so a score carrying one never
-         * became a last-best and there is no previous best for it to have been UNKNOWN in. The two
-         * reachable routes are a soft-budget overrun that has been brought back inside its budget, and a
-         * guardrail newly added to the envelope.
+         * <p>That is the only route. "Was UNKNOWN, is now holding" cannot happen because an UNKNOWN term
+         * blocks the gate, so no accepted answer carries one. "Newly added to the envelope" cannot happen
+         * because the loop scores every run with one fixed scorer, so its guardrail names never change.
          */
         A_GUARDRAIL_IS_NOW_CHECKED_AND_HOLDING
     }
@@ -113,7 +101,10 @@ public final class Milestone {
         return reasons;
     }
 
-    /** {@return the best before this one, or null when this is {@link Reason#FIRST_ACCEPTED_CANDIDATE}} */
+    /**
+     * {@return what this milestone is measured from: the best at the previous milestone, or the accepted
+     * baseline before the first one; null when this is {@link Reason#FIRST_ACCEPTED_CANDIDATE}}
+     */
     public Scorer.Score previousBest() {
         return previousBest;
     }
@@ -129,25 +120,22 @@ public final class Milestone {
     }
 
     /**
-     * The clauses and guardrails that are holding now and were not before. Empty when the milestone is
-     * purely a score improvement.
+     * The guardrails that were over their soft budget in {@link #previousBest()} and are holding now. Empty
+     * when the milestone is purely a score improvement.
      *
-     * <p>Each entry says what kind of thing it is, so the list can be read without a second list beside it
-     * explaining which half is which: a gate clause reads {@code "clause ENVELOPE_HOLDS"} and an envelope
-     * term reads {@code "guardrail loopPeriodMs"}. Clauses come first, then guardrails, each in
-     * declaration order.
+     * <p>Each entry reads {@code "guardrail loopPeriodMs"}, in the order the scorer declares its guardrails.
      *
-     * @return an unmodifiable list of the newly-holding clause and guardrail names
+     * @return an unmodifiable list of the newly-holding guardrail names
      */
     public List<String> newlyHolding() {
         return newlyHolding;
     }
 
     /**
-     * How much the total moved. Zero when there was no previous best.
+     * How much the total moved since {@link #previousBest()}. Zero when there was none.
      *
-     * @return the rise in {@link Scorer.Score#total()} over the previous best, in the objective's own
-     *         units, bigger-is-better
+     * @return the rise in {@link Scorer.Score#total()} since the previous milestone (or the accepted
+     *         baseline), in the objective's own units, bigger-is-better
      */
     public double improvement() {
         if (previousBest == null) {
@@ -176,9 +164,9 @@ public final class Milestone {
         out.append("  what the candidate says it changed:\n");
         out.append("    ").append(candidateDescription).append('\n');
 
-        out.append("  previous best:\n");
+        out.append("  previous best (at the last milestone, or the baseline):\n");
         if (previousBest == null) {
-            out.append("    (none — this is the first candidate the gate accepted)\n");
+            out.append("    (none — the baseline did not pass the gate, and this is the first answer that did)\n");
         } else {
             out.append(indent(previousBest.breakdown()));
         }
@@ -197,6 +185,17 @@ public final class Milestone {
             out.append("    ").append(line).append('\n');
         }
         return out.toString();
+    }
+
+    /**
+     * The milestone in one line, for the trail in the stop report:
+     * {@code "#2 [IMPROVED_BY_AT_LEAST_THE_THRESHOLD] +2.5 -> -9.44: cut the idle step before the tip"}.
+     *
+     * @return one line, without a trailing newline
+     */
+    public String summaryLine() {
+        return "#" + number + " " + reasons + " +" + improvement() + " -> " + newBest.total() + ": "
+                + candidateDescription;
     }
 
     @Override

@@ -2,8 +2,8 @@ package org.horizon36596.simloop.config;
 
 /**
  * Season-glue interface: the two numbers that describe a degree of freedom which <b>never runs out of
- * travel</b> — a continuous-rotation ejector servo, an intake roller, a flywheel (architecture §3, domain
- * R6/R7).
+ * travel</b> — a continuous-rotation ejector servo, an intake roller, a flywheel. Implemented by the
+ * season layer.
  *
  * <p>It is a {@link MechanismSimConfig} with the three values that only make sense for a bounded, gravity
  * loaded mechanism already filled in, so the season layer types a time constant and a top speed and
@@ -30,7 +30,7 @@ package org.horizon36596.simloop.config;
  * because a real shaft's travel does not.
  *
  * <p><b>This is not a claim that the ejector is precise.</b> A continuous-rotation servo has no position
- * feedback at all ({@code docs/specs/deposit.md} §3), so nothing on the robot can read this number — an
+ * feedback at all, so nothing on the robot can read this number — an
  * eject is commanded as a <em>duration</em>. The travel modelled here exists so the sim can say how much
  * shaft went by in that duration, and so a drawing can turn.
  *
@@ -40,8 +40,8 @@ public interface ContinuousRotationSimConfig extends MechanismSimConfig {
 
     /**
      * First-order time constant (s, &gt; 0): how quickly the actuator's speed catches up with a commanded
-     * power step. For a small CR servo this is a small fraction of a second; it is the Phase-4 calibration
-     * surface along with {@link #maxSpeed()}.
+     * power step. For a small CR servo this is a small fraction of a second; it is what a sim-to-real
+     * calibration fits, along with {@link #maxSpeed()}.
      */
     @Override
     double timeConstant();

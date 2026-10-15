@@ -57,6 +57,31 @@ public class RunResultTest {
     }
 
     /**
+     * The closest-key suggestion in a missing-metric message does not depend on the machine's locale.
+     * Implementation tier — lower-casing with the default locale turns {@code I} into a dotless {@code ı}
+     * on a Turkish machine, so the key a student meant stopped being the one suggested first.
+     */
+    @Test
+    public void theClosestKeySuggestionDoesNotDependOnTheDefaultLocale() throws IOException {
+        Path rlog = LoopTestRlogs.write("loop-runresult-locale", table -> {
+            table.put("RealOutputs/intake/speed", 1.0);
+            table.put("RealOutputs/iZ", 2.0);
+        });
+        RunResult run = RunResult.fromRlog("LocaleRun", rlog, 1);
+
+        java.util.Locale original = java.util.Locale.getDefault();
+        try {
+            java.util.Locale.setDefault(new java.util.Locale("tr", "TR"));
+            RunResult.MetricNotFoundException thrown = assertThrows(RunResult.MetricNotFoundException.class,
+                    () -> run.metric("RealOutputs/Intake/speedX"));
+            assertTrue(thrown.getMessage().contains("Closest keys logged: [RealOutputs/intake/speed,"),
+                    "the key that differs only by case must be suggested first: " + thrown.getMessage());
+        } finally {
+            java.util.Locale.setDefault(original);
+        }
+    }
+
+    /**
      * Contract: a failed parse is loud. A boolean or a state name silently parsed as 0.0 turns a broken
      * metric into a plausible score. Invariant tier.
      */

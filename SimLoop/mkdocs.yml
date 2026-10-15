@@ -36,7 +36,7 @@ site_dir: build/docs/site
 # This is a SECOND place the version is written; `SimLoop/build.gradle` is the authoritative one. They are
 # not linked yet, so PUBLISHING.md's release checklist lists this file as a place to bump. Wiring the two
 # together is a build change and belongs with the rest of the site build.
-copyright: "SimLoop 0.1.0-beta1 · Horizon (FTC 36596) · BSD-3-Clause"
+copyright: "SimLoop 0.2.0-alpha.1 · Horizon (FTC 36596) · BSD-3-Clause"
 
 theme:
   name: material
@@ -109,6 +109,10 @@ nav:
       - field: packages/field.md
       - loop: packages/loop.md
       - viz: packages/viz.md
+  - Guides:
+      - Making your timers sim-safe: sim-safe-timers.md
+      - Running your timer code unchanged: unchanged-team-code.md
+      - RUN_TO_POSITION in the sim: run-to-position.md
   - Working with AI agents:
       - Using SimLoop with an AI agent: agents.md
   - API reference:

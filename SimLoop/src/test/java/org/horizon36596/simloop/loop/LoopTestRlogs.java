@@ -16,10 +16,11 @@ import java.nio.file.Paths;
  * place and fails for a reason nobody recognises.
  *
  * <h2>Why {@code build/sim} and not a JUnit {@code @TempDir}</h2>
- * PsiKit's RLOG writer thread does not release its file handle the instant the writer is ended, and on
- * Windows a still-open handle makes {@code @TempDir}'s post-test cleanup fail with a
- * {@code FileSystemException} — observed directly, and recorded in {@code ScenarioRunnerTest}'s javadoc.
- * Every sim test in this repo writes to {@code build/sim} for that reason.
+ * On Windows a still-open file handle made {@code @TempDir}'s post-test cleanup fail with a
+ * {@code FileSystemException}, observed directly. It was blamed on PsiKit's writer, but this class ends its
+ * writer synchronously; the handle left open was {@code RlogDecodedCompare.decode}'s, which read the file
+ * back without closing it until 2026-09-26 (see {@code ScenarioRunnerTest}'s javadoc). Every sim test in
+ * this repo still writes to {@code build/sim}, where a human can open the files.
  *
  * <h2>Why every name gets a prefix</h2>
  * Two writers on one RLOG path is {@code docs/BACKLOG.md} B11, which fails as a determinism bug that is

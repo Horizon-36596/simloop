@@ -14,7 +14,7 @@ There are two ways in, and the first one is three steps.
 ## What you need first
 
 - **Java 17 or newer** to run Gradle. Android Studio ships one.
-- **An FTC SDK project**, any recent one. SimLoop compiles against SDK 11.2.1 and passes those types
+- **An FTC SDK project**, any recent one. SimLoop compiles against SDK 12.0.0 and passes those types
   through to you, so if your project pins a different version, yours wins.
 
 That is the whole list. You do **not** need to clone this repository, and you do not need SolversLib,
@@ -86,7 +86,7 @@ repositories {
 ```groovy
 // TeamCode/build.gradle
 dependencies {
-    testImplementation 'com.github.Horizon-36596:simloop:v0.1.0-beta1'
+    testImplementation 'com.github.Horizon-36596:simloop:v0.2.0-alpha.1'
 
     // JUnit 5, if you are not already on it.
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'
@@ -107,8 +107,8 @@ android {
 it belongs on the robot, and this scope is what keeps it out of the APK.
 
 !!! warning "The version string includes the `v`"
-    JitPack's version **is** the git tag, letter for letter. The tag is `v0.1.0-beta1`, so the version is
-    `v0.1.0-beta1`. Ask for `0.1.0-beta1` and resolution fails with `Could not find`, which reads like a
+    JitPack's version **is** the git tag, letter for letter. The tag is `v0.2.0-alpha.1`, so the version is
+    `v0.2.0-alpha.1`. Ask for `0.2.0-alpha.1` and resolution fails with `Could not find`, which reads like a
     missing library rather than a missing letter.
 
 !!! tip "That `junit-platform-launcher` line is not padding"
@@ -173,16 +173,16 @@ repositories {
 
 ```groovy
 dependencies {
-    testImplementation 'org.horizon36596:SimLoop:0.1.0-beta1'
+    testImplementation 'org.horizon36596:SimLoop:0.2.0-alpha.1'
 }
 ```
 
 !!! note "Two coordinates for one library, and both are correct"
-    `org.horizon36596:SimLoop:0.1.0-beta1` is what this project declares, and it is what
+    `org.horizon36596:SimLoop:0.2.0-alpha.1` is what this project declares, and it is what
     `publishToMavenLocal` writes and what a future Maven Central release would use. **JitPack ignores
     all three parts and derives its own** from the repository address: the group becomes
     `com.github.Horizon-36596`, the artifact becomes the repository name `simloop`, and the version is
-    the tag verbatim — so a JitPack dependency is spelled `com.github.Horizon-36596:simloop:v0.1.0-beta1`.
+    the tag verbatim — so a JitPack dependency is spelled `com.github.Horizon-36596:simloop:v0.2.0-alpha.1`.
 
     Use whichever matches the repository you are pulling from. Mixing them up fails with
     `Could not find`, which reads like a missing library rather than a wrong spelling.

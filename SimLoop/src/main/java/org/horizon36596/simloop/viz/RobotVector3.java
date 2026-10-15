@@ -1,9 +1,14 @@
 package org.horizon36596.simloop.viz;
 
 /**
- * An immutable 3-D vector in the <b>robot-local frame</b>: {@code +X} robot-right, {@code +Y} robot-forward,
- * {@code +Z} up, with the origin at the centre of the drivetrain footprint at floor level
- * ({@code docs/phase1/01-conventions.md} §7, extended to 3-D for CAD in B12).
+ * An immutable 3-D vector in the <b>robot frame</b>: {@code +X} robot-forward (out the nose), {@code +Y}
+ * robot-left, {@code +Z} up, with the origin at the centre of the drivetrain footprint at floor level.
+ *
+ * <p>That is the frame the rest of SimLoop already uses for the robot (the localizer frame of
+ * {@code MecanumDrivePlant} and {@code FieldFrameTransform}, heading 0), and it is also WPILib's and
+ * AdvantageScope's robot frame, so a mechanism needs no conversion anywhere between CAD and the 3D Field
+ * tab. Until 2026-09-25 this package used {@code +X} robot-right, {@code +Y} robot-forward instead;
+ * {@code docs/reference/mechanism-ir.md} ("Schema, version 4") says how an older file is read.
  *
  * <p>Lengths are <b>inches</b>. The same type is also used for unit direction vectors, which are unitless —
  * {@link #normalized()} is how you get one, and {@link #isUnitLength()} is how you check you were given one.
@@ -13,10 +18,10 @@ package org.horizon36596.simloop.viz;
  */
 public final class RobotVector3 {
 
-    /** Robot-right component. Inches for a position, unitless for a direction. */
+    /** Robot-forward component. Inches for a position, unitless for a direction. */
     public final double x;
 
-    /** Robot-forward component. Inches for a position, unitless for a direction. */
+    /** Robot-left component. Inches for a position, unitless for a direction. */
     public final double y;
 
     /** Up component. Inches for a position, unitless for a direction. */
@@ -25,8 +30,8 @@ public final class RobotVector3 {
     /**
      * Builds a vector in the robot frame from its three components.
      *
-     * @param x robot-right component; inches for a position, unitless for a direction
-     * @param y robot-forward component; inches for a position, unitless for a direction
+     * @param x robot-forward component; inches for a position, unitless for a direction
+     * @param y robot-left component; inches for a position, unitless for a direction
      * @param z up component; inches for a position, unitless for a direction
      * @throws IllegalArgumentException if any component is NaN or infinite — a non-finite component would
      *                                  survive every later comparison and silently poison a drawn pose.

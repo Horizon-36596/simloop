@@ -5,7 +5,7 @@ import org.horizon36596.simloop.fakehardware.FakeServo;
 
 /**
  * 1-DOF mechanism plant for a joint driven by a <b>positional servo</b> — the servo-side twin of
- * {@link Mechanism1DofPlant} (fakehardware-plant §4, domain R6). Where that plant is <b>power-driven</b>
+ * {@link Mechanism1DofPlant}. Where that plant is <b>power-driven</b>
  * ({@code setPower}, integrate a velocity), this one is <b>command-driven</b>: the servo is told a
  * position and the mechanism takes time to arrive.
  *
@@ -21,8 +21,8 @@ import org.horizon36596.simloop.fakehardware.FakeServo;
  * chassis that is accelerating and rotating is really being pushed by that chassis, and this plant will
  * not show it — what it does show is the servo's own lag, its slew ceiling and its deadband fighting a
  * target that keeps moving, which is a real and sufficient share of the problem. Anything that has to
- * claim a joint <i>held against a load</i> needs a plant that models the load; {@code docs/BACKLOG.md} B27
- * tracks the first piece of that (a gravity-loaded servo arm does not sag).
+ * claim a joint <i>held against a load</i> needs a plant that models the load — and in particular a
+ * gravity-loaded servo arm modelled by this class does not sag.
  *
  * <p><b>There is no feedback here, and that is the point.</b> A bare servo has no encoder, so nothing on
  * the robot can read this position — it exists only in sim, for drawing and for telemetry a human looks
@@ -49,10 +49,14 @@ import org.horizon36596.simloop.fakehardware.FakeServo;
  * are evaluated once per tick, so a coarse tick can step across the edge of the deadband where a fine one
  * would have stopped at it, and the joint comes to rest in a slightly different place. Replay of a
  * recorded run is unaffected, because a replay uses the same ticks; re-running the same scenario at a
- * different tick rate and expecting the same resting position is what does not hold. No velocity state is carried, because a positional servo has no
- * momentum worth modelling: cut the command mid-travel and it stops, it does not coast. This is
- * parameterized first-order dynamics, not rigid-body/contact physics (domain R6); {@code timeConstant},
- * {@code maxSpeed}, {@code commandDeadband} and {@code commandQuantum} are the Phase-4 calibration surface.
+ * different tick rate and expecting the same resting position is what does not hold.
+ *
+ * <p><b>Velocity is reported, never integrated.</b> {@link #getVelocity()} is worked out afterwards from
+ * how far the joint actually moved in the last tick, and nothing feeds it back into the next one: each
+ * tick starts from the position alone. A positional servo has no momentum worth modelling — cut the
+ * command mid-travel and it stops, it does not coast. This is parameterized first-order dynamics, not
+ * rigid-body/contact physics; {@code timeConstant}, {@code maxSpeed}, {@code commandDeadband} and
+ * {@code commandQuantum} are the numbers a sim-to-real calibration fits.
  *
  * <p><b>Why the deadband and the quantum are in the model and not left out as detail.</b> Both default to
  * zero, and a joint that only has to get roughly somewhere can leave them there. Anything that has to
@@ -63,14 +67,14 @@ import org.horizon36596.simloop.fakehardware.FakeServo;
  * positions are a grid, so even a perfect servo cannot be asked for a point between two of them. Leaving
  * either out does not make the sim slightly optimistic, it deletes the problem being studied.
  *
- * <p>Season-agnostic core: depends only on {@link FakeServo} + {@link PositionalServoSimConfig} (domain
- * R7, SimLoop rule 2). Deterministic: state changes only in {@link #update(double)} off the injected tick
- * {@code deltaTime}, never a wall-clock, and through {@link StrictMath#exp} so replay is bit-stable across
- * JVMs (domain R5); getters are pure reads (conventions §4).
+ * <p>Season-agnostic core: depends only on {@link FakeServo} + {@link PositionalServoSimConfig}.
+ * Deterministic: state changes only in {@link #update(double)} off the injected tick {@code deltaTime},
+ * never a wall-clock, and through {@link StrictMath#exp} so replay is bit-stable across JVMs; getters are
+ * pure reads.
  *
  * <p>It is one of the {@link OneDofPlant} implementations, so a subsystem with several degrees of freedom
  * can hold one of these beside a {@link Mechanism1DofPlant} inside a {@link MultiDofMechanismPlant} and
- * tick both from one call (BACKLOG B13).
+ * tick both from one call.
  */
 public final class PositionalServoPlant implements OneDofPlant {
 
@@ -92,9 +96,9 @@ public final class PositionalServoPlant implements OneDofPlant {
      *
      * @param servo  the servo the mechanism's subsystem drives via {@code setPosition} — the SAME
      *               {@link FakeServo} instance registered in the {@code FakeHardwareMap} the robot code
-     *               resolves (domain R1), so unchanged code commands it in sim.
-     * @param config the joint's first-order params, end stops and command→position map (glue-injected,
-     *               domain R7). The plant starts <b>already at</b> the servo's current command, clamped —
+     *               resolves, so unchanged code commands it in sim.
+     * @param config the joint's first-order params, end stops and command→position map, supplied by the
+     *               season glue. The plant starts <b>already at</b> the servo's current command, clamped —
      *               a servo powers up holding whatever it was last told, and starting anywhere else would
      *               fabricate a sweep at t=0 that the real joint never performs.
      * @throws IllegalArgumentException if {@code servo} is null, any config value is non-finite,
@@ -160,7 +164,7 @@ public final class PositionalServoPlant implements OneDofPlant {
     /** Advance the joint one tick toward the servo's current commanded position. */
     public void update(double deltaTime) {
         // A tick advances the clock forward by a finite amount; anything else is not a real sim tick
-        // (FakeTimer is monotonic, domain R5), so treat it as no time passing rather than letting a NaN or
+        // (FakeTimer only moves forward), so treat it as no time passing rather than letting a NaN or
         // a backward step through the end-stop invariant.
         if (!Double.isFinite(deltaTime) || deltaTime <= 0.0) {
             return;
@@ -250,7 +254,8 @@ public final class PositionalServoPlant implements OneDofPlant {
      * constrained to that interval), but they mean different things: {@code getScaledPosition()} is where
      * the horn physically sits, while {@code getPosition()} undoes the scaling to hand the caller its own
      * request back. Read the second one and a servo narrowed to {@code scaleRange(0.2, 0.6)} would drive
-     * the mechanism across its whole sweep instead of the 60% it can actually reach. Pinned by
+     * the mechanism across its whole sweep instead of only the band from 20% to 60% of it (a 40% span)
+     * that the horn can actually reach. Pinned by
      * {@code PositionalServoPlantTest.scaleRangeNarrowsThePhysicalSweep}.
      */
     private double commandedPosition() {
@@ -299,7 +304,7 @@ public final class PositionalServoPlant implements OneDofPlant {
         return Math.max(minPosition, Math.min(maxPosition, value));
     }
 
-    // Fail loud on a non-finite value (fakehardware-plant §0): a NaN/Infinity would slip through the
+    // Fail loud on a non-finite value: a NaN/Infinity would slip through the
     // Math.min/max clamp (IEEE propagates NaN) and poison state permanently — a caller bug, not a value to
     // fake-correct.
     private static double requireFinite(double value, String name) {

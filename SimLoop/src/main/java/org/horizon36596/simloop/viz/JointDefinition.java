@@ -29,8 +29,8 @@ package org.horizon36596.simloop.viz;
  * {@code Mechanism2d} angles are relative. Nothing in this package applies an offset of its own: if a plant
  * reads zero, the drawing shows the CAD pose (B13v Contract clause 3).
  *
- * <p><b>Frame and units.</b> Directions are unit vectors in the robot-local frame ({@code +X} robot-right,
- * {@code +Y} robot-forward, {@code +Z} up). Lengths are <b>inches</b>; angles are <b>radians</b>. Degrees
+ * <p><b>Frame and units.</b> Directions are unit vectors in the robot frame ({@code +X} robot-forward,
+ * {@code +Y} robot-left, {@code +Z} up). Lengths are <b>inches</b>; angles are <b>radians</b>. Degrees
  * appear only inside {@link MechanismSketch}, at the AdvantageScope boundary (Contract clause 6).
  *
  * <p><b>Why limits live on the joint.</b> AdvantageScope's {@code Mechanism2d} has no notion of a limit —

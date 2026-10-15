@@ -57,7 +57,7 @@ whole is what makes upgrading SimLoop a matter of replacing this folder.
 The one thing you will edit is the first setting in it:
 
 ```groovy
-ext.simloopVersion = 'v0.1.0-beta1'
+ext.simloopVersion = 'v0.2.0-alpha.1'
 ```
 
 ## What is in here

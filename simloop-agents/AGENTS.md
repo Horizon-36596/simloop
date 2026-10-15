@@ -22,7 +22,7 @@ It is a **`testImplementation` dependency**. Nothing in it runs on a robot, and 
 ever import it.
 
 - Package root: `org.horizon36596.simloop`
-- Coordinate: `com.github.Horizon-36596:simloop:v0.1.0-beta1` (JitPack; the version keeps its leading
+- Coordinate: `com.github.Horizon-36596:simloop:v0.2.0-alpha.1` (JitPack; the version keeps its leading
   `v` because a JitPack version *is* the git tag)
 - Documentation: <https://libraries.horizon36596.org/simloop/>
 - Licence: BSD-3-Clause
