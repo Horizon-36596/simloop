@@ -5,9 +5,9 @@ package org.horizon36596.simloop.field;
  * still replay identically in the sim: where the contents of a tipped goal land, for example.
  *
  * <p><b>Why not {@code java.util.Random}.</b> Two reasons, both about being able to check the sim against
- * something else. This is the <b>mulberry32</b> generator, bit for bit the one the DSim match simulator
- * uses ({@code src/math.ts}, {@code nextRandom}), so for the same seed and the same order of draws the two
- * sims draw the same numbers and a spill here can be compared against DSim's ball for ball. And its whole
+ * something else. This is the <b>mulberry32</b> generator, a public-domain algorithm, bit for bit the
+ * common JavaScript implementation, so a sim written in JavaScript that uses it draws the same numbers for
+ * the same seed and the same order of draws, and a spill can be compared ball for ball. And its whole
  * state is one {@code int} that a test can read ({@link #internalState()}), which
  * {@code java.util.Random} does not offer. There is no setter: to start from a known state, build a new
  * generator with that state as its seed.

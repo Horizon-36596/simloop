@@ -62,8 +62,16 @@ it does **not** do is on [What it does not do](limits.md).
 - `RunResult`: read a finished run back and query any logged value. [`loop`](packages/loop.md)
 - Objectives, guardrails and a scorer, with `UNKNOWN` kept apart from a pass. [`loop`](packages/loop.md)
 - A gate and a loop driver that keep the best candidate and refuse a score that does not reproduce. [`loop`](packages/loop.md)
-- A portable `AGENTS.md`, four skills and prompts for teams programming with an AI agent. [Using SimLoop with an AI agent](agents.md)
+- An agent task loop: an AI agent changes your code, runs the sim headlessly, reads the score from the log, and keeps the change only if it scores better and the score reproduces. [`loop`](packages/loop.md)
+
+## Programming with an AI agent
+
+- A portable `AGENTS.md` that teaches an agent the library, the complete public API and the rules it gets wrong. [Using SimLoop with an AI agent](agents.md)
+- Works with any coding agent: Cursor, Codex, Gemini CLI, Copilot's coding agent and others read `AGENTS.md` with no setup. Claude Code is the best-tested route. [Which tool](agents.md#which-tool)
+- Four skills: write a sim test, add a mechanism, debug a failing sim, review sim code. [What is in the folder](agents.md#what-is-in-the-folder)
+- Prompts to start from, including one for learning and one for auditing your tests before a competition. [What is in the folder](agents.md#what-is-in-the-folder)
 - A flat index of these pages for agents. [Index for AI agents](llms.md)
+- **Planned, not in this alpha:** give an agent your own robot's logs and it tunes the sim to match your robot.
 
 ## Fitting to real robots
 

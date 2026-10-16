@@ -9,8 +9,8 @@ import java.util.Map;
  * contact is, how quickly a rolling piece slows down, and how finely a sim tick is sub-stepped.
  *
  * <p><b>Every number is a physical parameter the season can calibrate</b>, in the spirit of domain R6's
- * "calibration-ready": the defaults below are plausible for a foam ball a few inches across (they are the
- * values dsim, a public FTC match simulator, uses) and are labelled with where they came from, but a
+ * "calibration-ready": the defaults below are plausible for a foam ball a few inches across, carried over
+ * rather than measured, and are labelled with where they came from, but a
  * season that measures its own balls bouncing off its own field wall replaces them through
  * {@link FieldWorld.Builder#physics}. A season that wants its provenance on record builds the config
  * explicitly with {@link #builder()} and comments each number there. Units are inches and seconds
@@ -412,7 +412,7 @@ public final class GamePiecePhysicsConfig {
         }
 
         /**
-         * Default 0.68: dsim {@code BALL_RESTITUTION}. CARRIED OVER, not measured on a real ball.
+         * Default 0.68. CARRIED OVER, not measured on a real ball.
          *
          * @param value coefficient of restitution, 0 to 1
          * @return this builder
@@ -423,7 +423,7 @@ public final class GamePiecePhysicsConfig {
         }
 
         /**
-         * Default 0.35: dsim ball-to-wall restitution. CARRIED OVER.
+         * Default 0.35. CARRIED OVER, not measured.
          *
          * @param value coefficient of restitution, 0 to 1
          * @return this builder
@@ -434,7 +434,7 @@ public final class GamePiecePhysicsConfig {
         }
 
         /**
-         * Default 0.30: dsim ball-to-field-structure restitution. CARRIED OVER.
+         * Default 0.30. CARRIED OVER, not measured.
          *
          * @param value coefficient of restitution, 0 to 1
          * @return this builder
@@ -445,7 +445,7 @@ public final class GamePiecePhysicsConfig {
         }
 
         /**
-         * Default 0.05: dsim {@code BALL_ROBOT_RESTITUTION} — a pushed ball barely rebounds. CARRIED OVER.
+         * Default 0.05: a pushed ball barely rebounds. CARRIED OVER, not measured.
          *
          * @param value coefficient of restitution, 0 to 1
          * @return this builder
@@ -456,7 +456,7 @@ public final class GamePiecePhysicsConfig {
         }
 
         /**
-         * Default 0.30: SET BY HAND. dsim lands a flight dead-stopped; a wiffle ball on foam tile does
+         * Default 0.30: SET BY HAND. A flight that lands dead-stopped looks wrong: a wiffle ball on foam tile does
          * bounce a little, and a small value lets the arc end in a visible skip rather than a freeze.
          *
          * @param value coefficient of restitution, 0 to 1
@@ -548,7 +548,7 @@ public final class GamePiecePhysicsConfig {
         }
 
         /**
-         * Default 28 in/s² (about 0.073 g): dsim {@code BALL_ROLL_FRICTION}. CARRIED OVER.
+         * Default 28 in/s² (about 0.073 g). CARRIED OVER, not measured.
          *
          * @param value rolling deceleration, inches per second squared, 0 or more
          * @return this builder
@@ -559,7 +559,7 @@ public final class GamePiecePhysicsConfig {
         }
 
         /**
-         * Default 2 in/s: dsim rest snap. CARRIED OVER.
+         * Default 2 in/s: below this a rolling piece snaps to rest. CARRIED OVER.
          *
          * @param value rest speed, inches per second, 0 or more
          * @return this builder
@@ -600,7 +600,7 @@ public final class GamePiecePhysicsConfig {
         }
 
         /**
-         * Default 0.6: dsim's element-to-element friction. CARRIED OVER, not measured on a real ball.
+         * Default 0.6. CARRIED OVER, not measured on a real ball.
          *
          * @param value Coulomb friction coefficient, 0 or more
          * @return this builder
@@ -627,7 +627,7 @@ public final class GamePiecePhysicsConfig {
         }
 
         /**
-         * Default 0.4 per second: dsim's angular damping on a ball. CARRIED OVER.
+         * Default 0.4 per second. CARRIED OVER, not measured.
          *
          * @param value spin damping, per second, 0 or more
          * @return this builder
