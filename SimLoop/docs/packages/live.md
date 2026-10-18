@@ -72,38 +72,29 @@ session, use `new RealTimePacer()` in place of the test's pacer, and a real keyb
 
 ## Using the keyboard window
 
-`KeyboardWindow` lives in its own plain-Java module, `SimLoop/desktop/`, because SimLoop and your
-`TeamCode` are Android modules and compile against `android.jar`, which has no AWT. **It is not
-published**: the JitPack coordinate carries the library only. To use it:
+`KeyboardWindow` comes with the starter folder: `simloop-starter/simloop.gradle` already has the line
+that adds it to your tests. It works on Windows, macOS and Linux. If you installed SimLoop by hand, add
+the same line yourself, in `TeamCode/build.gradle`:
 
-1. Copy the `SimLoop/desktop/` folder from this repository into your project, for example as
-   `simloop-desktop/`. It needs only the JDK.
-2. Include it in `settings.gradle`:
+```groovy
+dependencies {
+    testImplementation "com.github.Horizon-36596:simloop:v0.2.0-alpha.1:desktop"
+}
+```
 
-    ```groovy
-    include ':simloop-desktop'
-    project(':simloop-desktop').projectDir = file('simloop-desktop')
-    ```
+It is the same coordinate as the library with a `desktop` classifier: a second jar, kept apart because
+the window uses the desktop JDK's window toolkit (AWT), which Android code compiles without. Then hand it
+to `KeyboardGamepadSource`. Its public API is strings and booleans, so no AWT type reaches your Android
+test sources:
 
-3. Depend on it from your tests only, in `TeamCode/build.gradle`:
-
-    ```groovy
-    dependencies {
-        testImplementation project(':simloop-desktop')
-    }
-    ```
-
-4. Hand it to `KeyboardGamepadSource`. Its public API is strings and booleans, so no AWT type reaches
-   your Android test sources:
-
-    ```java
-    KeyboardWindow window = KeyboardWindow.open("SimLoop live drive", helpLines);
-    KeyboardGamepadSource.Keyboard keys = new KeyboardGamepadSource.Keyboard() {
-        @Override public Set<String> keysDown() { return window.keysDown(); }
-        @Override public boolean isOpen() { return window.isOpen(); }
-    };
-    GamepadInputSource source = new KeyboardGamepadSource(keys, 15_000);   // 5 min at 50 Hz, at most
-    ```
+```java
+KeyboardWindow window = KeyboardWindow.open("SimLoop live drive", helpLines);
+KeyboardGamepadSource.Keyboard keys = new KeyboardGamepadSource.Keyboard() {
+    @Override public Set<String> keysDown() { return window.keysDown(); }
+    @Override public boolean isOpen() { return window.isOpen(); }
+};
+GamepadInputSource source = new KeyboardGamepadSource(keys, 15_000);   // 5 min at 50 Hz, at most
+```
 
 Run the live session from a test on a machine with a display. `KeyboardWindow.open` throws
 `IllegalStateException` on a headless machine such as CI; replay a recorded track there instead.

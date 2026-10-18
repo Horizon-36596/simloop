@@ -101,8 +101,8 @@ Nothing here is meant to run on a Control Hub. It is a `testImplementation` depe
 
 ## Live driving is keyboard only
 
-No real game controller. The keyboard window is a separate module that is not published; see
-[`sim.live`](packages/live.md).
+No real game controller: a controller needs a native input library. The keyboard window ships with the
+starter; see [`sim.live`](packages/live.md).
 
 ## Known rough edges
 

@@ -12,6 +12,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
@@ -101,9 +102,22 @@ public final class KeyboardWindow {
      * @param title     the window title
      * @param helpLines shown in the window, one per line: the keymap, typically
      * @return the open window
+     * <p>Works from a team's Android unit tests on Windows, macOS and Linux. Android's unit-test task
+     * starts the test JVM with {@code java.awt.headless=true}, which would refuse every window, so when this
+     * machine has a display and no AWT class has decided otherwise yet, this lifts that flag first (see
+     * {@link #looksLikeADesktop}). It cannot lift it once something earlier in the same test JVM has
+     * already asked AWT whether it is headless; run the live session in a test of its own.
+     *
+     * @param title     the window title
+     * @param helpLines shown in the window, one per line: the keymap, typically
+     * @return the open window
      * @throws IllegalStateException if this JVM has no display (a headless CI machine, or a remote shell)
      */
     public static KeyboardWindow open(final String title, final List<String> helpLines) {
+        if ("true".equalsIgnoreCase(System.getProperty("java.awt.headless"))
+                && looksLikeADesktop(System.getProperty("os.name"), System.getenv())) {
+            System.setProperty("java.awt.headless", "false");
+        }
         if (GraphicsEnvironment.isHeadless()) {
             throw new IllegalStateException("there is no display, so there is no keyboard window to drive from."
                     + " Run the live session on a desktop, or replay a recorded track headless instead.");
@@ -123,6 +137,30 @@ public final class KeyboardWindow {
             throw new IllegalStateException("could not open the keyboard window", failed.getCause());
         }
         return window;
+    }
+
+    /**
+     * Whether this machine has a screen a window can open on, judged without touching AWT (asking AWT
+     * would fix the headless decision for the rest of the JVM). A CI machine never does. Windows and macOS
+     * do. Linux and the other Unixes do when an X11 or Wayland display is named in the environment.
+     *
+     * @param osName      the {@code os.name} system property
+     * @param environment the process environment, {@code System.getenv()}
+     * @return true if a window can be expected to open
+     */
+    static boolean looksLikeADesktop(String osName, Map<String, String> environment) {
+        if (isSet(environment.get("CI"))) {
+            return false;
+        }
+        String os = osName == null ? "" : osName.toLowerCase(Locale.ROOT);
+        if (os.startsWith("windows") || os.startsWith("mac")) {
+            return true;
+        }
+        return isSet(environment.get("DISPLAY")) || isSet(environment.get("WAYLAND_DISPLAY"));
+    }
+
+    private static boolean isSet(String value) {
+        return value != null && !value.trim().isEmpty();
     }
 
     /** {@return a copy of the keys held down right now, by name} */

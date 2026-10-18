@@ -53,6 +53,11 @@ dependencies {
     // none of it belongs in the APK that goes to the Control Hub, and this scope is what keeps it out.
     testImplementation "com.github.Horizon-36596:simloop:${simloopVersion}"
 
+    // The keyboard window, for driving the sim live from your laptop's keyboard. Same coordinate, with the
+    // `desktop` classifier: a separate jar because it uses the desktop JDK's window toolkit, which Android
+    // code cannot see. Nothing opens a window unless a test you write asks for one, so CI is unaffected.
+    testImplementation "com.github.Horizon-36596:simloop:${simloopVersion}:desktop"
+
     // JUnit 5. SimLoop's assertions and the example are written in it.
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.3'

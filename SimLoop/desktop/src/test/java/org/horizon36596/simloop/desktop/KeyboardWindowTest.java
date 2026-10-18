@@ -1,6 +1,7 @@
 package org.horizon36596.simloop.desktop;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -10,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import java.awt.GraphicsEnvironment;
 import java.awt.event.KeyEvent;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Pins the key names the window reports, which the keymap in SimLoop's {@code KeyboardGamepadSource}
@@ -50,5 +53,29 @@ class KeyboardWindowTest {
         IllegalStateException refused = assertThrows(IllegalStateException.class,
                 () -> KeyboardWindow.open("test", Collections.<String>emptyList()));
         assertTrue(refused.getMessage().contains("no display"), refused.getMessage());
+    }
+
+    @Test
+    void windowsAndMacOsAreDesktopsUnlessTheyAreCi() {
+        Map<String, String> none = Collections.emptyMap();
+        assertTrue(KeyboardWindow.looksLikeADesktop("Windows 11", none));
+        assertTrue(KeyboardWindow.looksLikeADesktop("Mac OS X", none));
+        assertFalse(KeyboardWindow.looksLikeADesktop("Windows 11", env("CI", "true")));
+        assertFalse(KeyboardWindow.looksLikeADesktop("Mac OS X", env("CI", "1")));
+    }
+
+    @Test
+    void linuxIsADesktopOnlyWithANamedDisplay() {
+        assertFalse(KeyboardWindow.looksLikeADesktop("Linux", Collections.<String, String>emptyMap()));
+        assertFalse(KeyboardWindow.looksLikeADesktop("Linux", env("DISPLAY", " ")));
+        assertTrue(KeyboardWindow.looksLikeADesktop("Linux", env("DISPLAY", ":0")));
+        assertTrue(KeyboardWindow.looksLikeADesktop("Linux", env("WAYLAND_DISPLAY", "wayland-0")));
+        assertFalse(KeyboardWindow.looksLikeADesktop(null, Collections.<String, String>emptyMap()));
+    }
+
+    private static Map<String, String> env(String name, String value) {
+        Map<String, String> environment = new HashMap<>();
+        environment.put(name, value);
+        return environment;
     }
 }

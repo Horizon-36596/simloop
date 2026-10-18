@@ -12,7 +12,7 @@ it does **not** do is on [What it does not do](limits.md).
 - Telemetry recorded per transmission, including telemetry copied into fields before INIT. [`opmode`](packages/opmode.md)
 - Your unchanged `ElapsedTime`, `sleep`, `Thread.sleep` and `System.nanoTime()` moved onto sim time. [`simclock`](packages/simclock.md)
 - `SimElapsedTime`: an SDK `ElapsedTime` that reads the sim clock, for code that takes a timer. [Making your timers sim-safe](sim-safe-timers.md)
-- Drive the sim live from the keyboard, paced to real time. [`sim.live`](packages/live.md)
+- Drive the sim live from the keyboard, paced to real time, on Windows, macOS or Linux. The starter includes the keyboard window. [`sim.live`](packages/live.md)
 - Stuck or crashing OpModes fail the test with phase, tick and stack, instead of hanging it. [`opmode`](packages/opmode.md)
 
 ## Fake hardware

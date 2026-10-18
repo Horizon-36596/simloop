@@ -93,6 +93,9 @@ repositories {
 dependencies {
     testImplementation 'com.github.Horizon-36596:simloop:v0.2.0-alpha.1'
 
+    // The keyboard window for driving the sim live. Optional; same coordinate, `desktop` classifier.
+    testImplementation 'com.github.Horizon-36596:simloop:v0.2.0-alpha.1:desktop'
+
     // JUnit 5, if you are not already on it.
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.3'

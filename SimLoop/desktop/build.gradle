@@ -11,9 +11,10 @@
 // booleans only. A team's unit tests depend on it (testImplementation) and use it only when a person runs a
 // live session; no test opens a window.
 //
-// NOT PUBLISHED. This repository publishes exactly one module, :SimLoop, so the JitPack coordinate stays
-// `com.github.Horizon-36596:simloop` (see the note at the top of settings.gradle). This module applies no
-// publishing plugin, and jitpack.yml installs :SimLoop alone.
+// PUBLISHED AS A CLASSIFIER, NOT A MODULE. This repository publishes exactly one module, :SimLoop, so the
+// JitPack coordinate stays `com.github.Horizon-36596:simloop` (see the note at the top of settings.gradle).
+// This module applies no publishing plugin; :SimLoop's publication attaches this module's jar with the
+// classifier `desktop`, so teams write `com.github.Horizon-36596:simloop:<tag>:desktop`.
 //
 // No new dependency: the JDK and JUnit 5, at the versions the rest of the repo already pins.
 //
