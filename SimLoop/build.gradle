@@ -10,6 +10,11 @@
 apply plugin: 'com.android.library'
 apply plugin: 'maven-publish'
 
+// The keyboard window's jar rides in this module's publication (see `artifact` with the `desktop`
+// classifier below), so its project has to be configured before this one's publication asks for its
+// `jar` task. Children are otherwise configured after their parent.
+evaluationDependsOn(':SimLoop:desktop')
+
 // Published coordinates. The release procedure and what each part is for: SimLoop/PUBLISHING.md.
 //
 // The group is the team's rather than FIRST's, because this module is our own code and not a fork of the
@@ -201,6 +206,18 @@ afterEvaluate {
                 // instead (see the publishing block at the top of this file). Maven Central requires a
                 // javadoc jar; this is that jar, and it is the same HTML the documentation site serves.
                 artifact tasks.named('apiDocsJar')
+
+                // The keyboard window for live driving (`:SimLoop:desktop`), as a second jar of THIS
+                // publication with the classifier `desktop`, so a team gets it from the same coordinate:
+                //     testImplementation "com.github.Horizon-36596:simloop:<tag>:desktop"
+                // A classifier, not a second published module, because a second module would make JitPack
+                // rename this one (see the note at the top of settings.gradle). It is plain Java built
+                // against the full JDK, separate because this module compiles against android.jar, which
+                // has no AWT; a team's unit tests run on a desktop JDK, where it works on Windows, macOS
+                // and Linux.
+                artifact(project(':SimLoop:desktop').tasks.named('jar')) {
+                    classifier = 'desktop'
+                }
 
                 groupId = project.group
 

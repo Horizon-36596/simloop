@@ -171,8 +171,10 @@ A recorded, replayable gamepad input track (`GamepadInputTrack`, plain text, one
 keyboard-to-gamepad keymap (`KeyboardGamepadSource`), and `RealTimePacer`, which slows a run to real time from
 the outside and is the one class here allowed to read a wall clock. `ScenarioRunner.runUntil` runs a scenario
 until its input runs out. The keyboard window itself is the plain Java module `desktop/` (`:SimLoop:desktop`,
-JDK AWT/Swing only), because this Android module compiles against `android.jar`, which has no AWT. A team
-wires them to its own OpMode in its own test sources; the keyboard module is a `testImplementation`
+JDK AWT/Swing only), because this Android module compiles against `android.jar`, which has no AWT. It is
+published as a second jar of this module's publication, classifier `desktop`
+(`com.github.Horizon-36596:simloop:<tag>:desktop`), and the starter folder already depends on it. A team
+wires them to its own OpMode in its own test sources; the keyboard jar is a `testImplementation`
 dependency there, never something the robot build sees.
 
 ## Fitting the sim to a real log (`fit/`)

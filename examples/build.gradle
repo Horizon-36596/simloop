@@ -67,6 +67,8 @@ dependencies {
     // the project here means a change to the library is checked against the example in the same build
     // rather than after a release.
     testImplementation project(':SimLoop')
+    // Stands in for the starter's `:desktop` classifier line, the keyboard window's jar.
+    testImplementation project(':SimLoop:desktop')
 
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.11.3'

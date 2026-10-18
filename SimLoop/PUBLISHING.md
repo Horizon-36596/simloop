@@ -11,7 +11,7 @@ Central. The build wiring this describes lives at the bottom of `SimLoop/build.g
 | Artifact (in the POM) | `SimLoop` |
 | Version (in the POM) | `0.2.0-alpha.1` |
 | **What a consumer actually writes** | **`com.github.Horizon-36596:simloop:v0.2.0-alpha.1`** |
-| Packaging | `aar`, plus sources and javadoc jars |
+| Packaging | `aar`, plus sources and javadoc jars, plus the keyboard window jar (classifier `desktop`) |
 
 **JitPack ignores every one of those first three values and derives its own.** The group becomes
 `com.github.<owner>`, the artifact becomes the **repository** name, and the version is the git tag
@@ -26,7 +26,8 @@ It was wrong, and it stayed wrong right up until a real build could be read: on 
 JitPack build of `v0.1.0-beta1` served
 `com/github/Horizon-36596/simloop/v0.1.0-beta1/simloop-v0.1.0-beta1.aar`, and the two-dot spelling
 404s. **Do not publish a second module** without changing every coordinate in this repository at the
-same time.
+same time. That is why the keyboard window (`:SimLoop:desktop`) ships as a classifier jar of this one
+publication, `com.github.Horizon-36596:simloop:<tag>:desktop`, and not as a module of its own.
 
 ## Version scheme
 
