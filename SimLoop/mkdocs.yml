@@ -101,6 +101,7 @@ nav:
       - Installing it: getting-started.md
       - Your first simulated test: first-test.md
       - What it does not do: limits.md
+      - What has been tested: tested.md
   - Packages:
       - Overview: packages/index.md
       - fakehardware: packages/fakehardware.md

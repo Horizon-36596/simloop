@@ -44,7 +44,7 @@ class ExampleAutoSimTest {
      * cannot quietly stop being true.
      * The slack is there because a scenario that runs out of ticks fails with "the routine never
      * finished", which says nothing about what was actually slow. If a change to a gain or a plant makes
-     * the routine genuinely slower, the honest fix is to find out why, not to raise this number.
+     * the routine genuinely slower, the right fix is to find out why, not to raise this number.
      */
     private static final int TICKS = 250;
 

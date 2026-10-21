@@ -15,6 +15,10 @@ Package root: `org.horizon36596.simloop`. Licence: BSD 3-Clause.
 > Support is best effort: a small FTC team maintains it in its own time. `v0.1.0-beta1`, the earlier
 > build on JitPack, is superseded and will not get fixes.
 >
+> **It has been used by one team, on one robot's code, and its physics has not yet been compared with a
+> real robot.** Expect gaps, and tell us what you find: you are testing it.
+> [What has been tested](SimLoop/docs/tested.md) lists what has been checked and what has not.
+>
 > Questions go to [Discussions](https://github.com/Horizon-36596/simloop/discussions). Bugs go to
 > [Issues](https://github.com/Horizon-36596/simloop/issues). Pull requests are welcome; see
 > [`CONTRIBUTING.md`](CONTRIBUTING.md).

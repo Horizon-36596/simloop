@@ -15,7 +15,7 @@ import com.qualcomm.robotcore.hardware.Servo;
  * is deliberately no {@code isSettled()} reading it back, because such a method would return true on the
  * tick the command was issued and would be a lie on hardware as well as in simulation.
  *
- * <p>What a routine does instead is wait {@link #TRAVEL_TIME_SECONDS} after commanding, and the honest
+ * <p>What a routine does instead is wait {@link #TRAVEL_TIME_SECONDS} after commanding, and the right
  * question is whether that number is big enough. That is exactly the question simulation can answer:
  * SimLoop models the travel in a {@code PositionalServoPlant}, so the example's test drives this
  * subsystem, waits the constant below, and then asserts against the modelled jaws. Shorten the constant

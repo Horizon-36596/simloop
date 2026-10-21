@@ -16,6 +16,10 @@ No robot, no Driver Station, no emulator. A test run is a few seconds.
     [Issues](https://github.com/Horizon-36596/simloop/issues). `v0.1.0-beta1` is superseded and gets no
     fixes.
 
+    **It has been used by one team, on one robot's code, and its physics has not yet been compared with
+    a real robot.** You are testing it. [What has been tested](tested.md) says what has been checked and
+    what has not.
+
 [Every feature](features.md) lists what it does, one line each.
 
 ## The fastest way in
