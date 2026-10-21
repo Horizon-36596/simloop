@@ -22,6 +22,7 @@ the right page instead of crawling navigation.
 | [Every feature](features.md) | Every feature, one line each, grouped, each linked to its page. | Checking whether a feature exists. |
 | [Installing it](getting-started.md) | The complete Gradle change: both repository lines, the dependency, and the JUnit 5 switch — or the one-folder starter that carries all of it. | Writing or fixing a build file. |
 | [Your first simulated test](first-test.md) | A complete runnable test — fake motor, plant, controller, scenario, scored result. The same file runs in CI. | Writing a first test, or a template for any test. |
+| [What has been tested](tested.md) | What has been checked so far and what has not; one team, one robot, no comparison with a real robot yet. | Before trusting a sim number as a robot number. |
 | [What it does not do](limits.md) | Every deliberate boundary, with the reason, plus known rough edges. | Before planning anything; before claiming a feature exists. |
 | [Packages overview](packages/index.md) | Which package does what and how they connect. | Choosing where a thing lives. |
 | [`fakehardware`](packages/fakehardware.md) | Fake SDK 12.0 devices and `FakeHardwareMap`: motors with the hub's closed loops, servos, IMU, Pinpoint, OTOS, Limelight 3A, touch, distance and colour sensors. Ticks, volts, `[-1, 1]` power; millimetres and radians on the odometry seam. | Wiring hardware into a test. |
