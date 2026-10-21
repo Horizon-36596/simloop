@@ -311,7 +311,7 @@ public final class FirstOrderFit {
         public final double rSquared;
         /**
          * RMS of {@code measured - simulated} velocity when the fitted model is run open-loop from the log's
-         * power, in velocity units: the honest "does this model reproduce the log" number.
+         * power, in velocity units: the real "does this model reproduce the log" number.
          */
         public final double outputErrorRms;
         private final double[] windowResiduals;
@@ -459,7 +459,7 @@ public final class FirstOrderFit {
         // end frame only when they are exactly WINDOW_FRAMES apart - so the rows are close to independent.
         // Checked against the actual spread of 40 re-noised synthetic logs (FirstOrderFitTest's drivetrain
         // and both flywheels): these errors match the drivetrain's spread and are 1.5 to 6 times the
-        // flywheels', so they are honest-to-cautious. They say nothing about closed-loop bias.
+        // flywheels', so they are fair to cautious. They say nothing about closed-loop bias.
         double[][] cov = solution.covariance;
         double varGain = cov[0][0];
         double varDecay = cov[1][1];

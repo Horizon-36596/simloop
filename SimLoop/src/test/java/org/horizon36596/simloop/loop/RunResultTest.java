@@ -190,7 +190,7 @@ public class RunResultTest {
 
     /**
      * A string field that merely contains the letters "NaN" is not a number that went bad. Implementation
-     * tier — it pins the token boundaries the array scan needs to stay honest in the other direction, so
+     * tier — it pins the token boundaries the array scan needs to stay correct in the other direction, so
      * the envelope does not start rejecting good runs over a state name.
      */
     @Test

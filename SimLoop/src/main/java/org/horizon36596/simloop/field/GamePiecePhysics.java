@@ -1011,7 +1011,7 @@ final class GamePiecePhysics {
      * <p><b>Why displacement and not velocity.</b> In a pile resolved one contact at a time, a few passes do not
      * cancel gravity exactly: a resting piece is left with a small downward velocity that the next sub-step's
      * push-out undoes, so its velocity never reads zero although it does not move. Where it is, over a whole
-     * sub-step, is the honest measure of still.
+     * sub-step, is the true measure of still.
      */
     private void updateSleep(GamePiece piece, boolean touchedSomething, double startX, double startY,
             double startZ, double dt) {

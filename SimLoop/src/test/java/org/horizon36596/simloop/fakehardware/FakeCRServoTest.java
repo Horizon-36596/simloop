@@ -21,7 +21,7 @@ import org.junit.jupiter.api.Test;
  * clock) is pinned by {@code ContinuousRotationPlantTest}.
  *
  * <p><b>Why this test instantiates the real {@link CRServoImpl}.</b> "Matches the SDK exactly" is a claim
- * about another program's behaviour, so the honest way to check it is to run that program. {@code
+ * about another program's behaviour, so the reliable way to check it is to run that program. {@code
  * CRServoImpl}'s power path touches nothing but its {@link ServoController}, so a small recording
  * controller is enough to stand it up on a desktop JVM — and then every power/direction case can be
  * asserted against what the real class actually did rather than against what this test's author believed

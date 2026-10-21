@@ -32,7 +32,7 @@ import org.junit.jupiter.api.Test;
  * (0.04 to 0.06 in these logs): tight enough that a fit that ignored friction's direction, or got its size
  * badly wrong, fails. None of these was tightened to what this implementation happens to achieve.
  *
- * <p><b>One honest caveat.</b> {@link FirstOrderFit#WINDOW_FRAMES} was chosen by a sweep over logs like
+ * <p><b>One caveat.</b> {@link FirstOrderFit#WINDOW_FRAMES} was chosen by a sweep over logs like
  * these, so they check that choice rather than validate it independently; a real robot log's open-loop
  * error is the independent check.
  */
@@ -79,7 +79,7 @@ class FirstOrderFitTest {
     @Test
     void invariant_aNoisyDrivetrainLogIsRecoveredWithinStatedTolerances() {
         // Noise: +-1 in/s uniform on the measured velocity (sd 0.58 in/s, about 1% of full speed) - worse
-        // than an odometry pod, so the tolerance is honest for a real log.
+        // than an odometry pod, so the tolerance is realistic for a real log.
         FirstOrderFit.Samples log = synthesize(DRIVE_AXIS, 12.0, 12.0, 1.0, 3000, 5);
 
         FirstOrderFit.Result fit = FirstOrderFit.fit(log, Double.NEGATIVE_INFINITY, Double.POSITIVE_INFINITY, true);

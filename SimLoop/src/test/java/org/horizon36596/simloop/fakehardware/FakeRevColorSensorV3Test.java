@@ -29,7 +29,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * which must be looked at before it lands.
  *
  * <p>Tiers (domain R9): the SDK-arithmetic and determinism tests are INVARIANT tier - they are what makes the
- * fake honest. The source and metadata tests are implementation tier.
+ * fake trustworthy. The source and metadata tests are implementation tier.
  */
 class FakeRevColorSensorV3Test {
 

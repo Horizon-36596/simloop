@@ -190,7 +190,7 @@ public class LoopDriverTest {
      * A candidate can no longer bring its own score, so it can no longer drop a term by declaring fewer;
      * the one way left for the envelope to change shape between two scores is a guardrail whose name is not
      * stable, and that is refused before the gate is consulted. What the loop depends on is the same as
-     * before: last-best still points at the honest answer afterwards.
+     * before: last-best still points at the valid answer afterwards.
      */
     @Test
     public void aGuardrailWhoseNameChangesBetweenRunsIsRefused() throws IOException {
@@ -212,13 +212,13 @@ public class LoopDriverTest {
         LoopDriver driver = new LoopDriver(scorer, new Gate(), 0.0, "baseline",
                 run("unstable-baseline", 40.0, 0.0), Gate.SuppliedFacts.bothConfirmed());
 
-        LoopDriver.Candidate honest = driver.lastBest();
+        LoopDriver.Candidate valid = driver.lastBest();
 
         IllegalStateException thrown = assertThrows(IllegalStateException.class,
                 () -> driver.offer("anything", run("unstable-candidate", 30.0, 0.0),
                         Gate.SuppliedFacts.bothConfirmed()));
         assertTrue(thrown.getMessage().contains("stable"), thrown.getMessage());
-        assertSame(honest, driver.lastBest(), "the envelope changed shape, so the honest answer must stand");
+        assertSame(valid, driver.lastBest(), "the envelope changed shape, so the valid answer must stand");
         assertEquals(0, driver.acceptedCount());
         assertTrue(driver.milestones().isEmpty());
     }
