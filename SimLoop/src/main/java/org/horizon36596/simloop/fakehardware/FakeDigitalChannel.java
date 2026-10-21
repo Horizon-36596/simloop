@@ -27,7 +27,7 @@ import com.qualcomm.robotcore.hardware.DigitalChannelController;
  *       mode</td><td>robot code reading the sensor</td></tr>
  * </table>
  *
- * <p><b>This is what makes the sensor honest.</b> A subsystem under test is
+ * <p><b>This is what makes the sensor trustworthy.</b> A subsystem under test is
  * wired to read a beam break, which is an {@code INPUT} channel, so no amount of {@code setState} from
  * inside that subsystem can change what it reads back. Only the sim, which owns the physical world, can
  * say that a ball is sitting in the beam. A test that could set its own sensor reading through the robot

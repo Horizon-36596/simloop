@@ -47,7 +47,7 @@ public class EnvelopeGuardrailsTest {
         Guardrail.Verdict logged = slideBound.evaluate(runWithSlide);
 
         assertEquals(Guardrail.Status.UNKNOWN, unlogged.status(),
-                "an unlogged actuator is not a safe one; UNKNOWN is the only honest answer");
+                "an unlogged actuator is not a safe one; UNKNOWN is the only correct answer");
         assertEquals(0.0, unlogged.penalty(), 0.0, "UNKNOWN never invents a penalty either");
         assertTrue(unlogged.reason().contains(SLIDE_OUTPUT),
                 "the reason must name the key nobody logged, or a human cannot close the gap: "
@@ -167,11 +167,11 @@ public class EnvelopeGuardrailsTest {
     }
 
     /**
-     * <b>Contract, invariant tier — the honest sort.</b> Every one of {@code scorer-interface.md} §3's
+     * <b>Contract, invariant tier — the careful sort.</b> Every one of {@code scorer-interface.md} §3's
      * seven starter terms is <i>declared</i>, and each one either answers from the run or says UNKNOWN
      * with a reason. Nothing is silently absent and nothing returns a fabricated pass.
      *
-     * <p>This is the clause the brief asks for in so many words: sort the seven honestly and let the
+     * <p>This is the clause the brief asks for in so many words: sort the seven carefully and let the
      * un-loggable ones say so. An omitted term is invisible; a declared term that says UNKNOWN shows up
      * in every breakdown as a gap somebody chose to leave open.
      */
@@ -241,7 +241,7 @@ public class EnvelopeGuardrailsTest {
 
     /**
      * <b>Contract, invariant tier.</b> A safe-stop check answers from the run's final frame when it has
-     * the key, and says UNKNOWN when it does not — the narrow check §3's term can honestly support.
+     * the key, and says UNKNOWN when it does not — the narrow check §3's term can actually support.
      */
     @Test
     public void safeStopIsJudgedOnTheFinalFrameOrNotAtAll() throws IOException {

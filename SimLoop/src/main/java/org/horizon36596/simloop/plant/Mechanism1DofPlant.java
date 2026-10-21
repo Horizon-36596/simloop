@@ -53,7 +53,7 @@ import org.horizon36596.simloop.config.MechanismSimConfig;
  * {@code maxPosition = Double.POSITIVE_INFINITY} — see
  * {@link org.horizon36596.simloop.config.ContinuousRotationSimConfig}, which supplies
  * exactly those two values so no season has to type them. {@link #getPosition()} then means <b>accumulated
- * travel</b> (output revolutions for an ejector) and grows without bound, which is the honest reading of a
+ * travel</b> (output revolutions for an ejector) and grows without bound, which is the accurate reading of a
  * shaft that keeps turning. The two infinities are the only non-finite config values this class accepts,
  * and they are accepted only as limits; every other value must still be finite.
  *

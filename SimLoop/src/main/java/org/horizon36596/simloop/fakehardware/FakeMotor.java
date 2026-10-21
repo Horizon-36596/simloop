@@ -133,7 +133,7 @@ public class FakeMotor extends AbstractFakeDevice implements DcMotorEx {
      *
      * <p><b>Any caller whose robot code reads current must pass its own datasheet numbers</b> through the
      * five-argument constructor rather than inheriting these. This is a default so that {@code getCurrent()}
-     * has something honest to return, not a claim about what motor is on the other end. Same standing as
+     * has something real to return, not a claim about what motor is on the other end. Same standing as
      * {@link #DEFAULT_TICKS_PER_REV}.
      */
     private static final double DEFAULT_STALL_CURRENT_AMPS = 9.2;

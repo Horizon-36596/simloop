@@ -75,7 +75,7 @@ public interface ContinuousRotationSimConfig extends MechanismSimConfig {
      * <p><b>"Do not override" here is a rule for a human, not a guarantee the compiler makes.</b> These
      * three are ordinary interface defaults, and this project targets Java 8, which has no {@code sealed}
      * and no way to make a default final — so an implementer who overrides one gets no error. That is
-     * worth knowing rather than glossing, because the honest reading of this interface is "the three
+     * worth knowing rather than glossing, because the accurate reading of this interface is "the three
      * numbers you should not have to type", not "the three numbers that cannot be wrong".
      *
      * <p>The one override that would be actively harmful is already caught elsewhere:

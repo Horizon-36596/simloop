@@ -32,7 +32,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
      *
      * <h2>What is deliberately NOT tested here, and what was learned trying</h2>
      * BACKLOG B3's clause -- "compare decoded fields, never raw bytes" -- has no test in this class,
-     * after two attempts to write one failed honestly:
+     * after two attempts to write one failed for real:
      * <ul>
      *   <li>Running the same scenario twice and asserting the bytes differ: measured on this JVM, only
      *       the <i>first</i> scenario in a test run produces different bytes; every later pair came out

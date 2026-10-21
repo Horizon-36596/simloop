@@ -5,7 +5,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * The seven starter envelope terms from {@code docs/process/scorer-interface.md} §3, sorted honestly into
+ * The seven starter envelope terms from {@code docs/process/scorer-interface.md} §3, sorted carefully into
  * the ones a run's log can actually answer and the ones it cannot.
  *
  * <h2>Three of the seven are log facts. Four are not.</h2>

@@ -234,7 +234,7 @@ public class GateTest {
      * Contract: the dropped-guardrail check does not fire across scenarios. Implementation tier.
      *
      * <p>A different scenario is entitled to a different envelope. Without this, every legitimate change
-     * of scenario would be reported as an attempt to cheat, and a check that accuses honest work gets
+     * of scenario would be reported as an attempt to cheat, and a check that accuses legitimate work gets
      * switched off.
      */
     @Test
