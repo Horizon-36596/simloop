@@ -11,6 +11,7 @@ import org.horizon36596.simloop.field.ObstacleBox;
 import org.horizon36596.simloop.field.SeededRandom;
 import org.horizon36596.simloop.vision.AprilTagLayout;
 import org.horizon36596.simloop.vision.CameraLens;
+import org.horizon36596.simloop.vision.CameraOccluders;
 import org.horizon36596.simloop.vision.CameraMount;
 import org.horizon36596.simloop.vision.RigidTransform3;
 import org.horizon36596.simloop.vision.SimTagCamera;
@@ -100,12 +101,27 @@ import java.util.List;
  * <p><b>Noise</b> (off unless {@link Builder#noise} is called): independent Gaussian draws, from a
  * {@link SeededRandom} so the same seed and the same sequence of calls give byte-identical results, added
  * to each tag's {@code tx} and {@code ty} (and the centre pixel with them), to {@code botpose}'s x, y and
- * yaw, and to {@code botpose_orb}'s x and y. Target poses ({@code t6*}), corners and area stay exact.
+ * yaw, and to {@code botpose_orb}'s x and y. Target poses ({@code t6*}), corners and area stay exact. When
+ * noise is on, {@code stdev_mt1} and {@code stdev_mt2} ({@link LLResult#getStddevMt1()},
+ * {@link LLResult#getStddevMt2()}) report the noise model's own standard deviations ({@code x, y} in
+ * metres, yaw in degrees, the rest 0), so a pose estimator that weights by them sees the spread it is
+ * actually given. A real device estimates them from its recent poses instead; this is the stated model's
+ * value, not that estimate.
+ *
+ * <p><b>Dropouts</b> (off unless {@link Builder#dropout} is called): each tag that passes every
+ * visibility rule is missed in a frame with a fixed probability, drawn from its own {@link SeededRandom} in
+ * tag id order, so a pose filter can be tested against frames that lose a tag now and then.
+ *
+ * <p><b>Optics and occlusion.</b> {@link Builder#distortion} gives the lens OpenCV's distortion model:
+ * corner pixels ({@code pts}) and the centre pixel ({@code txp}, {@code typ}) are distorted, and the angles
+ * and poses stay the undistorted geometry a calibrated Limelight reports. {@link Builder#occluders} takes
+ * field boxes and {@link Builder#robotBody} boxes fixed to the robot (its own chassis, an arm), and a tag
+ * hidden behind either is not seen. Tags tilted with {@link AprilTagLayout.Builder#addTiltedTag} are seen
+ * tilted.
  *
  * <p><b>Not modelled:</b> any pipeline other than AprilTag (every pipeline index 0-9 behaves as an AprilTag
- * pipeline), crosshair calibration, lens distortion, motion blur, detection dropouts, tag-on-tag and
- * robot-body occlusion, tags that are not vertical, the {@code stddevs}, {@code botpose_wpiblue/wpired}
- * and python outputs, and the device-side capture schedule's phase. Methods that would configure the
+ * pipeline), crosshair calibration, motion blur, tag-on-tag occlusion, a tag turned within its own plane,
+ * the {@code botpose_wpiblue/wpired} and python outputs, and the device-side capture schedule's phase. Methods that would configure the
  * device over the network ({@code uploadFieldmap}, {@code uploadPipeline}, {@code uploadPython},
  * {@code updatePythonInputs}, snapshots and calibration) throw {@link UnsupportedOperationException}: the
  * fake has nothing behind them, and a silent {@code true} would let a robot believe a field map was
@@ -137,6 +153,9 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
     private final double positionStdDevInches;
     private final double yawStdDevDegrees;
     private final double frameRateHz;
+    private final CameraOccluders robotBody;
+    private final SeededRandom dropoutRandom;
+    private final double dropoutProbability;
 
     private long simNanos;
     private boolean running;
@@ -167,7 +186,8 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
         super.stop();
         double fx = (b.widthPx / 2.0) / StrictMath.tan(StrictMath.toRadians(b.horizontalFovDegrees) / 2.0);
         double fy = (b.heightPx / 2.0) / StrictMath.tan(StrictMath.toRadians(b.verticalFovDegrees) / 2.0);
-        CameraLens lens = new CameraLens(fx, fy, b.widthPx / 2.0, b.heightPx / 2.0, b.widthPx, b.heightPx);
+        CameraLens lens = new CameraLens(fx, fy, b.widthPx / 2.0, b.heightPx / 2.0, b.widthPx, b.heightPx,
+                b.k1, b.k2, b.p1, b.p2, b.k3);
         this.camera = new SimTagCamera(lens, b.mount, b.minRangeInches, b.maxRangeInches,
                 b.maxIncidenceDegrees, b.occluders);
         this.layout = b.layout;
@@ -181,6 +201,9 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
         this.txTyStdDevDegrees = b.txTyStdDevDegrees;
         this.positionStdDevInches = b.positionStdDevInches;
         this.yawStdDevDegrees = b.yawStdDevDegrees;
+        this.robotBody = CameraOccluders.of(Collections.<ObstacleBox>emptyList(), b.robotBody);
+        this.dropoutRandom = b.dropoutProbability > 0.0 ? new SeededRandom(b.dropoutSeed) : null;
+        this.dropoutProbability = b.dropoutProbability;
     }
 
     /** 127.0.0.1, built without a DNS lookup: if an SDK call ever slipped past this fake, it hits nothing. */
@@ -607,7 +630,16 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
     }
 
     private String frameJson(long captureNanos) throws JSONException {
-        List<TagSighting> seen = camera.observe(layout, robotXInches, robotYInches, robotHeadingRad);
+        List<TagSighting> seen = camera.observe(layout, robotXInches, robotYInches, robotHeadingRad, robotBody);
+        if (dropoutRandom != null) {
+            List<TagSighting> kept = new ArrayList<TagSighting>(seen.size());
+            for (TagSighting s : seen) {
+                if (dropoutRandom.nextFraction() >= dropoutProbability) {
+                    kept.add(s);
+                }
+            }
+            seen = kept;
+        }
         JSONObject json = new JSONObject();
         json.put("pID", pipelineIndex);
         json.put("pipelineType", PIPELINE_TYPE);
@@ -643,8 +675,13 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
             f.put("ty", ty);
             f.put("tx_nocross", tx);
             f.put("ty_nocross", ty);
-            f.put("txp", lens.getCentreXPx() + lens.getFocalXPx() * StrictMath.tan(StrictMath.toRadians(tx)));
-            f.put("typ", lens.getCentreYPx() - lens.getFocalYPx() * StrictMath.tan(StrictMath.toRadians(ty)));
+            double[] centrePx = lens.project(StrictMath.tan(StrictMath.toRadians(tx)),
+                    -StrictMath.tan(StrictMath.toRadians(ty)), 1.0);
+            if (centrePx == null) {
+                centrePx = new double[] {s.getCentreXPx(), s.getCentreYPx()};
+            }
+            f.put("txp", centrePx[0]);
+            f.put("typ", centrePx[1]);
             f.put("ta", s.getAreaPercent());
             JSONArray corners = new JSONArray();
             for (double[] corner : s.getCornersPx()) {
@@ -681,6 +718,8 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
             double[] zeros = new double[6];
             json.put("botpose", toJson(zeros));
             json.put("botpose_orb", toJson(zeros));
+            json.put("stdev_mt1", toJson(zeros));
+            json.put("stdev_mt2", toJson(zeros));
             return json.toString();
         }
         json.put("tx", primaryTx);
@@ -702,6 +741,12 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
         json.put("botpose_orb", toJson(new double[] {
                 orbX * METRES_PER_INCH, orbY * METRES_PER_INCH, mt2Z / count * METRES_PER_INCH,
                 0.0, 0.0, suppliedYawDegrees}));
+        double positionStdDevMetres = noiseRandom == null ? 0.0 : positionStdDevInches * METRES_PER_INCH;
+        double yawStdDev = noiseRandom == null ? 0.0 : yawStdDevDegrees;
+        json.put("stdev_mt1", toJson(new double[] {positionStdDevMetres, positionStdDevMetres, 0.0, 0.0, 0.0,
+                yawStdDev}));
+        json.put("stdev_mt2", toJson(new double[] {positionStdDevMetres, positionStdDevMetres, 0.0, 0.0, 0.0,
+                0.0}));
         return json.toString();
     }
 
@@ -837,6 +882,14 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
         private double txTyStdDevDegrees;
         private double positionStdDevInches;
         private double yawStdDevDegrees;
+        private double k1;
+        private double k2;
+        private double p1;
+        private double p2;
+        private double k3;
+        private List<ObstacleBox> robotBody = Collections.emptyList();
+        private int dropoutSeed;
+        private double dropoutProbability;
 
         private Builder(AprilTagLayout layout, CameraMount mount, double horizontalFovDegrees,
                 double verticalFovDegrees) {
@@ -925,6 +978,63 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
                 throw new IllegalArgumentException("occluder list must not be null");
             }
             this.occluders = new ArrayList<ObstacleBox>(boxes);
+            return this;
+        }
+
+        /**
+         * Boxes fixed to the robot that block the line of sight to a tag: the robot's own chassis, an arm.
+         * Robot frame, as {@link CameraOccluders} defines it ({@code X} forward, {@code Y} left, {@code Z} up,
+         * inches). A box containing the lens is skipped. Default none.
+         *
+         * @param boxes robot-frame boxes; copied
+         * @return this builder
+         */
+        public Builder robotBody(List<ObstacleBox> boxes) {
+            if (boxes == null) {
+                throw new IllegalArgumentException("robot body list must not be null");
+            }
+            this.robotBody = new ArrayList<ObstacleBox>(boxes);
+            return this;
+        }
+
+        /**
+         * Lens distortion, OpenCV's model and order (see {@link CameraLens}): pass the coefficients of a real
+         * calibration to put tag corners where that lens puts them. Default none.
+         *
+         * @param k1 first radial coefficient
+         * @param k2 second radial coefficient
+         * @param p1 first tangential coefficient
+         * @param p2 second tangential coefficient
+         * @param k3 third radial coefficient
+         * @return this builder
+         */
+        public Builder distortion(double k1, double k2, double p1, double p2, double k3) {
+            if (!Double.isFinite(k1) || !Double.isFinite(k2) || !Double.isFinite(p1) || !Double.isFinite(p2)
+                    || !Double.isFinite(k3)) {
+                throw new IllegalArgumentException("distortion coefficients must be finite");
+            }
+            this.k1 = k1;
+            this.k2 = k2;
+            this.p1 = p1;
+            this.p2 = p2;
+            this.k3 = k3;
+            return this;
+        }
+
+        /**
+         * Misses each visible tag in a frame with this probability, seeded. Off by default. The value is
+         * yours to choose (a PLACEHOLDER until measured on a real device), not a Limelight specification.
+         *
+         * @param seed        the {@link SeededRandom} seed for the dropout draws; same seed, same misses
+         * @param probability chance a visible tag is missed in one frame, in {@code [0, 1)}
+         * @return this builder
+         */
+        public Builder dropout(int seed, double probability) {
+            if (!(probability >= 0.0 && probability < 1.0)) {
+                throw new IllegalArgumentException("dropout probability must be in [0, 1), got " + probability);
+            }
+            this.dropoutSeed = seed;
+            this.dropoutProbability = probability;
             return this;
         }
 

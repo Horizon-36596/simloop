@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * A camera on the robot that "sees" AprilTags: given a team-supplied {@link AprilTagLayout} and the robot's
  * pose, it works out which tags a detector would find and where, as {@link TagSighting}s. No image is
- * rendered. It is the tag counterpart of {@link SimCamera}, and uses the same {@link CameraLens} and
+ * rendered here ({@link SimFrameRenderer} draws tags as synthetic pixels, not decodable). It is the tag counterpart of {@link SimCamera}, and uses the same {@link CameraLens} and
  * {@link CameraMount}, so one camera description serves both.
  *
  * <p><b>Visibility rules, in the order they are checked</b> (the first one that fails is what
@@ -19,19 +19,24 @@ import java.util.List;
  *       {@code [minRangeInches, maxRangeInches]}.</li>
  *   <li>{@link Visibility#FACING_AWAY}: the angle between the tag's face normal and the line from the tag
  *       to the lens is {@code maxIncidenceDegrees} or more. With the default of 90 this rejects exactly
- *       the tags seen from behind or edge-on.</li>
+ *       the tags seen from behind or edge-on. A tilted tag's normal is tilted with it.</li>
  *   <li>{@link Visibility#BEHIND_CAMERA}: any corner of the tag is not in front of the lens.</li>
- *   <li>{@link Visibility#OUTSIDE_IMAGE}: any corner projects outside the image rectangle. A detector
+ *   <li>{@link Visibility#OUTSIDE_IMAGE}: any corner projects outside the image rectangle, through the
+ *       lens's distortion when it has one, or lies where the distortion model no longer holds. A detector
  *       needs the whole tag border, so a tag that is only partly in frame is not seen at all.</li>
  *   <li>{@link Visibility#OCCLUDED}: the straight line from the lens to any corner passes through the
- *       inside of one of the {@link ObstacleBox}es given at construction. A tag mounted on a box's face is
- *       not hidden by that box. Nothing else occludes: other tags, the robot's own body and anything not
- *       given as a box are transparent.</li>
+ *       inside of one of the {@link ObstacleBox}es given at construction, or of a box in the
+ *       {@link CameraOccluders} given to {@link #observe(AprilTagLayout, double, double, double,
+ *       CameraOccluders)}: field boxes, and robot boxes such as the robot's own chassis. A tag mounted on a
+ *       box's face is not hidden by that box. Nothing else occludes: other tags and anything not given as a
+ *       box are transparent.</li>
  * </ol>
  *
  * <p><b>Frames.</b> The layout and the robot pose are in the field frame (FTC-Cartesian, centre origin,
  * inches, heading CCW from {@code +X}). The mount is in the robot frame, the projection in the optical
- * frame, both as {@link CameraMount} defines them. The lens is an ideal pinhole: no distortion.
+ * frame, both as {@link CameraMount} defines them. Pixels (the centre and the corners) go through the
+ * lens's distortion model when it has one ({@link CameraLens#project}); the angles {@code tx} and
+ * {@code ty} and the transforms are the undistorted geometry a calibrated detector recovers.
  *
  * <p>Deterministic and clock-free (domain R5): the same layout and pose give the same sightings, in
  * ascending tag id order, with all trigonometry in {@link StrictMath}.
@@ -132,13 +137,33 @@ public final class SimTagCamera {
      */
     public List<TagSighting> observe(AprilTagLayout layout, double robotXInches, double robotYInches,
             double robotHeadingRad) {
+        return observe(layout, robotXInches, robotYInches, robotHeadingRad, CameraOccluders.none());
+    }
+
+    /**
+     * Every tag in the layout the camera sees from this robot pose, with more boxes in the way than the
+     * ones given at construction: boxes that move from tick to tick, and the robot's own body.
+     *
+     * @param layout          the tags on the field
+     * @param robotXInches    robot centre, field X, inches
+     * @param robotYInches    robot centre, field Y, inches
+     * @param robotHeadingRad robot heading, radians CCW from field {@code +X}
+     * @param extra           more occluders, checked after the constructor's boxes; field boxes in the field
+     *                        frame, robot boxes in the robot frame ({@link CameraOccluders})
+     * @return the sightings, in ascending tag id order, unmodifiable; empty when nothing is seen
+     */
+    public List<TagSighting> observe(AprilTagLayout layout, double robotXInches, double robotYInches,
+            double robotHeadingRad, CameraOccluders extra) {
         if (layout == null) {
             throw new IllegalArgumentException("layout must not be null; use AprilTagLayout.empty()");
+        }
+        if (extra == null) {
+            throw new IllegalArgumentException("extra occluders must not be null; use CameraOccluders.none()");
         }
         RigidTransform3 fieldToRobot = fieldToRobot(robotXInches, robotYInches, robotHeadingRad);
         List<TagSighting> seen = new ArrayList<TagSighting>();
         for (AprilTagLayout.Tag tag : layout.getTags()) {
-            TagSighting sighting = sight(tag, fieldToRobot, null);
+            TagSighting sighting = sight(tag, fieldToRobot, extra, null);
             if (sighting != null) {
                 seen.add(sighting);
             }
@@ -157,11 +182,31 @@ public final class SimTagCamera {
      */
     public Visibility visibility(AprilTagLayout.Tag tag, double robotXInches, double robotYInches,
             double robotHeadingRad) {
+        return visibility(tag, robotXInches, robotYInches, robotHeadingRad, CameraOccluders.none());
+    }
+
+    /**
+     * Whether one tag is seen from this robot pose with more occluders in the way, and if not, the first
+     * rule it fails.
+     *
+     * @param tag             the tag
+     * @param robotXInches    robot centre, field X, inches
+     * @param robotYInches    robot centre, field Y, inches
+     * @param robotHeadingRad robot heading, radians CCW from field {@code +X}
+     * @param extra           more occluders, as for {@link #observe(AprilTagLayout, double, double, double,
+     *                        CameraOccluders)}
+     * @return {@link Visibility#VISIBLE}, or the reason it is not
+     */
+    public Visibility visibility(AprilTagLayout.Tag tag, double robotXInches, double robotYInches,
+            double robotHeadingRad, CameraOccluders extra) {
         if (tag == null) {
             throw new IllegalArgumentException("tag must not be null");
         }
+        if (extra == null) {
+            throw new IllegalArgumentException("extra occluders must not be null; use CameraOccluders.none()");
+        }
         Visibility[] reason = new Visibility[1];
-        sight(tag, fieldToRobot(robotXInches, robotYInches, robotHeadingRad), reason);
+        sight(tag, fieldToRobot(robotXInches, robotYInches, robotHeadingRad), extra, reason);
         return reason[0];
     }
 
@@ -173,7 +218,8 @@ public final class SimTagCamera {
     }
 
     /** One tag through every rule; null when unseen, with the reason written to {@code reason} if given. */
-    private TagSighting sight(AprilTagLayout.Tag tag, RigidTransform3 fieldToRobot, Visibility[] reason) {
+    private TagSighting sight(AprilTagLayout.Tag tag, RigidTransform3 fieldToRobot, CameraOccluders extra,
+            Visibility[] reason) {
         RigidTransform3 fieldToCamera = fieldToRobot.compose(robotToCamera);
         RigidTransform3 fieldToTag = tag.getFieldToTag();
         RigidTransform3 cameraToTag = fieldToCamera.inverse().compose(fieldToTag);
@@ -184,13 +230,17 @@ public final class SimTagCamera {
             return reject(reason, Visibility.OUT_OF_RANGE);
         }
 
-        // The face normal is horizontal, the tag frame's -Z (target space +Z points into the tag), so only
-        // the horizontal part of the tag-to-lens line contributes to the dot product.
+        // The face normal is the tag frame's -Z (target space +Z points into the tag). For a plumb tag it is
+        // horizontal and its z component is exactly 0.
         double toLensX = lensInField[0] - tag.getXInches();
         double toLensY = lensInField[1] - tag.getYInches();
-        double normalX = StrictMath.cos(tag.getFacingRad());
-        double normalY = StrictMath.sin(tag.getFacingRad());
-        double cosIncidence = range == 0.0 ? 0.0 : (toLensX * normalX + toLensY * normalY) / range;
+        double toLensZ = lensInField[2] - tag.getZInches();
+        double[] normal = tag.getFaceNormal();
+        double dot = toLensX * normal[0] + toLensY * normal[1];
+        if (normal[2] != 0.0) {
+            dot += toLensZ * normal[2];
+        }
+        double cosIncidence = range == 0.0 ? 0.0 : dot / range;
         if (cosIncidence <= cosMaxIncidence) {
             return reject(reason, Visibility.FACING_AWAY);
         }
@@ -204,11 +254,11 @@ public final class SimTagCamera {
             if (optical[2] <= 1e-9) {
                 return reject(reason, Visibility.BEHIND_CAMERA);
             }
-            cornersPx[i] = project(optical);
+            cornersPx[i] = lens.project(optical[0], optical[1], optical[2]);
             cornersField[i] = fieldToTag.apply(cornersInTag[i][0], cornersInTag[i][1], 0.0);
         }
         for (double[] px : cornersPx) {
-            if (px[0] < 0.0 || px[0] > lens.getWidthPx() || px[1] < 0.0 || px[1] > lens.getHeightPx()) {
+            if (px == null || px[0] < 0.0 || px[0] > lens.getWidthPx() || px[1] < 0.0 || px[1] > lens.getHeightPx()) {
                 return reject(reason, Visibility.OUTSIDE_IMAGE);
             }
         }
@@ -218,12 +268,35 @@ public final class SimTagCamera {
                     return reject(reason, Visibility.OCCLUDED);
                 }
             }
+            for (ObstacleBox box : extra.getFieldBoxes()) {
+                if (segmentEntersBox(lensInField, corner, box)) {
+                    return reject(reason, Visibility.OCCLUDED);
+                }
+            }
+        }
+        if (!extra.getRobotBoxes().isEmpty()) {
+            RigidTransform3 robotFromField = fieldToRobot.inverse();
+            double[] lensInRobot = robotToCamera.apply(0.0, 0.0, 0.0);
+            for (double[] corner : cornersField) {
+                double[] cornerInRobot = robotFromField.apply(corner[0], corner[1], corner[2]);
+                for (ObstacleBox box : extra.getRobotBoxes()) {
+                    if (CameraOccluders.contains(box, lensInRobot[0], lensInRobot[1], lensInRobot[2])) {
+                        continue;                           // the camera's own housing
+                    }
+                    if (segmentEntersBox(lensInRobot, cornerInRobot, box)) {
+                        return reject(reason, Visibility.OCCLUDED);
+                    }
+                }
+            }
         }
 
         double x = cameraToTag.getXInches();
         double y = cameraToTag.getYInches();
         double z = cameraToTag.getZInches();
-        double[] centrePx = project(new double[] {x, y, z});
+        double[] centrePx = lens.project(x, y, z);
+        if (centrePx == null) {
+            return reject(reason, Visibility.OUTSIDE_IMAGE);
+        }
         double tx = StrictMath.toDegrees(StrictMath.atan2(x, z));
         double ty = StrictMath.toDegrees(StrictMath.atan2(-y, z));
         double area = 100.0 * polygonArea(cornersPx) / ((double) lens.getWidthPx() * lens.getHeightPx());
@@ -239,13 +312,6 @@ public final class SimTagCamera {
             reason[0] = why;
         }
         return null;
-    }
-
-    private double[] project(double[] optical) {
-        return new double[] {
-                lens.getCentreXPx() + lens.getFocalXPx() * optical[0] / optical[2],
-                lens.getCentreYPx() + lens.getFocalYPx() * optical[1] / optical[2],
-        };
     }
 
     /** Shoelace area of a simple polygon, square pixels. */

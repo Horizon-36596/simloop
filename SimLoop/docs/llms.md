@@ -10,9 +10,10 @@ the right page instead of crawling navigation.
 
 - **[Every feature](features.md)**: one line per feature, with a link to its page.
 - **[What it does not do](limits.md)**: the authoritative list of what is out of scope. If a task needs
-  something on that list, there is no API for it; say so rather than searching. A rendered camera image,
+  something on that list, there is no API for it; say so rather than searching. A photoreal camera image,
   intake rollers, a shipped field, a command scheduler and controller tuning are out of scope. Game-piece
-  physics, a geometry-only camera and fitting to a real log exist, each with stated limits.
+  physics, a camera with distortion and occlusion, synthetic frames (flat colours, never for tuning colour
+  thresholds) and fitting to a real log exist, each with stated limits.
 
 ## Pages
 
@@ -34,7 +35,7 @@ the right page instead of crawling navigation.
 | [`sim.live`](packages/live.md) | Keyboard driving, recorded gamepad tracks, headless replay to the identical log, and how to use the unpublished keyboard-window module. | Driving the sim by hand, or replaying a session. |
 | [`field`](packages/field.md) | Game pieces with possession and physics (roll, bounce, fly, score), goals, obstacles, kinematic and hinged bodies, the robot as boxes, robot contact, and `FieldFrameTransform`. Intaking is a box test. | Modelling game pieces or the field, or crossing between the two frames. |
 | [`sensor`](packages/sensor.md) | `RangeFinder`, `ColorProbe`, `ContactSwitch`: what a sensor on a robot mount sees on the field, driving the sensor fakes. | Simulating touch, distance or colour sensors. |
-| [`vision`](packages/vision.md) | `SimCamera`, `SimTagCamera`, lens and mount: which pieces and AprilTags a camera sees, and where. Geometry only. | Testing a vision pipeline's geometry. |
+| [`vision`](packages/vision.md) | `SimCamera`, `SimTagCamera`, lens (with distortion), mount, `CameraOccluders`: which pieces and AprilTags a camera sees, and where. `SimFrameRenderer`: synthetic RGB frames for running a pixel pipeline, not for tuning it. | Testing a vision pipeline's geometry, or running a pixel pipeline end to end. |
 | [`fit`](packages/fit.md) | `FirstOrderFit`, `GapReport`: the plant fitted to a real robot log, with standard errors and warnings. | Comparing the sim with a real robot. |
 | [`loop`](packages/loop.md) | `RunResult`, `Objective`, `Guardrail`, `Scorer`, `Gate`, `LoopDriver`, `StopReport`. | Scoring a run or driving iteration. |
 | [`viz`](packages/viz.md) | Mechanism and turret sketches, `ArticulatedRobotModel`, `ShotArc` for AdvantageScope. Inches and radians in, metres in the log. | Drawing a mechanism, robot parts or a shot. |

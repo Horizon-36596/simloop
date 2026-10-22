@@ -73,7 +73,7 @@ the log is what you assert on afterwards.
 | [`sim.live`](packages/live.md) | Driving from the keyboard, recording the session, and replaying it to the same log. |
 | [`field`](packages/field.md) | Game pieces with possession and physics, goals, field structures, and robot contact. |
 | [`sensor`](packages/sensor.md) | What a touch, distance or colour sensor on the robot sees on the field. |
-| [`vision`](packages/vision.md) | Which game pieces and AprilTags a camera sees, and where. No image. |
+| [`vision`](packages/vision.md) | Which game pieces and AprilTags a camera sees, and where, with distortion and occlusion. Synthetic frames for pixel pipelines, not photos. |
 | [`fit`](packages/fit.md) | Fitting the motor model to a real robot log, and a sim-against-robot gap report. |
 | [`loop`](packages/loop.md) | Scoring a run, and the automated edit-and-replay iteration built on top of it. |
 | [`viz`](packages/viz.md) | Mechanisms, robot parts and shot arcs drawn into the log for AdvantageScope. |

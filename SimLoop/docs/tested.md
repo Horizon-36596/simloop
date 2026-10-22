@@ -35,7 +35,13 @@ If you try it, you are testing it. Reports help most where this page says "not y
 - **Game-piece physics against a real field.** Bounces, rolling and contacts are plausible, not
   measured.
 - **The simulated camera and Limelight against real captures.** They are checked against the SDK's
-  parsing, not against what a real camera sees.
+  parsing and against their own geometry, not against what a real camera sees.
+- **Synthetic frames against real frames.** `SimFrameRenderer` is checked against `SimCamera`'s geometry:
+  pieces land where `SimCamera` puts them, occluded ones are hidden, distortion bends the image the way
+  the lens model says, and the same seed gives the same pixels. Nobody has compared a synthetic frame with
+  a photo, and no colour threshold has been tuned on one. None should be.
+- **Lens distortion against a real calibration.** The model is OpenCV's five-coefficient one, checked
+  against its own inverse, not against a calibrated camera.
 
 ## How to help
 

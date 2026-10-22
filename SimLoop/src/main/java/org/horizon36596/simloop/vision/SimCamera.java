@@ -1,6 +1,7 @@
 package org.horizon36596.simloop.vision;
 
 import org.horizon36596.simloop.field.GamePiece;
+import org.horizon36596.simloop.field.ObstacleBox;
 import org.psilynx.psikit.core.Logger;
 import org.psilynx.psikit.core.wpi.math.Pose3d;
 import org.psilynx.psikit.core.wpi.math.Rotation3d;
@@ -14,30 +15,34 @@ import java.util.List;
 /**
  * A camera on the robot that "sees" game pieces: given every piece's true position and the robot's pose, it
  * works out which pieces fall inside its image and where, as {@link CameraSighting}s. No image is rendered
- * — the output is the geometry a renderer would draw and a detector would have to recover.
+ * here — the output is the geometry a renderer would draw and a detector would have to recover.
+ * {@link SimFrameRenderer} draws the same scene as synthetic pixels when a pixel pipeline needs them.
  *
  * <p><b>What this is for.</b> A vision pipeline is two things: geometry (which pixel is which point on the
- * floor, tracking, velocity) and appearance (colour thresholds, blob splitting). The sim can only ever
- * test the first, and this class is the seam for that: a test hands the sightings to the pipeline's
- * projection and tracking code and checks the answers against the pieces' true positions. Colour and
- * thresholds need real frames from a real camera; a synthetic scene must never be used to tune them,
- * because a colour range fitted to a renderer's flat colours says nothing about real lighting.
+ * floor, tracking, velocity) and appearance (colour thresholds, blob splitting). This class is the
+ * seam for the first: a test hands the sightings to the pipeline's projection and tracking code and checks
+ * the answers against the pieces' true positions. Colour and thresholds need real frames from a real
+ * camera; a synthetic scene (including {@link SimFrameRenderer}'s) must never be used to tune them, because
+ * a colour range fitted to a renderer's flat colours says nothing about real lighting.
  *
  * <p><b>Visibility rules, stated plainly.</b> A piece is sighted when it is
  * {@linkplain GamePiece#isVisibleOnField() visible on the field} (not held, and not scored into no goal),
  * its centre is in front of the lens by more than its
  * own radius, and its apparent disc (a circle of {@link CameraSighting#getRadiusPx()} about the centre
  * pixel) overlaps the image rectangle. A sighting is <em>clipped</em> when part of that disc is outside
- * the image. A piece whose centre pixel is covered by the disc of a nearer sighted piece is
- * <em>occluded</em> and not reported at all — the one bit of "what is in front of what" the geometry can
- * answer without rendering. Nothing else occludes: the robot's own body, the field structures and the far
- * wall are all transparent to this camera, which is wrong for a real camera and documented here so a test
- * does not depend on it.
+ * the image. What hides a piece depends on the overload. The four-argument
+ * {@link #observe(List, double, double, double)} hides only a piece whose centre pixel is covered by the
+ * disc of a nearer sighted piece; everything else is transparent. The overload taking
+ * {@link CameraOccluders} casts {@value #OCCLUSION_SAMPLES} rays over each piece's disc against the field
+ * boxes, the robot boxes (in the robot frame, turning with it) and every nearer piece, reports the share
+ * that gets through as {@link CameraSighting#getVisibleFraction()}, and drops a piece below
+ * {@link #getMinVisibleFraction()}. A box that holds the piece's centre or the lens does not hide it.
+ * Anything not given as a box (curved structures, the far wall unless it is a box) stays transparent.
  *
  * <p>A piece whose centre is no more than its own radius in front of the lens (behind the camera, or so
  * close that the ball would wrap around the lens) is dropped entirely: it is not sighted and it does not
  * occlude anything behind it either. A real camera would see such a piece as a blur filling the frame; the
- * pinhole projection has no sensible answer for it, so this camera pretends it is not there.
+ * projection has no sensible answer for it, so this camera pretends it is not there.
  *
  * <p><b>Frames.</b> Pieces and the robot pose are in the field frame (FTC-Cartesian, centre origin, inches,
  * heading CCW from +X, conventions §7). The mount is in the robot frame and the projection in the optical
@@ -58,6 +63,37 @@ public final class SimCamera {
     private final CameraLens lens;
     private final CameraMount mount;
 
+    /**
+     * Rays the occluded {@link #observe(List, double, double, double, CameraOccluders)} casts per piece: the
+     * centre, six at 0.45 of the radius and twelve at 0.85, spread over the disc the camera sees.
+     */
+    public static final int OCCLUSION_SAMPLES = 19;
+
+    /** The visible fraction a piece needs, by default, to be reported when occluders are given: half. */
+    public static final double DEFAULT_MIN_VISIBLE_FRACTION = 0.5;
+
+    /** Sample offsets across the disc, in radii: {@code SAMPLE_A} along the horizontal axis, {@code B} across. */
+    private static final double[] SAMPLE_A = new double[OCCLUSION_SAMPLES];
+    private static final double[] SAMPLE_B = new double[OCCLUSION_SAMPLES];
+
+    static {
+        int k = 1;
+        for (int i = 0; i < 6; i++) {
+            double angle = 2.0 * Math.PI * i / 6.0;
+            SAMPLE_A[k] = 0.45 * StrictMath.cos(angle);
+            SAMPLE_B[k] = 0.45 * StrictMath.sin(angle);
+            k++;
+        }
+        for (int i = 0; i < 12; i++) {
+            double angle = 2.0 * Math.PI * (i + 0.5) / 12.0;
+            SAMPLE_A[k] = 0.85 * StrictMath.cos(angle);
+            SAMPLE_B[k] = 0.85 * StrictMath.sin(angle);
+            k++;
+        }
+    }
+
+    private final double minVisibleFraction;
+
     private List<CameraSighting> lastSightings = Collections.emptyList();
 
     /** The camera's field pose at the last {@link #observe}; {@code null} until the first call. */
@@ -72,6 +108,15 @@ public final class SimCamera {
      * @param mount the extrinsics
      */
     public SimCamera(String name, CameraLens lens, CameraMount mount) {
+        this(name, lens, mount, DEFAULT_MIN_VISIBLE_FRACTION);
+    }
+
+    private SimCamera(String name, CameraLens lens, CameraMount mount, double minVisibleFraction) {
+        if (!(minVisibleFraction > 0.0 && minVisibleFraction <= 1.0)) {
+            throw new IllegalArgumentException("minimum visible fraction must be in (0, 1], got "
+                    + minVisibleFraction);
+        }
+        this.minVisibleFraction = minVisibleFraction;
         if (name == null || !name.matches("[A-Za-z0-9_-]+")) {
             throw new IllegalArgumentException("a camera name becomes one segment of a log key, so it must be"
                     + " non-empty and use only letters, digits, '_' and '-': \"" + name + "\"");
@@ -96,6 +141,108 @@ public final class SimCamera {
      */
     public List<CameraSighting> observe(List<GamePiece> pieces, double robotXInches, double robotYInches,
             double robotHeadingRad) {
+        List<Candidate> candidates = candidates(pieces, robotXInches, robotYInches, robotHeadingRad);
+
+        // Occlusion: drop a candidate whose centre pixel lies inside the disc of a nearer candidate.
+        List<CameraSighting> visible = new ArrayList<>();
+        for (Candidate candidate : candidates) {
+            boolean hidden = false;
+            for (Candidate other : candidates) {
+                if (other == candidate || other.sighting.getRangeInches() >= candidate.sighting.getRangeInches()) {
+                    continue;
+                }
+                double ddx = candidate.sighting.getCentreXPx() - other.sighting.getCentreXPx();
+                double ddy = candidate.sighting.getCentreYPx() - other.sighting.getCentreYPx();
+                if (ddx * ddx + ddy * ddy < other.sighting.getRadiusPx() * other.sighting.getRadiusPx()) {
+                    hidden = true;
+                    break;
+                }
+            }
+            if (!hidden) {
+                visible.add(candidate.sighting);
+            }
+        }
+        return keep(visible, robotXInches, robotYInches, robotHeadingRad);
+    }
+
+    /**
+     * Work out what the camera sees this tick when solid things can block the view: the field's structures,
+     * the robot's own body, and the other pieces. Call once per tick instead of
+     * {@link #observe(List, double, double, double)}; the result is also kept for {@link #record}.
+     *
+     * <p><b>The occlusion rule.</b> For each piece that passes the image test, {@link #OCCLUSION_SAMPLES}
+     * rays go from the lens to points spread over the piece's disc as the camera sees it (the centre, six
+     * points at 0.45 of the radius and twelve at 0.85). A ray is blocked when, before it reaches the piece's
+     * surface, it passes through a box in {@code occluders} or through another piece on the field. The
+     * piece's {@link CameraSighting#getVisibleFraction() visible fraction} is the share of rays not blocked,
+     * and the piece is reported only when that is at least {@link #getMinVisibleFraction()}. A box that
+     * contains the piece's centre (a piece resting inside a structure) does not hide it, and a box that
+     * contains the lens is skipped. The centre pixel and radius reported are the whole piece's, even when
+     * part of it is hidden; a real detector's blob centre would move toward the visible part.
+     *
+     * @param pieces          every piece, from {@code GamePieceTracker.getPieces()}
+     * @param robotXInches    robot centre, field frame, inches
+     * @param robotYInches    robot centre, field frame, inches
+     * @param robotHeadingRad robot heading, radians CCW from field +X
+     * @param occluders       field and robot boxes that block the view; {@link CameraOccluders#none()} leaves
+     *                        only piece-on-piece occlusion
+     * @return the sightings, sorted by piece id, unmodifiable
+     */
+    public List<CameraSighting> observe(List<GamePiece> pieces, double robotXInches, double robotYInches,
+            double robotHeadingRad, CameraOccluders occluders) {
+        if (occluders == null) {
+            throw new IllegalArgumentException("occluders must not be null; use CameraOccluders.none()");
+        }
+        List<Candidate> candidates = candidates(pieces, robotXInches, robotYInches, robotHeadingRad);
+        double cos = StrictMath.cos(robotHeadingRad);
+        double sin = StrictMath.sin(robotHeadingRad);
+        double[] lensRobot = mount.opticalToRobot(0.0, 0.0, 0.0);
+        double[] lensField = robotToField(lensRobot, robotXInches, robotYInches, cos, sin);
+
+        // Every piece that can block a ray: on the field and in front of the lens by more than its radius
+        // (a piece closer than that is dropped entirely, as observe() without occluders drops it).
+        List<GamePiece> blockers = new ArrayList<>();
+        for (GamePiece piece : pieces) {
+            if (!piece.isVisibleOnField()) {
+                continue;
+            }
+            double[] robot = fieldToRobot(piece, robotXInches, robotYInches, cos, sin);
+            if (mount.robotToOptical(robot[0], robot[1], robot[2])[2] > piece.getRadiusInches()) {
+                blockers.add(piece);
+            }
+        }
+        List<ObstacleBox> robotBoxes = withoutBoxesContaining(occluders.getRobotBoxes(), lensRobot);
+        List<ObstacleBox> fieldBoxes = withoutBoxesContaining(occluders.getFieldBoxes(), lensField);
+
+        List<CameraSighting> visible = new ArrayList<>();
+        for (Candidate candidate : candidates) {
+            double fraction = visibleFraction(candidate.piece, candidate.robot, lensRobot, lensField, cos, sin,
+                    robotBoxes, fieldBoxes, blockers);
+            if (fraction > 0.0 && fraction >= minVisibleFraction) {
+                CameraSighting s = candidate.sighting;
+                visible.add(new CameraSighting(s.getPieceId(), s.getKind(), s.getCentreXPx(), s.getCentreYPx(),
+                        s.getRadiusPx(), s.getRangeInches(), s.isClipped(), fraction));
+            }
+        }
+        return keep(visible, robotXInches, robotYInches, robotHeadingRad);
+    }
+
+    /** One piece that passed the image test, with its centre in the robot frame. */
+    private static final class Candidate {
+        final GamePiece piece;
+        final double[] robot;
+        final CameraSighting sighting;
+
+        Candidate(GamePiece piece, double[] robot, CameraSighting sighting) {
+            this.piece = piece;
+            this.robot = robot;
+            this.sighting = sighting;
+        }
+    }
+
+    /** Every piece in front of the lens whose disc overlaps the image, in the order given, unoccluded. */
+    private List<Candidate> candidates(List<GamePiece> pieces, double robotXInches, double robotYInches,
+            double robotHeadingRad) {
         if (pieces == null) {
             throw new IllegalArgumentException("pieces must not be null");
         }
@@ -106,28 +253,31 @@ public final class SimCamera {
         double cos = StrictMath.cos(robotHeadingRad);
         double sin = StrictMath.sin(robotHeadingRad);
 
-        List<CameraSighting> candidates = new ArrayList<>();
+        List<Candidate> candidates = new ArrayList<>();
         for (GamePiece piece : pieces) {
             if (!piece.isVisibleOnField()) {
                 continue;
             }
             // Field -> robot frame: translate to the robot, rotate by -heading. Height is already robot up.
-            double dx = piece.getFieldXInches() - robotXInches;
-            double dy = piece.getFieldYInches() - robotYInches;
-            double forward = dx * cos + dy * sin;
-            double left = -dx * sin + dy * cos;
-            double[] optical = mount.robotToOptical(forward, left, piece.getFieldZInches());
+            double[] robot = fieldToRobot(piece, robotXInches, robotYInches, cos, sin);
+            double[] optical = mount.robotToOptical(robot[0], robot[1], robot[2]);
             double depth = optical[2];
             if (depth <= piece.getRadiusInches()) {
                 continue;                                   // behind, or wrapped around, the lens
             }
-            double centreX = lens.getCentreXPx() + lens.getFocalXPx() * optical[0] / depth;
-            double centreY = lens.getCentreYPx() + lens.getFocalYPx() * optical[1] / depth;
+            double[] pixel = lens.project(optical[0], optical[1], depth);
+            if (pixel == null) {
+                continue;                                   // past where the lens's distortion model holds
+            }
+            double centreX = pixel[0];
+            double centreY = pixel[1];
             double range = StrictMath.sqrt(optical[0] * optical[0] + optical[1] * optical[1] + depth * depth);
             // Apparent radius as focal length times real radius over distance to the lens -- an
             // approximation, documented on CameraSighting.getRadiusPx(), kept because it is what a simple
-            // synthetic renderer draws.
-            double radiusPx = lens.getFocalXPx() * piece.getRadiusInches() / range;
+            // synthetic renderer draws -- scaled by the lens's local magnification, exactly 1 without
+            // distortion.
+            double radiusPx = lens.getFocalXPx() * piece.getRadiusInches() / range
+                    * lens.localMagnification(optical[0] / depth, optical[1] / depth);
 
             // Disc-versus-rectangle overlap: the nearest image point to the disc's centre must lie inside
             // the disc. (Testing the disc's bounding square instead would wrongly count a disc sitting just
@@ -142,30 +292,15 @@ public final class SimCamera {
             }
             boolean clipped = centreX - radiusPx < 0.0 || centreX + radiusPx > lens.getWidthPx()
                     || centreY - radiusPx < 0.0 || centreY + radiusPx > lens.getHeightPx();
-            candidates.add(new CameraSighting(piece.getId(), piece.getKind(), centreX, centreY, radiusPx,
-                    range, clipped));
+            candidates.add(new Candidate(piece, robot, new CameraSighting(piece.getId(), piece.getKind(),
+                    centreX, centreY, radiusPx, range, clipped)));
         }
+        return candidates;
+    }
 
-        // Occlusion: drop a candidate whose centre pixel lies inside the disc of a nearer candidate.
-        List<CameraSighting> visible = new ArrayList<>();
-        for (CameraSighting candidate : candidates) {
-            boolean hidden = false;
-            for (CameraSighting other : candidates) {
-                if (other == candidate || other.getRangeInches() >= candidate.getRangeInches()) {
-                    continue;
-                }
-                double ddx = candidate.getCentreXPx() - other.getCentreXPx();
-                double ddy = candidate.getCentreYPx() - other.getCentreYPx();
-                if (ddx * ddx + ddy * ddy < other.getRadiusPx() * other.getRadiusPx()) {
-                    hidden = true;
-                    break;
-                }
-            }
-            if (!hidden) {
-                visible.add(candidate);
-            }
-        }
-
+    /** Sorts by piece id, keeps the list and the camera pose for {@link #record}, and returns the list. */
+    private List<CameraSighting> keep(List<CameraSighting> visible, double robotXInches, double robotYInches,
+            double robotHeadingRad) {
         // Piece id order, as documented. The list a tracker hands out happens to be in id order already, but
         // a caller may pass a filtered or reordered list, and the output order must not depend on that.
         Collections.sort(visible, new Comparator<CameraSighting>() {
@@ -179,6 +314,143 @@ public final class SimCamera {
         return lastSightings;
     }
 
+    /** A piece's centre in the robot frame: translate to the robot, rotate by -heading. */
+    private static double[] fieldToRobot(GamePiece piece, double robotX, double robotY, double cos, double sin) {
+        double dx = piece.getFieldXInches() - robotX;
+        double dy = piece.getFieldYInches() - robotY;
+        return new double[] {dx * cos + dy * sin, -dx * sin + dy * cos, piece.getFieldZInches()};
+    }
+
+    private static double[] robotToField(double[] robot, double robotX, double robotY, double cos, double sin) {
+        return new double[] {robotX + robot[0] * cos - robot[1] * sin, robotY + robot[0] * sin + robot[1] * cos,
+                robot[2]};
+    }
+
+    /** The share of the {@link #OCCLUSION_SAMPLES} rays from the lens to the piece's disc that are not blocked. */
+    private static double visibleFraction(GamePiece piece, double[] centre, double[] lensRobot,
+            double[] lensField, double cos, double sin, List<ObstacleBox> robotBoxes,
+            List<ObstacleBox> fieldBoxes, List<GamePiece> blockers) {
+        double radius = piece.getRadiusInches();
+        double vx = centre[0] - lensRobot[0];
+        double vy = centre[1] - lensRobot[1];
+        double vz = centre[2] - lensRobot[2];
+        double length = StrictMath.sqrt(vx * vx + vy * vy + vz * vz);
+        // Two unit vectors across the line of sight: u1 horizontal, u2 = (line of sight) x u1.
+        double u1x = vy;
+        double u1y = -vx;
+        double u1Length = StrictMath.sqrt(u1x * u1x + u1y * u1y);
+        if (u1Length < 1e-9) {
+            u1x = 1.0;
+            u1y = 0.0;
+            u1Length = 1.0;
+        }
+        u1x /= u1Length;
+        u1y /= u1Length;
+        double wx = vx / length;
+        double wy = vy / length;
+        double wz = vz / length;
+        double u2x = -wz * u1y;
+        double u2y = wz * u1x;
+        double u2z = wx * u1y - wy * u1x;
+
+        double[] centreField = {piece.getFieldXInches(), piece.getFieldYInches(), piece.getFieldZInches()};
+        List<ObstacleBox> robotCandidates = withoutBoxesContaining(robotBoxes, centre);
+        List<ObstacleBox> fieldCandidates = withoutBoxesContaining(fieldBoxes, centreField);
+
+        int clear = 0;
+        for (int k = 0; k < OCCLUSION_SAMPLES; k++) {
+            double a = SAMPLE_A[k] * radius;
+            double b = SAMPLE_B[k] * radius;
+            double[] dirRobot = {vx + a * u1x + b * u2x, vy + a * u1y + b * u2y, vz + b * u2z};
+            double tSurface = sphereEntry(lensRobot, dirRobot, centre, radius);
+            if (!(tSurface > 0.0)) {
+                continue;                                   // cannot happen for a point inside the disc
+            }
+            if (blockedByBoxes(lensRobot, dirRobot, tSurface, robotCandidates)) {
+                continue;
+            }
+            double[] dirField = {dirRobot[0] * cos - dirRobot[1] * sin, dirRobot[0] * sin + dirRobot[1] * cos,
+                    dirRobot[2]};
+            if (blockedByBoxes(lensField, dirField, tSurface, fieldCandidates)) {
+                continue;
+            }
+            boolean hitPiece = false;
+            for (GamePiece other : blockers) {
+                if (other.getId() == piece.getId()) {
+                    continue;
+                }
+                double[] otherCentre = {other.getFieldXInches(), other.getFieldYInches(), other.getFieldZInches()};
+                double t = sphereEntry(lensField, dirField, otherCentre, other.getRadiusInches());
+                if (t > 0.0 && t < tSurface) {
+                    hitPiece = true;
+                    break;
+                }
+            }
+            if (!hitPiece) {
+                clear++;
+            }
+        }
+        return clear / (double) OCCLUSION_SAMPLES;
+    }
+
+    private static List<ObstacleBox> withoutBoxesContaining(List<ObstacleBox> boxes, double[] point) {
+        List<ObstacleBox> kept = new ArrayList<>(boxes.size());
+        for (ObstacleBox box : boxes) {
+            if (!CameraOccluders.contains(box, point[0], point[1], point[2])) {
+                kept.add(box);
+            }
+        }
+        return kept;
+    }
+
+    private static boolean blockedByBoxes(double[] origin, double[] dir, double tLimit, List<ObstacleBox> boxes) {
+        for (ObstacleBox box : boxes) {
+            if (CameraOccluders.enterParameter(origin, dir, box, 0.0, tLimit) < tLimit) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * The smallest positive {@code t} at which {@code origin + t * dir} meets the sphere's surface from
+     * outside, or {@code NaN} when the ray misses it, starts inside it, or the sphere is behind the origin.
+     */
+    static double sphereEntry(double[] origin, double[] dir, double[] centre, double radius) {
+        double ox = origin[0] - centre[0];
+        double oy = origin[1] - centre[1];
+        double oz = origin[2] - centre[2];
+        double a = dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2];
+        double b = 2.0 * (ox * dir[0] + oy * dir[1] + oz * dir[2]);
+        double c = ox * ox + oy * oy + oz * oz - radius * radius;
+        if (c <= 0.0) {
+            return Double.NaN;
+        }
+        double disc = b * b - 4.0 * a * c;
+        if (disc < 0.0) {
+            return Double.NaN;
+        }
+        double t0 = (-b - StrictMath.sqrt(disc)) / (2.0 * a);
+        return t0 > 0.0 ? t0 : Double.NaN;
+    }
+
+    /** {@return the visible fraction a piece needs to be reported by the occluded {@code observe}, 0 to 1} */
+    public double getMinVisibleFraction() {
+        return minVisibleFraction;
+    }
+
+    /**
+     * This camera with a different minimum visible fraction for the occluded
+     * {@link #observe(List, double, double, double, CameraOccluders)}: a detector that still finds a ball
+     * when a quarter of it shows wants 0.25. The default is {@link #DEFAULT_MIN_VISIBLE_FRACTION}.
+     *
+     * @param fraction the minimum share of sample rays that must reach the piece, in {@code (0, 1]}
+     * @return a new camera with the same name, lens and mount
+     */
+    public SimCamera withMinVisibleFraction(double fraction) {
+        return new SimCamera(name, lens, mount, fraction);
+    }
+
     /** {@return what {@link #observe} last returned; empty before the first call} */
     public List<CameraSighting> getLastSightings() {
         return lastSightings;
@@ -188,7 +460,8 @@ public final class SimCamera {
      * The point on a horizontal plane that a pixel looks at — the inverse of {@link #observe}'s projection
      * for a point at a known height, in the robot frame. This is the calculation a ground-plane vision
      * pipeline does to turn a detected ball centre into a floor position, so a test can round-trip a
-     * sighting through it and check the result against the piece's true position.
+     * sighting through it and check the result against the piece's true position. A distorted lens is
+     * undistorted first ({@link CameraLens#undistortPixel}), as a calibrated pipeline does.
      *
      * @param centreXPx           the pixel's x, from the left edge
      * @param centreYPx           the pixel's y, from the top edge
@@ -202,8 +475,9 @@ public final class SimCamera {
         requireFinite(centreYPx, "centreYPx");
         requireFinite(pointHeightInches, "pointHeightInches");
         // A ray through the pixel in the optical frame, at unit depth.
-        double xOverZ = (centreXPx - lens.getCentreXPx()) / lens.getFocalXPx();
-        double yOverZ = (centreYPx - lens.getCentreYPx()) / lens.getFocalYPx();
+        double[] normalized = lens.undistortPixel(centreXPx, centreYPx);
+        double xOverZ = normalized[0];
+        double yOverZ = normalized[1];
         double[] rayEnd = mount.opticalToRobot(xOverZ, yOverZ, 1.0);
         double[] rayStart = mount.opticalToRobot(0.0, 0.0, 0.0);
         double dForward = rayEnd[0] - rayStart[0];
@@ -248,7 +522,8 @@ public final class SimCamera {
      *   <li>{@code sightingCount} — int</li>
      *   <li>{@code sightings/pieceIds} — int[]; {@code sightings/kinds} — String[];
      *       {@code sightings/centreXPx}, {@code centreYPx}, {@code radiusPx}, {@code rangeInches} —
-     *       double[]; {@code sightings/clipped} — boolean[]; all index-aligned</li>
+     *       double[]; {@code sightings/clipped} — boolean[]; {@code sightings/visibleFraction} — double[]
+     *       (1 without occluders); all index-aligned</li>
      *   <li>{@code seenPositions3d} — Translation3d[] of the sighted pieces' true positions, metres, for
      *       a <i>Vision Target</i> object on the 3D Field, so a viewer sees which balls the camera saw</li>
      * </ul>
@@ -276,6 +551,7 @@ public final class SimCamera {
         double[] radius = new double[count];
         double[] range = new double[count];
         boolean[] clipped = new boolean[count];
+        double[] visibleFraction = new double[count];
         Translation3d[] seen = new Translation3d[count];
         for (int i = 0; i < count; i++) {
             CameraSighting sighting = lastSightings.get(i);
@@ -286,6 +562,7 @@ public final class SimCamera {
             radius[i] = sighting.getRadiusPx();
             range[i] = sighting.getRangeInches();
             clipped[i] = sighting.isClipped();
+            visibleFraction[i] = sighting.getVisibleFraction();
             GamePiece piece = pieceWithId(pieces, sighting.getPieceId());
             seen[i] = new Translation3d(piece.getFieldXInches() * METRES_PER_INCH,
                     piece.getFieldYInches() * METRES_PER_INCH, piece.getFieldZInches() * METRES_PER_INCH);
@@ -299,6 +576,7 @@ public final class SimCamera {
         Logger.recordOutput(prefix + "/sightings/radiusPx", radius);
         Logger.recordOutput(prefix + "/sightings/rangeInches", range);
         Logger.recordOutput(prefix + "/sightings/clipped", clipped);
+        Logger.recordOutput(prefix + "/sightings/visibleFraction", visibleFraction);
         Logger.recordOutput(prefix + "/seenPositions3d", seen);
     }
 

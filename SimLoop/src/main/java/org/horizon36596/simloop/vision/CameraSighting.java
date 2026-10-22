@@ -21,9 +21,16 @@ public final class CameraSighting {
     private final double radiusPx;
     private final double rangeInches;
     private final boolean clipped;
+    private final double visibleFraction;
 
     CameraSighting(int pieceId, String kind, double centreXPx, double centreYPx, double radiusPx,
             double rangeInches, boolean clipped) {
+        this(pieceId, kind, centreXPx, centreYPx, radiusPx, rangeInches, clipped, 1.0);
+    }
+
+    CameraSighting(int pieceId, String kind, double centreXPx, double centreYPx, double radiusPx,
+            double rangeInches, boolean clipped, double visibleFraction) {
+        this.visibleFraction = visibleFraction;
         this.pieceId = pieceId;
         this.kind = kind;
         this.centreXPx = centreXPx;
@@ -79,9 +86,24 @@ public final class CameraSighting {
         return clipped;
     }
 
+    /**
+     * How much of the piece the camera can see past the occluders, 0 to 1: the share of sample rays
+     * spread over the piece's disc (as the camera sees it) that reach the piece without passing through a
+     * box or a nearer piece. Always 1 from {@link SimCamera#observe(java.util.List, double, double, double)},
+     * which has no occluders; from the overload that takes {@link CameraOccluders} it is the fraction of
+     * {@link SimCamera#OCCLUSION_SAMPLES} rays. The image edge does not count here: that is
+     * {@link #isClipped()}.
+     *
+     * @return the visible fraction, 0 to 1
+     */
+    public double getVisibleFraction() {
+        return visibleFraction;
+    }
+
     @Override
     public String toString() {
         return "CameraSighting(piece " + pieceId + " " + kind + " at (" + centreXPx + ", " + centreYPx
-                + ") r=" + radiusPx + "px range=" + rangeInches + "in" + (clipped ? " clipped" : "") + ")";
+                + ") r=" + radiusPx + "px range=" + rangeInches + "in" + (clipped ? " clipped" : "")
+                + (visibleFraction < 1.0 ? " visible=" + visibleFraction : "") + ")";
     }
 }
