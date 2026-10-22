@@ -82,6 +82,10 @@ theme:
 extra_css:
   - stylesheets/horizon.css
 
+# The one-time alpha notice; its styles are at the end of horizon.css.
+extra_javascript:
+  - javascripts/alpha-notice.js
+
 markdown_extensions:
   - admonition
   - attr_list

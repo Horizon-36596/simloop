@@ -620,3 +620,60 @@ pre,
 .md-typeset .bug > .admonition-title::before {
   background-color: var(--horizon-crimson);
 }
+
+/* --- The one-time alpha notice (javascripts/alpha-notice.js) ----------------
+   A native <dialog>: it traps focus, closes on Escape and returns focus by
+   itself. One filled button, in the sunrise amber, and nothing else coloured. */
+.simloop-alpha-notice {
+  max-width: min(34rem, calc(100vw - 2rem));
+  padding: 1.5rem 1.5rem 1.25rem;
+  border: 1px solid var(--horizon-night-600);
+  border-radius: 0.5rem;
+  background: var(--horizon-night-900);
+  color: var(--horizon-haze-200);
+  font-size: 0.8rem;
+  line-height: 1.6;
+}
+
+.simloop-alpha-notice::backdrop {
+  background: rgba(23, 6, 29, 0.72);
+}
+
+.simloop-alpha-notice h2 {
+  margin: 0 0 0.75rem;
+  color: var(--horizon-haze-50);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.simloop-alpha-notice p {
+  margin: 0 0 0.75rem;
+}
+
+.simloop-alpha-notice a {
+  color: var(--horizon-amber);
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.simloop-alpha-notice__actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1rem;
+}
+
+.simloop-alpha-notice__actions button {
+  padding: 0.45rem 1.1rem;
+  border: 0;
+  border-radius: 0.3rem;
+  background: var(--horizon-amber);
+  color: var(--horizon-night-950);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.simloop-alpha-notice__actions button:focus-visible {
+  outline: 2px solid var(--horizon-haze-50);
+  outline-offset: 2px;
+}
