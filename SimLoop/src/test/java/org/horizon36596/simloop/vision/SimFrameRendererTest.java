@@ -18,6 +18,8 @@ import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ForkJoinPool;
 import java.util.zip.CRC32;
 import java.util.zip.DataFormatException;
 import java.util.zip.Inflater;
@@ -36,9 +38,9 @@ import org.junit.jupiter.api.Test;
  *   <li>a piece is drawn where {@link SimCamera} says it is, about the size it says, through a pinhole or a
  *       distorted lens;</li>
  *   <li>what {@link SimCamera}'s occluded {@code observe} hides (behind a field box, behind the robot's own
- *       body) has no pixels in the frame;</li>
+ *       body, even a box reaching behind the lens) has no pixels in the frame;</li>
  *   <li>a tag is drawn inside the corners {@link SimTagCamera} reports, white border outside them;</li>
- *   <li>frames are deterministic: same inputs, same bytes; sensor noise is seeded;</li>
+ *   <li>frames are deterministic: same inputs, same bytes, on one thread or many; sensor noise is seeded;</li>
  *   <li>the PNG is a valid PNG with the pixels in it, and says it is synthetic.</li>
  * </ol>
  *
@@ -142,6 +144,30 @@ class SimFrameRendererTest {
     }
 
     @Test
+    void aBoxReachingBehindTheLensIsStillDrawnAndStillHides() {
+        // A side plate on the robot from 8 in behind the centre to 20 in ahead, left of the lens: part of it
+        // is behind the lens plane, so its image bounds have to be cut there rather than given up on.
+        ObstacleBox plate = new ObstacleBox("plate", -8.0, 20.0, 3.0, 4.0, 0.0, 20.0);
+        CameraOccluders body = CameraOccluders.of(NONE, Arrays.asList(plate));
+        GamePieceTracker tracker = pieces("red", 24.0, 9.0, "blue", 24.0, -9.0);
+        // A green robot, so the plate's pixels cannot be mistaken for floor or background grey.
+        FrameStyle green = FrameStyle.builder().robot(0x00C000).build();
+        SimFrame frame = SimFrameRenderer.builder(LENS, FRONT).style(green).build()
+                .render(tracker.getPieces(), 0.0, 0.0, 0.0, body, AprilTagLayout.empty());
+        List<CameraSighting> seen = new SimCamera("front", LENS, FRONT).observe(tracker.getPieces(), 0.0, 0.0, 0.0,
+                body);
+        assertEquals(1, seen.size(), "only the blue piece, right of the plate, is seen");
+        assertEquals(1, seen.get(0).getPieceId());
+        assertEquals(0, frame.pixelCountOfPiece(0), "the red piece is behind the plate");
+        assertTrue(frame.pixelCountOfPiece(1) > 0);
+        // The plate covers the image's left edge at mid height.
+        int rgb = frame.getRgb(2, LENS.getHeightPx() / 2);
+        assertTrue(((rgb >> 8) & 0xFF) > 40 && ((rgb >> 16) & 0xFF) < 10 && (rgb & 0xFF) < 10,
+                "plate pixel 0x" + Integer.toHexString(rgb));
+        assertEquals(-1, frame.getPieceIdAt(2, LENS.getHeightPx() / 2));
+    }
+
+    @Test
     void aTagIsDrawnInsideTheCornersSimTagCameraReports() {
         AprilTagLayout layout = AprilTagLayout.builder()
                 .addTag(5, 40.0, 0.0, 6.0, Math.PI, 6.0)
@@ -194,6 +220,17 @@ class SimFrameRendererTest {
         byte[] a = renderer(LENS).render(tracker.getPieces(), 1.0, 2.0, 0.1, boxes, AprilTagLayout.empty()).getRgbBytes();
         byte[] b = renderer(LENS).render(tracker.getPieces(), 1.0, 2.0, 0.1, boxes, AprilTagLayout.empty()).getRgbBytes();
         assertArrayEquals(a, b);
+        // Rows are drawn in parallel; one thread must give the same bytes.
+        ForkJoinPool single = new ForkJoinPool(1);
+        try {
+            byte[] oneThread = single.submit(() -> renderer(LENS).render(tracker.getPieces(), 1.0, 2.0, 0.1, boxes,
+                    AprilTagLayout.empty()).getRgbBytes()).get();
+            assertArrayEquals(a, oneThread);
+        } catch (InterruptedException | ExecutionException e) {
+            throw new AssertionError(e);
+        } finally {
+            single.shutdown();
+        }
 
         SimFrameRenderer noisyA = SimFrameRenderer.builder(LENS, FRONT).style(STYLE).sensorNoise(7, 3.0).build();
         SimFrameRenderer noisyB = SimFrameRenderer.builder(LENS, FRONT).style(STYLE).sensorNoise(7, 3.0).build();

@@ -5,6 +5,7 @@ import org.horizon36596.simloop.field.ObstacleBox;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.IntStream;
 
 /**
  * Draws what a {@link CameraLens} on a {@link CameraMount} would see, as a {@link SimFrame} of RGB pixels,
@@ -36,16 +37,24 @@ import java.util.List;
  *
  * <p><b>Determinism.</b> No clock and no shared random state: the sensor noise of frame {@code k} is a pure
  * function of the seed, {@code k} and the pixel, so the same inputs in the same order give byte-identical
- * frames. One thread; StrictMath for all trigonometry.
+ * frames. StrictMath for all trigonometry. Rows of tiles are drawn in parallel on the common fork-join
+ * pool, but every pixel is a pure function of the scene and writes only its own slots, so the bytes do not
+ * depend on how many threads ran or in what order.
  *
  * <p><b>Cost.</b> Pixels are grouped in 16 x 16 tiles, and each tile only tests the objects whose image
  * bounds overlap it, so the cost is roughly one floor test per ray plus the objects actually near that
- * ray. A 640 x 480 frame of a few dozen objects takes tens of milliseconds on a laptop at
- * {@code supersampling(1)}; keep rendered frames to the tests that need pixels.
+ * ray. A 640 x 480 frame of a few dozen objects takes tens of milliseconds of CPU on a laptop at
+ * {@code supersampling(1)}, spread over its cores; keep rendered frames to the tests that need pixels.
  */
 public final class SimFrameRenderer {
 
     private static final int TILE = 16;
+
+    /**
+     * Where shape bounds are cut, inches in front of the lens. Anything closer than this cannot draw; a box
+     * holding the lens is left out anyway.
+     */
+    private static final double NEAR_PLANE_INCHES = 1e-3;
     /** A tag is pulled this far toward the camera so one mounted on a box face is drawn, not the face. */
     private static final double TAG_DEPTH_BIAS_INCHES = 0.02;
 
@@ -175,58 +184,63 @@ public final class SimFrameRenderer {
         Scene scene = new Scene(robotXInches, robotYInches, cos, sin);
         buildShapes(scene, pieces, boxes, tags);
 
-        int n = supersampling;
         int pixels = width * height;
         byte[] rgb = new byte[pixels * 3];
         int[] pieceIds = new int[pixels];
         int[] tagIds = new int[pixels];
         long frame = framesRendered++;
+        int frameKey = noiseSeed ^ mix((int) frame ^ mix((int) (frame >>> 32)));
+        // One row of tiles per task. Each task traces with its own copy of the scene's per-ray state.
+        IntStream.range(0, tilesY).parallel().forEach(ty -> renderTileRow(new Scene(scene), ty, frameKey,
+                rgb, pieceIds, tagIds));
+        return new SimFrame(width, height, frame, rgb, pieceIds, tagIds);
+    }
+
+    /** Draws one row of tiles into the frame's arrays; touches only that row's pixels. */
+    private void renderTileRow(Scene scene, int ty, int frameKey, byte[] rgb, int[] pieceIds, int[] tagIds) {
+        int n = supersampling;
         Hit hit = new Hit();
         double[] colour = new double[3];
-
-        for (int ty = 0; ty < tilesY; ty++) {
-            for (int tx = 0; tx < tilesX; tx++) {
-                int tile = ty * tilesX + tx;
-                Shape[] candidates = scene.candidatesFor(tileBounds, tile);
-                int x1 = Math.min(width, (tx + 1) * TILE);
-                int y1 = Math.min(height, (ty + 1) * TILE);
-                for (int y = ty * TILE; y < y1; y++) {
-                    for (int x = tx * TILE; x < x1; x++) {
-                        int p = y * width + x;
-                        trace(scene, candidates, centreRayX[p], centreRayY[p], hit);
-                        pieceIds[p] = hit.pieceId;
-                        tagIds[p] = hit.tagId;
-                        double r;
-                        double g;
-                        double bl;
-                        if (n == 1) {
+        for (int tx = 0; tx < tilesX; tx++) {
+            int tile = ty * tilesX + tx;
+            Shape[] candidates = scene.candidatesFor(tileBounds, tile);
+            int x1 = Math.min(width, (tx + 1) * TILE);
+            int y1 = Math.min(height, (ty + 1) * TILE);
+            for (int y = ty * TILE; y < y1; y++) {
+                for (int x = tx * TILE; x < x1; x++) {
+                    int p = y * width + x;
+                    trace(scene, candidates, centreRayX[p], centreRayY[p], hit);
+                    pieceIds[p] = hit.pieceId;
+                    tagIds[p] = hit.tagId;
+                    double r;
+                    double g;
+                    double bl;
+                    if (n == 1) {
+                        shade(scene, hit, colour);
+                        r = colour[0];
+                        g = colour[1];
+                        bl = colour[2];
+                    } else {
+                        r = 0.0;
+                        g = 0.0;
+                        bl = 0.0;
+                        for (int s = p * n * n, end = s + n * n; s < end; s++) {
+                            trace(scene, candidates, subRayX[s], subRayY[s], hit);
                             shade(scene, hit, colour);
-                            r = colour[0];
-                            g = colour[1];
-                            bl = colour[2];
-                        } else {
-                            r = 0.0;
-                            g = 0.0;
-                            bl = 0.0;
-                            for (int s = p * n * n, end = s + n * n; s < end; s++) {
-                                trace(scene, candidates, subRayX[s], subRayY[s], hit);
-                                shade(scene, hit, colour);
-                                r += colour[0];
-                                g += colour[1];
-                                bl += colour[2];
-                            }
-                            r /= n * n;
-                            g /= n * n;
-                            bl /= n * n;
+                            r += colour[0];
+                            g += colour[1];
+                            bl += colour[2];
                         }
-                        rgb[3 * p] = toByte(r * gain + noise(frame, p, 0));
-                        rgb[3 * p + 1] = toByte(g * gain + noise(frame, p, 1));
-                        rgb[3 * p + 2] = toByte(bl * gain + noise(frame, p, 2));
+                        r /= n * n;
+                        g /= n * n;
+                        bl /= n * n;
                     }
+                    rgb[3 * p] = toByte(r * gain + noise(frameKey, p, 0));
+                    rgb[3 * p + 1] = toByte(g * gain + noise(frameKey, p, 1));
+                    rgb[3 * p + 2] = toByte(bl * gain + noise(frameKey, p, 2));
                 }
             }
         }
-        return new SimFrame(width, height, frame, rgb, pieceIds, tagIds);
     }
 
     /** {@return how many frames this renderer has drawn} */
@@ -270,6 +284,19 @@ public final class SimFrameRenderer {
         double rdy;
         double rdz;
 
+        /** A copy for another thread: the same pose and shapes, its own per-ray state. */
+        Scene(Scene shared) {
+            this.robotX = shared.robotX;
+            this.robotY = shared.robotY;
+            this.cos = shared.cos;
+            this.sin = shared.sin;
+            this.lensField = shared.lensField;
+            this.axisXField = shared.axisXField;
+            this.axisYField = shared.axisYField;
+            this.axisZField = shared.axisZField;
+            this.shapes.addAll(shared.shapes);
+        }
+
         Scene(double robotX, double robotY, double cos, double sin) {
             this.robotX = robotX;
             this.robotY = robotY;
@@ -290,40 +317,62 @@ public final class SimFrameRenderer {
             return new double[] {robot[0] * cos - robot[1] * sin, robot[0] * sin + robot[1] * cos, robot[2]};
         }
 
-        /** A field point in normalised image coordinates, or null when it is not in front of the lens. */
-        double[] normalised(double x, double y, double z) {
-            double dx = x - lensField[0];
-            double dy = y - lensField[1];
-            double dz = z - lensField[2];
-            double ox = dx * axisXField[0] + dy * axisXField[1] + dz * axisXField[2];
-            double oy = dx * axisYField[0] + dy * axisYField[1] + dz * axisYField[2];
-            double oz = dx * axisZField[0] + dy * axisZField[1] + dz * axisZField[2];
-            if (oz <= 1e-6) {
-                return null;
-            }
-            return new double[] {ox / oz, oy / oz};
-        }
-
-        /** Sets a shape's image bounds from field points; unbounded when any is not in front of the lens. */
+        /**
+         * Sets a shape's image bounds from field points whose convex hull holds it. The hull is cut at
+         * {@link #NEAR_PLANE_INCHES} in front of the lens first: the points in front, plus where each segment
+         * between a point in front and one behind crosses that plane (the segments between every pair
+         * include the hull's edges, so the bound stays conservative). A shape wholly behind the plane gets
+         * empty bounds and is never tested; a ray cannot hit it.
+         */
         void bound(Shape shape, double[][] fieldPoints) {
+            int n = fieldPoints.length;
+            double[][] optical = new double[n][];
+            for (int i = 0; i < n; i++) {
+                optical[i] = toOptical(fieldPoints[i]);
+            }
             double minX = Double.POSITIVE_INFINITY;
             double maxX = Double.NEGATIVE_INFINITY;
             double minY = Double.POSITIVE_INFINITY;
             double maxY = Double.NEGATIVE_INFINITY;
-            for (double[] point : fieldPoints) {
-                double[] q = normalised(point[0], point[1], point[2]);
-                if (q == null) {
-                    return;                                 // leave the shape unbounded
+            for (int i = 0; i < n; i++) {
+                double[] a = optical[i];
+                if (a[2] < NEAR_PLANE_INCHES) {
+                    continue;
                 }
-                minX = Math.min(minX, q[0]);
-                maxX = Math.max(maxX, q[0]);
-                minY = Math.min(minY, q[1]);
-                maxY = Math.max(maxY, q[1]);
+                minX = Math.min(minX, a[0] / a[2]);
+                maxX = Math.max(maxX, a[0] / a[2]);
+                minY = Math.min(minY, a[1] / a[2]);
+                maxY = Math.max(maxY, a[1] / a[2]);
+                for (int j = 0; j < n; j++) {
+                    double[] b = optical[j];
+                    if (b[2] >= NEAR_PLANE_INCHES) {
+                        continue;
+                    }
+                    double s = (a[2] - NEAR_PLANE_INCHES) / (a[2] - b[2]);
+                    double x = (a[0] + s * (b[0] - a[0])) / NEAR_PLANE_INCHES;
+                    double y = (a[1] + s * (b[1] - a[1])) / NEAR_PLANE_INCHES;
+                    minX = Math.min(minX, x);
+                    maxX = Math.max(maxX, x);
+                    minY = Math.min(minY, y);
+                    maxY = Math.max(maxY, y);
+                }
             }
+            // Wholly behind the plane: the infinities left here overlap no tile.
             shape.minX = minX;
             shape.maxX = maxX;
             shape.minY = minY;
             shape.maxY = maxY;
+        }
+
+        /** A field point in the optical frame, inches: {@code +x} image right, {@code +y} down, {@code +z} ahead. */
+        double[] toOptical(double[] p) {
+            double dx = p[0] - lensField[0];
+            double dy = p[1] - lensField[1];
+            double dz = p[2] - lensField[2];
+            return new double[] {
+                    dx * axisXField[0] + dy * axisXField[1] + dz * axisXField[2],
+                    dx * axisYField[0] + dy * axisYField[1] + dz * axisYField[2],
+                    dx * axisZField[0] + dy * axisZField[1] + dz * axisZField[2]};
         }
 
         Shape[] candidatesFor(double[] bounds, int tile) {
@@ -704,15 +753,36 @@ public final class SimFrameRenderer {
 
     // ------------------------------------------------------------------------------------------- sensor
 
-    /** Zero-mean Gaussian sensor noise for one channel of one pixel of one frame, counts; 0 with noise off. */
-    private double noise(long frame, int pixel, int channel) {
+    /** Entries in {@link #STANDARD_NORMAL}: a power of two, so a hash's top bits index it. */
+    private static final int NORMAL_TABLE_BITS = 16;
+
+    /**
+     * Standard-normal samples (mean 0, standard deviation 1), fixed at class load by Box-Muller over a hashed
+     * counter. Looking one up per channel costs a hash and an array read; computing Box-Muller per channel with
+     * {@link StrictMath} cost about 0.25 microseconds, which at 640 x 400 x 3 channels was most of a frame.
+     */
+    private static final float[] STANDARD_NORMAL = new float[1 << NORMAL_TABLE_BITS];
+
+    static {
+        for (int i = 0; i < STANDARD_NORMAL.length; i++) {
+            double u1 = ((mix(i * 2 + 1) >>> 8) + 1) / 16777217.0;   // (0, 1]: log is finite
+            double u2 = (mix(i * 2 + 2) >>> 8) / 16777216.0;
+            STANDARD_NORMAL[i] = (float) (StrictMath.sqrt(-2.0 * StrictMath.log(u1))
+                    * StrictMath.cos(2.0 * Math.PI * u2));
+        }
+    }
+
+    /**
+     * Zero-mean Gaussian sensor noise for one channel of one pixel of one frame, counts; 0 with noise off.
+     *
+     * @param frameKey the seed and frame number hashed together, once per frame
+     */
+    private double noise(int frameKey, int pixel, int channel) {
         if (noiseStdDevCounts == 0.0) {
             return 0.0;
         }
-        int key = mix(noiseSeed ^ mix((int) frame ^ mix((int) (frame >>> 32))) ^ mix(pixel * 3 + channel));
-        double u1 = ((mix(key) >>> 8) + 1) / 16777217.0;   // (0, 1]: log is finite
-        double u2 = (mix(key ^ 0x5BD1E995) >>> 8) / 16777216.0;
-        return noiseStdDevCounts * StrictMath.sqrt(-2.0 * StrictMath.log(u1)) * StrictMath.cos(2.0 * Math.PI * u2);
+        int key = mix(frameKey ^ mix(pixel * 3 + channel));
+        return noiseStdDevCounts * STANDARD_NORMAL[key >>> (32 - NORMAL_TABLE_BITS)];
     }
 
     /**
