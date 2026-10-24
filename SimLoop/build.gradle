@@ -395,11 +395,18 @@ tasks.register('checkDocsVersion') {
 
 // `--strict` turns a broken internal link into a failed build. A documentation site's most common defect
 // is a link that goes nowhere, and it is invisible to everyone except the reader who followed it.
+tasks.register('checkDocExamples', Exec) {
+    group = 'documentation'
+    description = 'Checks that the complete tutorial example matches its compiled test source.'
+    workingDir projectDir
+    commandLine 'python', 'docs-tools/check-examples.py'
+}
+
 tasks.register('mkdocsBuild', Exec) {
     group = 'documentation'
     description = 'Renders the markdown pages. Needs, in this directory: pip install -r docs-requirements.txt'
 
-    dependsOn 'checkDocsVersion'
+    dependsOn 'checkDocsVersion', 'checkDocExamples'
 
     workingDir projectDir
     commandLine 'python', '-m', 'mkdocs', 'build', '-f', 'mkdocs.yml', '--strict'

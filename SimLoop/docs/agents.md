@@ -34,7 +34,7 @@ Horizon uses **Claude Code**; its paths are the ones the team has exercised most
 | `skills/` | Four procedures — write a sim test, add a mechanism, debug a failing sim, review sim code. Written for any agent; drop into `.claude/skills/` unmodified. |
 | `prompts/` | Copy-paste starting points, including one for learning and one for auditing your tests before a competition. |
 | `pointers/` | One-line files for the tools that need a nudge, and for a project that already has its own instructions file. They point at `AGENTS.md` rather than copying it. |
-| `token-savers.md` | Spending less. Techniques first, because they are free and work better than the tools. |
+| `token-savers.md` | Ways to keep context focused and compare usage without assuming fixed savings. |
 
 ## The rules an agent gets wrong
 

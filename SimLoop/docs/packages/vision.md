@@ -110,6 +110,10 @@ CameraOccluders blockers = CameraOccluders.of(
 List<CameraSighting> seen = camera.observe(tracker.getPieces(), x, y, heading, blockers);
 ```
 
+`CameraOccluders` copies both lists. Robot-frame boxes turn with the chassis, but an arm's joint
+motion does not update them automatically. Build new occluders when a mechanism or field structure
+changes shape or position.
+
 Each piece gets 19 rays spread over its disc. `getVisibleFraction()` is the share not blocked by a box or
 a nearer piece, and a piece below `getMinVisibleFraction()` (default 0.5, `withMinVisibleFraction(...)`
 to change) is not reported. The four-argument `observe` keeps the old rule: nothing but other pieces'

@@ -128,7 +128,7 @@ nav:
   - Working with AI agents:
       - Using SimLoop with an AI agent: agents.md
   - API reference:
-      - Every class, method and field: javadoc.md
+      - Every class, method and field: api-reference.md
   - Help:
       - Troubleshooting: troubleshooting.md
       - Reporting a bug: support.md

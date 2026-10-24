@@ -3,8 +3,9 @@
 `org.horizon36596.simloop.sim.live`, and the separate module `SimLoop/desktop/`
 (`org.horizon36596.simloop.desktop`)
 
-Drive the simulated robot from your laptop keyboard in real time, record exactly what you pressed, and
-replay that recording headless to the same log, bit for bit.
+Drive the simulated robot from your laptop keyboard, record the input for each tick, and replay it
+headless to reproduce the robot-authored log values. Compare decoded values with `RlogDecodedCompare`;
+raw RLOG bytes and PsiKit's writer metadata need not match.
 
 ## What you use
 

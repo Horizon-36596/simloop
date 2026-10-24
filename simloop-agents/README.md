@@ -83,7 +83,7 @@ agent has loaded both the SimLoop guidance and your robot-specific instructions.
 | [`skills/`](skills) | Four procedures: write a sim test, add a mechanism, debug a failing sim, review sim code. Written for any agent; drop straight into `.claude/skills/` unmodified. |
 | [`prompts/`](prompts/README.md) | Copy-paste starting points, including one for learning and one for auditing your tests before a competition. |
 | [`pointers/`](pointers) | One-line files for the tools that need a nudge, and for a project that already has its own instructions file. Deliberately thin — they point at the one copy rather than duplicating it. |
-| [`token-savers.md`](token-savers.md) | Spending less. Techniques first, because they are free and work better than the tools. |
+| [`token-savers.md`](token-savers.md) | Ways to keep context focused and compare usage without assuming fixed savings. |
 
 ## One thing you will need that is not in here
 

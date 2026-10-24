@@ -189,12 +189,10 @@ the path is `/simloop`. It was renamed from `SimLoop` on 2026-09-19 for exactly 
 tag existed — which also moved the published coordinate to `com.github.Horizon-36596:simloop`, since
 JitPack takes the artifact id straight from the repository name.
 
-> **Steps 1 and 4 are done.** Both were done on 2026-09-19 and neither needs doing again. The two that
-> remain — **2** and **3** — are the DNS record and the custom domain, and they are the two nobody but a
-> human with the domain's credentials can do. Until they are done, both sites are already live at
-> GitHub's own addresses: <https://horizon-36596.github.io/> and
-> <https://horizon-36596.github.io/simloop/>. Steps 2 and 3 move them onto `libraries.horizon36596.org`;
-> they do not turn them on.
+The landing repository was created on 2026-09-19. Check the current DNS, Pages settings and latest
+deployment before repeating setup steps. On 2026-10-24 the custom domain answered, but `/simloop/`
+and `/simloop/javadoc/` returned HTTP 404 while this repository was private. The source and a successful
+local build do not establish that the project site is deployed.
 
 **1. Create the landing repository.** ✅ **Done 2026-09-19** — `Horizon-36596/Horizon-36596.github.io`,
 public, with the landing page at its root and Pages serving `main` / `(root)`. The name is not a choice:
@@ -289,12 +287,14 @@ and depends on your registrar. Both are waiting, not failure.
   If this one fails, nothing below it can work — the domain is not attached yet. The github.io addresses
   keep working throughout; they are the same site, and comparing the two is how you tell a DNS problem
   from a site problem.
-- `https://libraries.horizon36596.org/simloop/` loads the documentation site. A 404 here with the landing
-  page working means either the tag has not been pushed, or a custom domain got set on this repository
-  after all.
+- `https://libraries.horizon36596.org/simloop/` loads the documentation site. If the landing page works
+  but this path returns 404, check this repository's Pages configuration, visibility, workflow result
+  and published artifact. Also confirm that no separate custom domain is set on this project site.
 - The footer of every page reads the version you just tagged.
-- `https://libraries.horizon36596.org/simloop/javadoc/` loads the API reference. If the site loads and
-  this 404s, the `docsSite` task did not run — the deploy published a bare `mkdocs build` from somewhere.
+- `https://libraries.horizon36596.org/simloop/api-reference/` loads the API guide page, and its button
+  opens `https://libraries.horizon36596.org/simloop/javadoc/`. Check that both routes exist in the
+  artifact. If only Javadoc is missing, verify that the deployment used `docsSite`, which copies it,
+  rather than MkDocs alone.
 
 ## What a Maven Central release would additionally need
 
