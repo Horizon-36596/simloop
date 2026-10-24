@@ -33,7 +33,7 @@ reference before calling them; the published alpha coordinate above does not con
 | [Packages overview](packages/index.md) | Which package does what and how they connect. | Choosing where a thing lives. |
 | [`fakehardware`](packages/fakehardware.md) | Fake SDK 12.0 devices and `FakeHardwareMap`: motors with the hub's closed loops, servos, IMU, Pinpoint, OTOS, Limelight 3A, touch, distance and colour sensors. Ticks, volts, `[-1, 1]` power; millimetres and radians on the odometry seam. | Wiring hardware into a test. |
 | [`plant`](packages/plant.md) | First-order mechanism and drivetrain models: time constant, max speed, end stops, gravity fraction. Drivetrain pose is in the **localizer frame**: +x forward, +y left, CCW-positive. | Modelling motion, or explaining a response. |
-| [`config`](packages/config.md) | The interfaces the season implements. Full unit table per method. The two defaults that quietly lie. | Writing a robot's sim config. |
+| [`config`](packages/config.md) | Configuration interfaces and units; strafe-speed and mounting-sign defaults to check against the robot. | Writing a robot's sim config. |
 | [`sim`](packages/sim.md) | `FakeTimer`, `ScenarioRunner`, `RlogDecodedCompare`. The four reasons a run refuses to return a log. | Running a scenario, or diagnosing a thrown run. |
 | [`opmode`](packages/opmode.md) | `OpModeRunner`: an unchanged `OpMode` or `LinearOpMode` through INIT, the loop and STOP, with scripted gamepads and recorded telemetry. | Testing an OpMode as written. |
 | [`simclock`](packages/simclock.md) | How `OpModeRunner.forTeamClass` moves a team's own `ElapsedTime`, `sleep` and `System.nanoTime()` onto sim time, and what it cannot move. | Timer code that reads the real clock. |

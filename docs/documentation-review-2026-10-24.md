@@ -30,10 +30,16 @@ that those classes resolve from the pinned alpha coordinate.
   its generated-reference link to work under the site's `/simloop/` path.
 - Added a documentation-build check that compares the complete slide tutorial with its compiled
   example, so changes cannot leave an older snippet behind unnoticed.
+- Corrected hardware/model explanations: the fake motor advances its own shaft without a plant,
+  scripted sensor setters act immediately, the time constant describes velocity and gravity can be zero.
+- Replaced the zero-test success claim with a test-report check, scoped variant/log ownership advice
+  to the starter, and removed stale no-tag and untested-JDK claims from the publishing guide.
+- Corrected complete-site preview instructions: MkDocs alone does not serve the copied Javadoc.
 
 ## Verification
 
-- `:SimLoop:docsSite --offline` passes, including strict MkDocs, version check and API doclint.
+- `:SimLoop:docsSite --offline` passes with the pinned Material 9.7.7, including strict MkDocs,
+  version check, example check and API doclint.
 - The documented slide example passes: one test, no failures, errors or skips.
 - Its RLOG was decoded with `RlogTimeSeries`: 150 frames, final position 11.999820053 in, peak
   13.150056536 in. These pass the tutorial's 0.25 in final tolerance and 14 in peak bound.
@@ -43,6 +49,7 @@ that those classes resolve from the pinned alpha coordinate.
   targets. The API and slide-log pages were rendered in Chrome with no page overflow. Exact final
   link counts are recorded in the PR.
 - The tutorial source checker passes on the guide and fails on a copy with one changed tick count.
+- Three existing tests pass for shaft integration, immediate touch readings and the 63% velocity response.
 - The repository leak gate passes all 10 rules, including the added plot and CSV.
 
 The plot describes simulated values from the example's placeholder model, not measured robot motion.
@@ -62,3 +69,8 @@ Live retrieval on 2026-10-24 returned HTTP 404 from both
 was private at that check. The README no longer claims the site is live, and publishing instructions
 now check Pages settings, repository visibility, workflow status and the actual artifact before
 diagnosing a 404. This patch does not publish the site or change repository visibility.
+
+JitPack's alpha build-status endpoint returned `ok` for `9116406` with JDK 17, and its served POM
+returned HTTP 200 on the same day. The POM lists `RobotCore`, `Hardware` and PsiKit `core` at compile
+scope, with no PsiKit `ftc` dependency. Existing hosted metadata works even though the source was
+private at this check; it does not establish that a future tag can build or that the docs are deployed.

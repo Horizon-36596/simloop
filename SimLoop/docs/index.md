@@ -57,13 +57,12 @@ that does not exist. [What it does not do](limits.md) is the page that matters m
 
 ## The idea in one paragraph
 
-A real robot loop reads hardware, decides, and writes hardware, fifty times a second. SimLoop replaces
-only the hardware: `FakeMotor` really is a `DcMotorEx`, `FakeHardwareMap` really is a `HardwareMap`, so
-your code cannot tell the difference and does not have to be modified to be tested. Behind each fake sits
-a **plant** — a small, parameterized model of how that piece of the robot actually moves. Your season's
-numbers reach those plants through the `config` interfaces, which is the one-way seam: SimLoop never
-imports your package. A run is driven by `ScenarioRunner`, which owns the clock and writes the log, and
-the log is what you assert on afterwards.
+A robot loop reads hardware, decides, and writes hardware. SimLoop supplies SDK-compatible fakes:
+`FakeMotor` implements `DcMotorEx`, and `FakeHardwareMap` extends `HardwareMap`. Robot code using the
+supported methods can run against those devices. **Plants** model mechanism and drivetrain motion;
+your test wires their state into sensors and supplies your robot's parameters through `config`
+interfaces. SimLoop never imports your team's package. `ScenarioRunner` owns the fixed clock and
+logging session, and your test asserts on the resulting log.
 
 ## What is in it
 
