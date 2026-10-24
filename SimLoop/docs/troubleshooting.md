@@ -1,7 +1,7 @@
 # Troubleshooting
 
-Every failure on this page has been seen for real. They are here because each one *reads* like a bug in
-your robot code and is not.
+Start with the error message or symptom below. Check the build setup, clock and log path before
+changing your robot code.
 
 ## `Could not find org.psilynx.psikit:core`
 
@@ -50,12 +50,14 @@ Check the order inside your scenario body. It must be: read state, decide, comma
 
 ## Two runs of the same scenario produce different logs
 
-Something on a sim path is reading a wall clock. `System.nanoTime()`, `System.currentTimeMillis()`, and
-anything built on them — `ElapsedTime` is the usual one, because it is `System.nanoTime()` underneath and
-looks innocent.
+First check for wall-clock reads: `System.nanoTime()`, `System.currentTimeMillis()`, and timers built
+on them, including the SDK's `ElapsedTime`. Also check unseeded randomness, iteration order, shared
+static state, and concurrent tests writing to the same log path.
 
 Everything sim-side must take its time from the `FakeTimer` you constructed. `RlogDecodedCompare` is what
-tells you the two runs differ and in which field.
+tells you the two runs differ and in which field. Use the
+[OpMode runner](packages/opmode.md) for supported timer rewriting in unchanged team classes, or
+[inject sim time](sim-safe-timers.md) into code you control.
 
 ## The run threw, and the message is about the RLOG rather than my robot
 

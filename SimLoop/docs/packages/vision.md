@@ -2,6 +2,12 @@
 
 `org.horizon36596.simloop.vision`
 
+!!! note "Development APIs"
+    Distortion, `CameraOccluders`, tilted tags and synthetic frames were added after the
+    `v0.2.0-alpha.1` tag. The pinned alpha does not contain them. Use documentation from the tag you
+    install; for development work, pin the exact source commit you tested. See
+    [Installing it](../getting-started.md).
+
 A simulated camera on the robot, at two levels:
 
 - **Geometry.** Which game pieces and AprilTags fall inside the image and where, as numbers. Through a
@@ -33,6 +39,17 @@ A simulated camera on the robot, at two levels:
 `FakeLimelight3A` in [`fakehardware`](fakehardware.md) is built on `SimTagCamera`, so a Limelight and a
 plain camera share one description.
 
+### Choose the output your test needs
+
+| What you are testing | Use | What the test receives |
+|---|---|---|
+| Projection, tracking or tag transforms | `SimCamera` or `SimTagCamera` | Sightings and geometry, without rendering pixels |
+| Code that calls the SDK's Limelight API | `FakeLimelight3A` | SDK result objects, with configured latency, noise and dropouts |
+| A colour or contour processor | `SimFrameRenderer` | RGB or RGBA bytes and per-pixel ground truth |
+
+Use the geometry APIs when pixels are not part of the code under test. Synthetic tag patterns are
+not decodable AprilTags; use tag sightings or the Limelight fake for tag-result handling.
+
 ## How it is used
 
 From `src/test/java/org/horizon36596/simloop/vision/SimCameraTest.java`: a 70 degree, 640 x 400 camera,
@@ -52,12 +69,18 @@ List<CameraSighting> seen = camera.observe(tracker.getPieces(), 0.0, 0.0, 0.0);
 camera.record("Vision", tracker.getPieces());   // logs the camera pose and the sightings
 ```
 
-To check a pipeline's floor projection, put a sighting's centre pixel back on the floor and compare with
-the piece's true position:
+To check a pipeline's projection, intersect the sighting's centre ray with the plane through the
+piece's centre. The last argument is that plane's height above the floor in inches; for a ball resting
+on the floor, it is the ball's radius. A frame can contain no sightings, so check the list first:
 
 ```java
-CameraSighting s = seen.get(0);
-RobotFramePoint p = camera.groundPointInRobotFrame(s.getCentreXPx(), s.getCentreYPx(), 1.4);  // ball radius, in
+if (!seen.isEmpty()) {
+    CameraSighting s = seen.get(0);
+    RobotFramePoint p = camera.groundPointInRobotFrame(
+            s.getCentreXPx(), s.getCentreYPx(), 1.4); // centre-plane height, inches
+    // p can be null if the ray does not reach the plane.
+    // Otherwise compare it with the true position in the ROBOT frame, not the field frame.
+}
 ```
 
 ### A distorted lens
@@ -110,6 +133,10 @@ List<TagSighting> notBehindTheArm = tags.observe(layout, robotX, robotY, robotHe
 
 ### Synthetic frames for a pixel pipeline
 
+This fragment assumes you already have a tracker, robot pose, blockers, tag layout and processor.
+Your test must provide OpenCV and load its native library before creating a `Mat`. SimLoop does not
+install OpenCV or create a `VisionPortal`.
+
 ```java
 SimFrameRenderer renderer = SimFrameRenderer.builder(lens, front)
         .style(FrameStyle.builder()
@@ -123,11 +150,28 @@ SimFrameRenderer renderer = SimFrameRenderer.builder(lens, front)
 SimFrame frame = renderer.render(tracker.getPieces(), x, y, heading, blockers, layout);
 
 // Your real processor, unchanged. SimLoop has no OpenCV dependency; your test has it.
+// Initialise once per processor, outside the frame loop. null is suitable only if your processor
+// does not use CameraCalibration; otherwise supply the calibration it expects.
+processor.init(frame.getWidthPx(), frame.getHeightPx(), null);
+
+// For each frame; captureTimeNanos comes from your simulated capture clock, in nanoseconds.
 Mat rgb = new Mat(frame.getHeightPx(), frame.getWidthPx(), CvType.CV_8UC3);
-rgb.put(0, 0, frame.getRgbBytes());                  // getRgbaBytes() for CV_8UC4
-processor.init(frame.getWidthPx(), frame.getHeightPx(), null);   // once
-processor.processFrame(rgb, captureTimeNanos);
+try {
+    rgb.put(0, 0, frame.getRgbBytes());
+    processor.processFrame(rgb, captureTimeNanos);
+    // Read and assert the processor's detections here, before releasing the input.
+} finally {
+    rgb.release();
+}
 ```
+
+The bytes are **RGB**, not BGR. Use `getRgbaBytes()` with `CV_8UC4` for a processor that expects RGBA,
+or convert explicitly for one that expects BGR. Match the channel order used by your robot's pipeline.
+Call `init` once, then `processFrame` for each capture; reinitialising per frame can erase tracking state.
+
+Seeded noise also depends on the renderer's frame counter. To repeat a sequence byte for byte, create
+a fresh renderer with the same seed and render the same scenes in the same order. Two consecutive
+frames from one noisy renderer need not have identical pixels.
 
 `SimFrame.getPieceIdAt(x, y)`, `pixelCountOfPiece(id)` and `centroidOfPiece(id)` are ground truth for
 checking what the detector found. `writePng(out)` saves a frame; the PNG carries a comment saying it is
