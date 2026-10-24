@@ -11,9 +11,8 @@ No robot, no Driver Station, no emulator. A test run is a few seconds.
 
 ## What you open
 
-Run SimLoop from your robot project's tests or simulation harness. **AdvantageScope opens in its
-own window** to display the simulation's logs and visualizations. The standalone app being built
-around SimLoop is not ready and is not included in this release.
+Run SimLoop from your robot project's tests or simulation harness, then **open the log it writes in
+AdvantageScope**, in its own window, to see the run.
 
 !!! warning "Status: alpha"
     `v0.2.0-alpha.1` is the current release and the first public alpha. The API may change between
