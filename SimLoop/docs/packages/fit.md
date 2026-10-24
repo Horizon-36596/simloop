@@ -73,6 +73,10 @@ clean R squared and meaningless values. `Result.warnings()` flags that: a condit
 (`MAX_CONDITION_NUMBER`), or a standard error above 10% of the value (`MAX_RELATIVE_STANDARD_ERROR`). `isTrustworthy()` is true only when
 there are none.
 
+That flag covers the fit's diagnostics. It does not establish that a first-order model represents
+your mechanism or that it predicts a separate real-robot run. Compare against another recording
+before using the fitted constants as a model of the robot.
+
 Data where the driver drove open-loop, the controller saturated, or the setpoint changed separates the
 parameters. Give the fit that.
 

@@ -1,6 +1,7 @@
 # Installing it
 
-There are two ways in, and the first one is three steps.
+Copy the starter folder to add SimLoop to an FTC project. The manual setup below explains the same
+build settings if you want to maintain them yourself.
 
 !!! warning "Your project must be on FTC SDK 12.0"
     SimLoop `v0.2.0-alpha.1` is built against **FTC SDK 12.0.0**, and the earlier beta was built against
@@ -14,10 +15,13 @@ There are two ways in, and the first one is three steps.
 
 ## What you need first
 
-- **Java 17 or newer** to run Gradle. Android Studio ships one.
+- **A JDK compatible with your project's Gradle wrapper.** Java 17 is the baseline for this build;
+  Android Studio includes a JDK, but its version must still match what your wrapper supports.
 - **An FTC SDK 12.0 project.** `RobotCore` and `Hardware` at `12.0.0`.
+- **The Android SDK required by that project**, installed and configured for Gradle. A plain JVM test
+  still builds through the Android Gradle Plugin; it does not need an Android emulator.
 
-That is the whole list. You do **not** need to clone this repository, and you do not need SolversLib,
+You do **not** need to clone this repository, and you do not need SolversLib,
 Pedro Pathing, Road Runner, FTC Dashboard or Robolectric. SimLoop depends on none of them.
 
 ### Why SDK 12.0
@@ -30,7 +34,7 @@ your robot runs. Update the project first.
 
 ## The three-step way: copy the starter folder
 
-[`simloop-starter/`](https://github.com/Horizon-36596/simloop/tree/main/simloop-starter) is one folder
+[`simloop-starter/`](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.1/simloop-starter) is one folder
 that carries every build setting SimLoop needs, plus a small example robot that drives itself.
 
 1. **Copy the folder** into the root of your FTC project, beside `TeamCode/` and `FtcRobotController/`.
@@ -46,16 +50,20 @@ that carries every build setting SimLoop needs, plus a small example robot that 
     ./gradlew :TeamCode:testDebugUnitTest
     ```
 
-Two tests run and pass in a few seconds, with no robot and no Driver Station. That is the example robot
-driving itself in simulation.
+The two starter tests should pass without a robot or Driver Station. On the first run, Gradle may
+need to download dependencies or wait for JitPack to build the pinned tag. Later runs use the cache.
+
+Copy the starter from the same tag as the dependency it declares. The repository's `main` branch can
+contain examples for APIs that have not been released. After the starter passes, add a test for your
+own robot; passing the example checks the installation, not your robot's configuration or physics.
 
 !!! tip "Why a folder and not a quickstart repository"
     A team starts its season in one repository. A folder you drop into that repository needs no merge,
     and removing it is deleting the folder and one line.
 
-The starter's own [README](https://github.com/Horizon-36596/simloop/tree/main/simloop-starter#readme)
-says what is in it, and [Your first simulated test](first-test.md) walks through the same code line by
-line.
+The starter's own [README](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.1/simloop-starter#readme)
+says what is in it. [Your first simulated test](first-test.md) walks through a separate slide example,
+including the clock, plant, log and assertions.
 
 ## The manual way: what the starter folder is actually doing
 
@@ -82,9 +90,8 @@ repositories {
 
 !!! note "Why the Dairy line is not optional"
     SimLoop depends on PsiKit, and PsiKit is not on Maven Central. A POM can tell your build **what** a
-    dependency is, but never **where** to find it — that is always the consumer's repository list. Leave
-    the Dairy line out and resolution fails with `Could not find org.psilynx.psikit:core`, which reads
-    like SimLoop is broken and is not.
+    dependency is; Gradle resolves it from your project's repository list. Without the Dairy line,
+    resolution fails with `Could not find org.psilynx.psikit:core`.
 
 ### The dependency
 
@@ -116,18 +123,16 @@ it belongs on the robot, and this scope is what keeps it out of the APK.
 
 !!! warning "The version string includes the `v`"
     JitPack's version **is** the git tag, letter for letter. The tag is `v0.2.0-alpha.1`, so the version is
-    `v0.2.0-alpha.1`. Ask for `0.2.0-alpha.1` and resolution fails with `Could not find`, which reads like a
-    missing library rather than a missing letter.
+    `v0.2.0-alpha.1`. Omitting the `v` requests a different version and can fail with `Could not find`.
 
-!!! tip "That `junit-platform-launcher` line is not padding"
-    Gradle 8 put the JUnit Platform launcher on the test runtime classpath for you. Gradle 9 stopped. On
-    Gradle 9 without it, every test in the module fails before a single one runs, with
-    `Failed to load JUnit Platform`, which reads like a broken module rather than a build-tool change.
+!!! tip "Declare the JUnit Platform launcher"
+    Gradle 9 removed the implicit test-framework dependencies that older Gradle builds could rely on.
+    Declare the launcher explicitly to avoid `Failed to load JUnit Platform`. See
+    [Gradle's test-runtime dependency guidance](https://docs.gradle.org/current/userguide/java_testing.html#sec:test_execution).
 
-### The unit-test setting that is not a preference
+### Avoid two test variants writing the same log
 
-The starter also turns off the **release** unit-test variant, and this one is worth understanding before
-you decide to leave it out:
+The starter turns off the **release** unit-test variant:
 
 ```groovy
 androidComponents {
@@ -137,27 +142,22 @@ androidComponents {
 }
 ```
 
-By default Android gives every build type its own unit-test task, so `./gradlew test` runs
-`testDebugUnitTest` **and** `testReleaseUnitTest` in two separate JVMs sharing one working directory.
-Every SimLoop scenario writes a log file into `build/sim/`, so two processes end up opening the same
-file: on Windows the second delete fails while the first JVM holds the handle and both append, and on
-Linux the delete succeeds and one JVM asserts on a truncated file.
+Android creates unit-test tasks for each build type. `./gradlew test` can run both debug and release
+tasks, potentially in separate JVMs. The starter examples use fixed paths in `build/sim/`; two tasks
+writing the same path can corrupt or truncate a log, or fail to delete an open file.
 
-The symptom is a determinism test failing with garbage that looks exactly like a determinism bug and is
-not one — intermittently at first, then every time. `:TeamCode:testDebugUnitTest` stays green throughout,
-so the two commands disagree and the one CI runs is the one that fails.
-
-Turning the release unit tests off is safe because unit tests are variant-independent: both variants
-compile the same sources against the same dependencies, and no minification is applied to unit tests.
+The starter needs only the debug tests. If your project has variant-specific code or dependencies
+and needs both variants tested, keep both enabled and give each variant distinct log paths. Also
+avoid overlapping runs of the same scenario. A test that passes alone but fails alongside another
+writer is a reason to check file ownership before changing the model.
 
 ### Which scope SimLoop's own dependencies arrive at
 
-SimLoop declares the FTC SDK (`RobotCore`, `Hardware`) and PsiKit as `api`, not `implementation`, so they
-land on **your compile classpath** too. That is deliberate and not negotiable: SimLoop's public types are
-SDK types — `FakeMotor` **is** a `DcMotorEx`, `FakeHardwareMap` **is** a `HardwareMap` — and you cannot
-so much as name the type you got back without the SDK in front of you.
+SimLoop declares the FTC SDK (`RobotCore`, `Hardware`) and PsiKit core as `api`, so those dependencies
+reach **your test compile classpath** too. Public signatures expose SDK types; PsiKit core is also
+available so your scenario can call `Logger.recordOutput(...)` without declaring a second version.
 
-Those three are the whole dependency list. SimLoop pulls in nothing else.
+Those are SimLoop's three direct dependencies; they can bring transitive dependencies of their own.
 
 ### Two test settings some fakes need
 
@@ -178,10 +178,10 @@ dependencies {
 Without the first, `new RevHubOrientationOnRobot(...)` throws "not mocked". Without the second, every
 fake Limelight result is empty or throws.
 
-## Building it yourself (works today)
+## Building it yourself
 
-This is the route that works before a tag exists, and it is also how you would test a change to SimLoop
-itself before tagging it. It is the only route that needs a clone.
+Clone the source to test an unreleased change or build APIs absent from the published tag. Run from
+the repository root:
 
 ```powershell
 ./gradlew :SimLoop:publishToMavenLocal
@@ -211,17 +211,17 @@ dependencies {
     `com.github.Horizon-36596`, the artifact becomes the repository name `simloop`, and the version is
     the tag verbatim — so a JitPack dependency is spelled `com.github.Horizon-36596:simloop:v0.2.0-alpha.1`.
 
-    Use whichever matches the repository you are pulling from. Mixing them up fails with
-    `Could not find`, which reads like a missing library rather than a wrong spelling.
+    Use the coordinate for the repository you are resolving from.
 
 ## Checking it worked
 
-If you copied the starter folder, the example tests are the check. If you wired it by hand, this tells
-you your test sourceset runs at all:
+If you copied the starter folder, confirm that both example tests ran and passed. If you wired the
+build by hand, add the [first simulated test](first-test.md), then run:
 
 ```powershell
 ./gradlew :TeamCode:testDebugUnitTest
 ```
 
-A green run with zero tests means the wiring is right and you have not written one yet. That is exactly
-where [Your first simulated test](first-test.md) picks up.
+A successful task with zero tests does not verify the installation. Check the test report and test
+source path; after adding the slide example, the report must show `SlideReachesTargetExampleTest`.
+Open `TeamCode/build/reports/tests/testDebugUnitTest/index.html` for the per-test results.

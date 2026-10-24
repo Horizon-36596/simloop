@@ -12,8 +12,8 @@ If you try it, you are testing it. Reports help most where this page says "not y
 - **Your code runs unchanged.** One team's season code runs its OpModes, autos and TeleOp under the
   runner, along with the example robot in the starter folder. The library's own suite is about
   1,200 tests.
-- **The same run gives the same log.** Every run is repeated in the tests and the two logs are compared
-  field by field.
+- **Replay determinism.** Replay tests repeat scenarios and compare decoded robot-authored fields.
+  This checks the scenarios covered by those tests, not every possible consuming robot program.
 - **The fakes match the FTC SDK.** Every fake device is checked against the SDK 12.0 class it stands in
   for. The Pinpoint and OTOS fakes run the SDK's own drivers on emulated registers.
 - **Installing from JitPack.** The starter folder was copied into one fresh FTC project, which resolved

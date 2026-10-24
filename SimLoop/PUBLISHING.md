@@ -15,9 +15,9 @@ Central. The build wiring this describes lives at the bottom of `SimLoop/build.g
 
 **JitPack ignores every one of those first three values and derives its own.** The group becomes
 `com.github.<owner>`, the artifact becomes the **repository** name, and the version is the git tag
-verbatim, leading `v` included. So a consumer writes `com.github.Horizon-36596:simloop:v0.2.0-alpha.1`
-while the POM inside says `org.horizon36596:SimLoop:0.2.0-alpha.1`, and both are correct at once — the
-declared values are what `publishToMavenLocal` and any future Maven Central release use.
+verbatim, leading `v` included. A consumer writes `com.github.Horizon-36596:simloop:v0.2.0-alpha.1`;
+JitPack's served POM uses that coordinate too. The declared `org.horizon36596:SimLoop:0.2.0-alpha.1`
+coordinate belongs to `publishToMavenLocal` and a possible Maven Central publication.
 
 That is JitPack's **single-module** spelling, and this build gets it because `jitpack.yml` installs
 exactly one module. A build that published two would get the **multi-module** spelling,
@@ -58,10 +58,9 @@ except where a row says it was overtaken.
 | `EnvelopeGuardrails` guardrail names | `withinBound`, `loopTimeUnderBudget` and `safeStopAtEnd` now embed their thresholds in `Guardrail.name()`. Any persisted last-best score from an earlier version will read as a different envelope in `Gate` and must be re-baselined. Non-finite and negative thresholds are now rejected at construction. |
 | `RunResult.fromRlog` | `RealOutputs/Console` and `RealOutputs/Logger/QueuedCycles` are no longer scoreable, so `keys()` and `frames()` no longer contain them. |
 
-`SimLoop/build.gradle` is the only place the version is *authoritative*, but it is not the only place
-it is written: `README.md`'s install snippet, the coordinates table above and the verification note
-below all quote it, and none of them is generated. Step 2 of the checklist below exists because of
-that — a bump that misses the README leaves teams copying a version that was never tagged.
+`SimLoop/build.gradle` declares the source version. Installation snippets, the starter, agent guides
+and the site footer repeat it. Review all current-version references during a release; keep references
+to older tags where they explain compatibility or historical checks.
 
 ## Cutting a release
 
@@ -69,24 +68,24 @@ that — a bump that misses the README leaves teams copying a version that was n
    Then `./gradlew :SimLoop:apiDocs`, which must report **zero warnings**: the API reference is published
    and read by people and agents who have nothing else, so a missing unit is a release defect there in a
    way it is not in an IDE.
-2. **Bump** `version` in `SimLoop/build.gradle`, **and the two copies of it**: `README.md`'s install
-   snippet, and the `copyright:` line in `SimLoop/mkdocs.yml`, which is the version stamped in the footer
-   of every documentation page. None of the three is linked to the others; see the note above.
-   `Select-String -Path SimLoop\README.md,SimLoop\mkdocs.yml -Pattern '0\.2\.0-alpha\.1'` finds them.
+2. **Update the approved version** in `SimLoop/build.gradle` and its current-version references.
+   Search the root and module READMEs, `SimLoop/docs/`, `SimLoop/mkdocs.yml`, `simloop-starter/` and
+   `simloop-agents/`. Review each match rather than replacing historical tags blindly. Run
+   `./gradlew :SimLoop:docsSite`; its version check verifies the footer, and its example check verifies
+   the first-test snippet. These checks do not replace reviewing installation coordinates.
 3. **Verify the artifact locally before anyone can consume it** — the section below says how, and it is
    the part people skip.
 4. **Commit, tag, push the tag.** The tag is the version, e.g. `v0.2.0-alpha.1`.
 5. **Build that tag on JitPack yourself, and read the log**, at
-   `https://jitpack.io/#Horizon-36596/simloop`. This is a gate, not a warm-up, and until it has passed
-   once nobody should be given the coordinate. Two specific things can only be learned here:
+   `https://jitpack.io/#Horizon-36596/simloop`. Before giving teams a new coordinate, verify:
    - **Whether the coordinate is right at all.** JitPack derives the artifact id from the module, and
      the only way to be certain which spelling it serves is to see it serve one.
-   - **Whether JitPack's environment builds it at all.** `jitpack.yml` pins `openjdk17` because the
-     Android Gradle Plugin requires it and JitPack's default is older. That pin has never been exercised
-     by a real JitPack build; the first tag is what exercises it.
+   - **Whether JitPack's environment builds the tag.** `jitpack.yml` pins `openjdk17`. Check the new
+     build's log rather than assuming a local build proves the hosted environment works.
 
-   The repository is public, which is what JitPack's free tier requires - it does not build private
-   repositories.
+   Check repository visibility and JitPack access before relying on a new hosted build. GitHub reported
+   this repository as private on 2026-10-24; its historical public setting is not its current state.
+   The owner decides any visibility or hosting change separately.
 6. **Tell the teams the coordinate and the two repository lines**, not just the coordinate. The
    PsiKit one is the thing that bites — see below.
 
@@ -100,9 +99,9 @@ Tagging and pushing leave the machine, so they are a human's call, not an agent'
 
 writes the AAR, the sources jar, the POM and the Gradle module metadata into `~/.m2/repository/`.
 
-Then check the POM lists **RobotCore, Hardware, psikit-core and psikit-ftc at `compile` scope**. If any
-of them says `runtime`, someone changed an `api` back to `implementation` and consumers will not be
-able to name the types they are handed.
+Then check the POM lists **`RobotCore`, `Hardware` and PsiKit `core` at `compile` scope**. The current
+build does not depend on PsiKit `ftc`. If a required dependency moves to `runtime`, a consumer can
+lose the SDK types or logging API it needs while compiling tests.
 
 The real check is to compile something against it from outside this repo: a throwaway Android library
 module whose only declared dependency is `org.horizon36596:SimLoop:<version>`, with `mavenLocal()`
@@ -119,6 +118,12 @@ Logger.recordOutput("Demo/time", 0.0);  // names a PsiKit type, same reason
 That was run for `0.1.0-beta1` and passed, and the same project with the dependencies switched back to
 `implementation` failed with `cannot access HardwareMap` — the scope claim above is measured, not
 assumed.
+
+On 2026-10-24, JitPack's [alpha build-status API](https://jitpack.io/api/builds/com.github.Horizon-36596/simloop/v0.2.0-alpha.1)
+reported `ok` for tag commit `9116406` with JDK 17. Its
+[served POM](https://jitpack.io/com/github/Horizon-36596/simloop/v0.2.0-alpha.1/simloop-v0.2.0-alpha.1.pom)
+returned HTTP 200 and listed those three dependencies at compile scope. This confirms the existing
+tag's hosted metadata; it does not validate unpublished source or guarantee a future build's access.
 
 ## Why the library is a subproject and not the root project
 
@@ -163,11 +168,10 @@ publishes, and drops the API reference inside the site at `/javadoc/`. It writes
 pip install -r SimLoop/docs-requirements.txt
 ```
 
-`.github/workflows/docs-publish.yml` publishes it on a `v*` tag. No tag has been cut, so it has never
-run, and four settings still have to exist before a deployment can succeed - three of them in a
-different repository, because the site is served under a shared domain. The CI job in
-`test.yml` builds the site on every push and keeps it as a downloadable artifact regardless, so a break
-in the site is caught by the push that causes it rather than by a release.
+`.github/workflows/docs-publish.yml` is configured to publish on a `v*` tag. Existing tags do not prove
+that the workflow deployed successfully; check its latest run and the actual site. The settings below
+span this repository and the shared-domain landing repository. The `test.yml` workflow also builds the
+site and uploads an artifact without deploying it.
 
 ### Turning it on — four steps, all of them a human's
 
@@ -189,12 +193,10 @@ the path is `/simloop`. It was renamed from `SimLoop` on 2026-09-19 for exactly 
 tag existed — which also moved the published coordinate to `com.github.Horizon-36596:simloop`, since
 JitPack takes the artifact id straight from the repository name.
 
-> **Steps 1 and 4 are done.** Both were done on 2026-09-19 and neither needs doing again. The two that
-> remain — **2** and **3** — are the DNS record and the custom domain, and they are the two nobody but a
-> human with the domain's credentials can do. Until they are done, both sites are already live at
-> GitHub's own addresses: <https://horizon-36596.github.io/> and
-> <https://horizon-36596.github.io/simloop/>. Steps 2 and 3 move them onto `libraries.horizon36596.org`;
-> they do not turn them on.
+The landing repository was created on 2026-09-19. Check the current DNS, Pages settings and latest
+deployment before repeating setup steps. On 2026-10-24 the custom domain answered, but `/simloop/`
+and `/simloop/javadoc/` returned HTTP 404 while this repository was private. The source and a successful
+local build do not establish that the project site is deployed.
 
 **1. Create the landing repository.** ✅ **Done 2026-09-19** — `Horizon-36596/Horizon-36596.github.io`,
 public, with the landing page at its root and Pages serving `main` / `(root)`. The name is not a choice:
@@ -289,12 +291,14 @@ and depends on your registrar. Both are waiting, not failure.
   If this one fails, nothing below it can work — the domain is not attached yet. The github.io addresses
   keep working throughout; they are the same site, and comparing the two is how you tell a DNS problem
   from a site problem.
-- `https://libraries.horizon36596.org/simloop/` loads the documentation site. A 404 here with the landing
-  page working means either the tag has not been pushed, or a custom domain got set on this repository
-  after all.
+- `https://libraries.horizon36596.org/simloop/` loads the documentation site. If the landing page works
+  but this path returns 404, check this repository's Pages configuration, visibility, workflow result
+  and published artifact. Also confirm that no separate custom domain is set on this project site.
 - The footer of every page reads the version you just tagged.
-- `https://libraries.horizon36596.org/simloop/javadoc/` loads the API reference. If the site loads and
-  this 404s, the `docsSite` task did not run — the deploy published a bare `mkdocs build` from somewhere.
+- `https://libraries.horizon36596.org/simloop/api-reference/` loads the API guide page, and its button
+  opens `https://libraries.horizon36596.org/simloop/javadoc/`. Check that both routes exist in the
+  artifact. If only Javadoc is missing, verify that the deployment used `docsSite`, which copies it,
+  rather than MkDocs alone.
 
 ## What a Maven Central release would additionally need
 
@@ -318,7 +322,8 @@ Not done, and not needed for an alpha with a handful of teams. For when it is:
   build, which is also why there is nothing to keep in sync.
 - A `repositories { maven { url = ...; credentials { ... } } }` block, with credentials read from an
   environment variable or `~/.gradle/gradle.properties` and never from a file in the repository.
-- Releases become **immutable**. An alpha tag can be re-cut after a mistake; a Central version cannot.
+- Central versions are **immutable**. Treat published alpha tags as immutable too: correct a mistake
+  with a new version so cached artifacts and source keep referring to the same code.
 
 The POM already carries everything else Central validates — name, description, url, licence, developer
 and SCM — so this is a known and bounded list, not an unknown.
@@ -339,19 +344,17 @@ file assumes.
   `v<version>` is what declares a commit usable, and everything downstream reacts to it. No workflow
   creates a tag. This is the same rule root `CLAUDE.md` applies to push, PR and merge — the act that
   leaves the machine is a human's.
-- **The repository is public, and the documentation site is bound to that.** Made public on 2026-09-17;
-  the site goes public with the code or not at all, so there is deliberately no separate repository
-  holding the built site and no paid JitPack plan. What is still not true is that anything has been
-  *released*: until a `v*` tag exists, the JitPack coordinate resolves for nobody and
-  `publishToMavenLocal` is the only route that works. That is stated wherever it matters rather than
-  papered over.
+- **The original plan tied the documentation site to public source.** The repository was made public
+  on 2026-09-17, but GitHub reported it as private on 2026-10-24, when the docs routes returned 404.
+  Published tags now exist and the alpha's JitPack metadata is available. Check current access before
+  the next release; do not infer visibility, publication or artifact access from the original plan.
 - **The library is a Gradle subproject of a repository that holds only it.** The reasoning is above,
-  under "Why the library is a subproject and not the root project"; the short version is that
-  flattening the layout would rename the published artifact.
+  under "Why the library is a subproject and not the root project". Publishing one module is what
+  preserves the JitPack artifact name; the directory name alone does not determine it.
 - **Documentation is not versioned** until the library is past alpha. One site, no version selector, with
   the version stamped on every page.
-- **Bugs go to GitHub Issues, questions to GitHub Discussions,** both on `Horizon-36596/simloop`. Both
-  are public and leave a record the next person with the same problem can find.
+- **Bugs go to GitHub Issues, questions to GitHub Discussions,** both on `Horizon-36596/simloop`.
+  Access follows the repository's current visibility and permissions.
 
 ### Settled on 2026-09-17: the package and the Maven group
 

@@ -2,9 +2,9 @@
 
 `org.horizon36596.simloop.fakehardware`
 
-Fake devices that implement the **real** FTC SDK 12.0 interfaces. Your robot code resolves them from a
-`FakeHardwareMap` by the same config name it uses on the robot, and cannot tell the difference. That is
-why your code does not have to be modified to be tested.
+Fake devices implement FTC SDK 12.0 interfaces. Your robot code resolves them from a
+`FakeHardwareMap` by the same config name it uses on the robot. Code that uses the supported SDK
+methods can run unchanged; the models and unsupported calls are described below.
 
 ## What you use
 
@@ -158,8 +158,9 @@ counts for a game piece must be measured on the real sensor.
 
 ## Two things worth knowing
 
-**State changes only in `update`.** Every getter is a pure read. That is what makes a tick reproducible:
-nothing moves because you looked at it.
+**Getters do not advance the model.** Motion and source-driven sensor readings advance in `update`.
+Commands and scripted setters can change state immediately: for example, `setPressed(true)` changes
+the touch reading without waiting for another tick.
 
 **Sim-only accessors are marked as such.** Methods like `FakeMotor.getPhysicalPositionTicks()` and
 `FakeCRServo.getPhysicalPower()` report the simulation's truth rather than what the device would report.
@@ -167,9 +168,9 @@ They are useful in a test and do not exist on real hardware, so never wire seaso
 
 ## What this package will not do
 
-- **It will not move a mechanism.** A fake on its own only remembers what it was told. The motion is in
-  [`plant`](plant.md). A `FakeMotor` in open loop with no plant behind it reports a position that never
-  changes.
+- **A motor shaft is not a whole mechanism.** `FakeMotor` integrates its own shaft speed and encoder
+  position when updated, even without a plant. Use [`plant`](plant.md) to model a mechanism's motion,
+  geometry and load rather than treating the unloaded shaft as the mechanism.
 - **No generic I2C peripherals.** `FakeI2cDeviceSynchSimple` models the bus *configuration* a driver's
   constructor performs. Every read and write **throws**, on purpose: there is no peripheral behind the
   bus. The Pinpoint and OTOS fakes emulate their own register files instead.

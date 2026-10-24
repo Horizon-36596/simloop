@@ -9,6 +9,12 @@ score automatically.
 
 No robot, no Driver Station, no emulator. A test run is a few seconds.
 
+## What you open
+
+Run SimLoop from your robot project's tests or simulation harness. **AdvantageScope opens in its
+own window** to display the simulation's logs and visualizations. The standalone app being built
+around SimLoop is not ready and is not included in this release.
+
 !!! warning "Status: alpha"
     `v0.2.0-alpha.1` is the current release and the first public alpha. The API may change between
     alpha versions, so **pin the exact version** in your build. It needs **FTC SDK 12.0**. Questions go
@@ -21,6 +27,11 @@ No robot, no Driver Station, no emulator. A test run is a few seconds.
     what has not.
 
 [Every feature](features.md) lists what it does, one line each.
+
+!!! note "Match the docs to your dependency"
+    Source branches can include changes newer than the published tag. For a build pinned to
+    `v0.2.0-alpha.1`, use the
+    [docs at that tag](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.1/SimLoop/docs).
 
 ## The fastest way in
 
@@ -52,13 +63,12 @@ that does not exist. [What it does not do](limits.md) is the page that matters m
 
 ## The idea in one paragraph
 
-A real robot loop reads hardware, decides, and writes hardware, fifty times a second. SimLoop replaces
-only the hardware: `FakeMotor` really is a `DcMotorEx`, `FakeHardwareMap` really is a `HardwareMap`, so
-your code cannot tell the difference and does not have to be modified to be tested. Behind each fake sits
-a **plant** — a small, parameterized model of how that piece of the robot actually moves. Your season's
-numbers reach those plants through the `config` interfaces, which is the one-way seam: SimLoop never
-imports your package. A run is driven by `ScenarioRunner`, which owns the clock and writes the log, and
-the log is what you assert on afterwards.
+A robot loop reads hardware, decides, and writes hardware. SimLoop supplies SDK-compatible fakes:
+`FakeMotor` implements `DcMotorEx`, and `FakeHardwareMap` extends `HardwareMap`. Robot code using the
+supported methods can run against those devices. **Plants** model mechanism and drivetrain motion;
+your test wires their state into sensors and supplies your robot's parameters through `config`
+interfaces. SimLoop never imports your team's package. `ScenarioRunner` owns the fixed clock and
+logging session, and your test asserts on the resulting log.
 
 ## What is in it
 
@@ -88,10 +98,11 @@ These are enforced by tests in the module, not by good intentions.
 - **No season imports.** No file in `org.horizon36596.simloop` imports `org.firstinspires.ftc.teamcode`.
   Season facts arrive through the `config` interfaces.
 - **Depends only on** the FTC SDK 12.0 and PsiKit. No SolversLib, no follower library.
-- **Deterministic.** No wall-clock reads on any sim path. `update(deltaTime)` mutates state; getters are
-  pure reads.
-- **The fakes replicate real device semantics exactly** — every method of the interface, including the
-  ones nobody calls, behaving the way the hardware does.
+- **Deterministic model time.** Plants advance from the supplied `deltaTime`; getters are pure reads.
+  I/O waits and live pacing do not advance that clock. Robot code must use sim time too.
+- **SDK-facing fakes.** Robot code uses FTC SDK types. The fake devices implement their state and
+  control interfaces; readings come from the simulation model. See the
+  [hardware guide](packages/fakehardware.md) for behavior and limits.
 
 ## Help build SimLoop
 

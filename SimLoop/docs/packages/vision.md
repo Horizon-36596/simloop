@@ -22,6 +22,16 @@ which pixel is which point on the floor, tracking, and pose from tags.
 `FakeLimelight3A` in [`fakehardware`](fakehardware.md) is built on `SimTagCamera`, so a Limelight and a
 plain camera share one description.
 
+### Choose the output your test needs
+
+| What you are testing | Use | What the test receives |
+|---|---|---|
+| Projection, tracking or tag transforms | `SimCamera` or `SimTagCamera` | Sightings and geometry, without rendering pixels |
+| Code that calls the SDK's Limelight API | `FakeLimelight3A` | SDK result objects with configured latency and seeded noise |
+
+These APIs return geometry, not camera frames. Use tag sightings or the Limelight fake to test
+code that consumes tag results.
+
 ## How it is used
 
 From `src/test/java/org/horizon36596/simloop/vision/SimCameraTest.java`: a 70 degree, 640 x 400 camera,
@@ -41,12 +51,18 @@ List<CameraSighting> seen = camera.observe(tracker.getPieces(), 0.0, 0.0, 0.0);
 camera.record("Vision", tracker.getPieces());   // logs the camera pose and the sightings
 ```
 
-To check a pipeline's floor projection, put a sighting's centre pixel back on the floor and compare with
-the piece's true position:
+To check a pipeline's projection, intersect the sighting's centre ray with the plane through the
+piece's centre. The last argument is that plane's height above the floor in inches; for a ball resting
+on the floor, it is the ball's radius. A frame can contain no sightings, so check the list first:
 
 ```java
-CameraSighting s = seen.get(0);
-RobotFramePoint p = camera.groundPointInRobotFrame(s.getCentreXPx(), s.getCentreYPx(), 1.4);  // ball radius, in
+if (!seen.isEmpty()) {
+    CameraSighting s = seen.get(0);
+    RobotFramePoint p = camera.groundPointInRobotFrame(
+            s.getCentreXPx(), s.getCentreYPx(), 1.4); // centre-plane height, inches
+    // p can be null if the ray does not reach the plane.
+    // Otherwise compare it with the true position in the ROBOT frame, not the field frame.
+}
 ```
 
 For tags, build a layout from numbers you are entitled to use, then a `SimTagCamera` with a range window,
@@ -87,7 +103,7 @@ which rule failed.
 
 ## What this package will not do
 
-- **It will not render an image.** And synthetic frames must never be used to tune colour thresholds.
+- **It will not render an image.** This version supplies geometry rather than pixels.
 - **No lens distortion.** An ideal pinhole.
 - **No roll.** The image's horizontal stays level with the floor.
 - **Most things do not block the view.** The robot's own body, field structures (unless given to

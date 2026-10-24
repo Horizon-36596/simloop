@@ -523,9 +523,13 @@ pre,
   max-width: none;
 }
 
+/* Keep article gutters when removing the desktop reading measure. Material's mobile code blocks
+   extend into them, so dropping the margins would also widen the page beyond the viewport. */
 @media screen and (max-width: 76.1875em) {
   .md-content__inner {
     max-width: none;
+    margin-left: 0.8rem;
+    margin-right: 0.8rem;
   }
 }
 

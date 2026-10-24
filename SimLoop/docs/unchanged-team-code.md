@@ -12,11 +12,11 @@ You need to know how to write a JUnit test and what `ElapsedTime` is, and your b
 
 A SimLoop test has its own clock, the **sim clock**. It moves forward one tick at a time, usually 20 ms,
 the length of one loop on a Control Hub. Motors, mechanisms and the robot's position all follow the sim
-clock. Your laptop runs a tick in well under a millisecond, so the sim clock races ahead of real time.
+clock. A tick's wall-clock duration depends on the work it does and the laptop running it.
 
-That is good (a 30 second auto takes a fraction of a second), but it breaks code that reads the **real**
-clock. A plain `new ElapsedTime()` measures laptop time, so "wait 500 ms" lasts 500 ms of laptop time, which
-is hundreds of sim ticks, and a different number every run.
+Code that reads the **real** clock therefore measures a different duration from the simulation.
+A plain `new ElapsedTime()` measures laptop time: "wait 500 ms" can span a different number of sim
+ticks on each run.
 
 `OpModeRunner.forTeamClass(...)` fixes this. It loads your classes in a special way so that every clock
 call in them reads the sim clock instead.
@@ -298,7 +298,8 @@ should be compiled for Java 8. Rebuild, and if it still fails, report it with th
 
 Yes, for your own code: the same OpMode, gamepad script and fake hardware give the same telemetry, the same
 motor positions and an RLOG that decodes to the same values every time, however fast or slow the computer
-is. A 10 second `sleep` takes a few milliseconds of real time. The exceptions are the things listed under
+is. A rewritten `sleep` advances by sim ticks rather than waiting for its duration on the laptop.
+The exceptions are the things listed under
 [What does not change](#what-does-not-change): `getRuntime()` in telemetry, the real date and time, and any
 library outside your team packages that reads the clock, such as Pedro Pathing under the default packages.
 The RLOG's raw bytes differ from run to run, because PsiKit logs its own writer queue

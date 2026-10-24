@@ -7,10 +7,10 @@ directly: `OpModeRunner.forTeamClass(...)` in [`opmode`](opmode.md) uses it for 
 
 ## Why it exists
 
-A sim tick simulates 20 ms and takes well under a millisecond of laptop time. Code that reads the laptop's
-clock (`new ElapsedTime()`, `System.nanoTime()`, `Thread.sleep`) therefore waits far too long in sim time,
-and a different amount every run. This package loads your classes so those calls read the sim clock
-instead.
+A default tick advances 20 ms of simulated time, regardless of how long it takes on the laptop.
+Code that reads the laptop's clock (`new ElapsedTime()`, `System.nanoTime()`) or waits with
+`Thread.sleep` can therefore behave differently between runs. This package loads your team's classes
+with supported clock reads and sleeps rewritten to use sim time.
 
 ## How you use it
 

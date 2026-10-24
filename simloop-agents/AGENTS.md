@@ -1,9 +1,8 @@
 # AGENTS.md — this project uses SimLoop
 
-Instructions for an AI coding agent working in this repository. Written in the open `AGENTS.md` format,
-which Cursor, Codex, Gemini CLI, Copilot's coding agent, Zed, Windsurf, Jules, Junie and Aider read from
-the repository root without being told to. Claude Code reads it too when the project has no
-`CLAUDE.md`; if yours does, one import line in it points here — see `simloop-agents/pointers/`.
+Instructions for an AI coding agent working in this repository, in the `AGENTS.md` format.
+Check how your tool loads project instructions and confirm that this file is included. The
+`simloop-agents/pointers/` folder has files for tools and projects that need an explicit pointer.
 
 Everything above the last heading is about **SimLoop**, the simulation library this project tests with,
 and is the same in every project. The last section is about your robot and is yours to fill in.
@@ -135,7 +134,8 @@ a specific subsystem, the answer is a config implementation on this side, not a 
 
 ## The whole public surface
 
-Thirteen packages. Complete as of `v0.2.0-alpha.1`. Every feature, one line each:
+Thirteen packages in the current source tree. Check this project's pinned tag or source revision
+before using a type below. Every feature, one line each:
 <https://libraries.horizon36596.org/simloop/features/>.
 
 | Package | Classes | What it is for |
@@ -144,7 +144,7 @@ Thirteen packages. Complete as of `v0.2.0-alpha.1`. Every feature, one line each
 | `plant` | `Mechanism1DofPlant`, `MultiDofMechanismPlant`, `PositionalServoPlant`, `OneDofPlant`, `MecanumDrivePlant`, `MecanumPoseIntegrator` | The physics behind the motors and servos. First-order models: time constant, max speed, end stops, gravity fraction. Not rigid-body. |
 | `config` | `SimRobotConfig`, `MechanismSimConfig`, `DrivetrainSimConfig`, `PositionalServoSimConfig`, `ContinuousRotationSimConfig` | The interfaces this project implements to describe its own robot. The only way facts get in. |
 | `sim` | `FakeTimer`, `ScenarioRunner`, `RlogDecodedCompare`, `SimElapsedTime` | Running a scenario and writing the log. `SimElapsedTime` is an SDK `ElapsedTime` on sim time. |
-| `sim.live` | `GamepadInputSource`, `GamepadInputGate`, `GamepadInputTrack`, `GamepadState`, `KeyboardGamepadSource`, `RecordingGamepadInputSource`, `RealTimePacer` | Keyboard driving, recorded gamepad tracks, replay to the same log. The keyboard window is an unpublished module. |
+| `sim.live` | `GamepadInputSource`, `GamepadInputGate`, `GamepadInputTrack`, `GamepadState`, `KeyboardGamepadSource`, `RecordingGamepadInputSource`, `RealTimePacer` | Keyboard driving, recorded gamepad tracks, replay to the same log. The optional `desktop` classifier supplies a keyboard-input helper. |
 | `opmode` | `OpModeRunner`, `OpModeRunResult`, `GamepadScript`, `OpModePhase`, `RecordingTelemetry`, `OpModeException` | Running this project's `OpMode` or `LinearOpMode` unchanged through INIT, the loop and STOP. |
 | `simclock` | `SimClockLoader`, `SimClockElapsedTime`, `SimClockHooks`, `SimClockScheduler`, `JvmInstructions` | Used by `OpModeRunner.forTeamClass(...)` to move this project's own timer calls onto sim time. Not called directly. |
 | `field` | `GamePiece`, `GamePieceTracker`, `PossessionState`, `TriggerVolume`, `FieldFrameTransform`, `FieldWorld`, `GamePiecePhysicsConfig`, `ObstacleBox`, `ScoringVolume`, `KinematicBody`, `HingeDynamics`, `BodyCell`, `ConvexShape`, `RobotShape`, `OrientedBox`, `StaticRobot`, `FootprintContact`, `RobotContact`, `SeededRandom` | Game pieces with possession and physics, goals, field structures, robot contact. Intaking is still a box test. |
