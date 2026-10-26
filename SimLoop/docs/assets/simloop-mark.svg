@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="SimLoop">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#230F28"/><stop offset="1" stop-color="#18071E"/></linearGradient>
+    <linearGradient id="slg" gradientUnits="userSpaceOnUse" x1="2043" y1="0" x2="3031" y2="0"><stop offset="0" stop-color="#ffcb5c"/><stop offset=".5" stop-color="#f86a43"/><stop offset="1" stop-color="#b13848"/></linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="113" fill="url(#bg)"/>
+  <g transform="translate(256 256) scale(0.43) translate(-2537 -480)">
+    <path d="M2537 480L2635.14 355.93A200 200 0 1 1 2635.14 604.07L2438.86 355.93A200 200 0 1 0 2438.86 604.07Z" fill="none" stroke="url(#slg)" stroke-width="78" stroke-linejoin="round"/>
+  </g>
+</svg>
