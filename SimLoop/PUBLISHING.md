@@ -83,9 +83,8 @@ to older tags where they explain compatibility or historical checks.
    - **Whether JitPack's environment builds the tag.** `jitpack.yml` pins `openjdk17`. Check the new
      build's log rather than assuming a local build proves the hosted environment works.
 
-   Check repository visibility and JitPack access before relying on a new hosted build. GitHub reported
-   this repository as private on 2026-10-24; its historical public setting is not its current state.
-   The owner decides any visibility or hosting change separately.
+   Check repository visibility and JitPack access before relying on a new hosted build. The owner
+   decides any visibility or hosting change separately.
 6. **Tell the teams the coordinate and the two repository lines**, not just the coordinate. The
    PsiKit one is the thing that bites — see below.
 
@@ -194,9 +193,8 @@ tag existed — which also moved the published coordinate to `com.github.Horizon
 JitPack takes the artifact id straight from the repository name.
 
 The landing repository was created on 2026-09-19. Check the current DNS, Pages settings and latest
-deployment before repeating setup steps. On 2026-10-24 the custom domain answered, but `/simloop/`
-and `/simloop/javadoc/` returned HTTP 404 while this repository was private. The source and a successful
-local build do not establish that the project site is deployed.
+deployment before repeating setup steps. A successful local build does not show that the project
+site is deployed.
 
 **1. Create the landing repository.** ✅ **Done 2026-09-19** — `Horizon-36596/Horizon-36596.github.io`,
 public, with the landing page at its root and Pages serving `main` / `(root)`. The name is not a choice:
@@ -344,11 +342,9 @@ file assumes.
   `v<version>` is what declares a commit usable, and everything downstream reacts to it. No workflow
   creates a tag. This is the same rule root `CLAUDE.md` applies to push, PR and merge — the act that
   leaves the machine is a human's.
-- **The original plan tied the documentation site to public source.** The repository was made public
-  on 2026-09-17, but GitHub reported it as private on 2026-10-24, when the docs routes returned 404.
-  Published tags now exist and the alpha's JitPack metadata is available. Check current access before
+- **The original plan tied the documentation site to public source.** Published tags now exist and the alpha's JitPack metadata is available. Check current access before
   the next release; do not infer visibility, publication or artifact access from the original plan.
-- **The library is a Gradle subproject of a repository that holds only it.** The reasoning is above,
+- **The library is a Gradle subproject, not the root project.** The reasoning is above,
   under "Why the library is a subproject and not the root project". Publishing one module is what
   preserves the JitPack artifact name; the directory name alone does not determine it.
 - **Documentation is not versioned** until the library is past alpha. One site, no version selector, with

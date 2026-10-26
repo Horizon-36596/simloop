@@ -23,7 +23,7 @@ Running `mkdocs serve` alone previews the guide but does not copy the API pages.
 run `:SimLoop:apiDocs` and open `SimLoop/build/docs/apiDocs/index.html`.
 
 (Run it from the repository root, not from inside `SimLoop/`. The library is a Gradle subproject of a
-repository that holds only it, so the `:SimLoop` prefix is correct.)
+repository that also holds its desktop module and the examples, so the `:SimLoop` prefix is correct.)
 
 ## How it is kept complete
 

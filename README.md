@@ -11,8 +11,7 @@ score automatically.
 Package root: `org.horizon36596.simloop`. Licence: BSD 3-Clause.
 
 Run SimLoop from your robot project's tests or simulation harness and view the result in a separate
-AdvantageScope window. This release covers that library-and-viewer workflow. The standalone app
-being built around SimLoop is not ready and is not part of this release.
+AdvantageScope window. This release covers that library-and-viewer workflow.
 
 The source tree can be newer than the latest tag. Distortion, occlusion, tilted tags and synthetic
 camera frames are development additions after `v0.2.0-alpha.1`; they are not in that pinned artifact.
