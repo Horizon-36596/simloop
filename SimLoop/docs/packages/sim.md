@@ -60,6 +60,10 @@ Field keys gain a prefix. `Logger.recordOutput("Slide/positionInches", x)` is re
 Two runs of the same scenario must decode identically, field for field. That is what
 `RlogDecodedCompare` is for, and it is how determinism is tested rather than asserted.
 
+`RlogDecodedCompare.decode(path)` holds every frame in memory at once: one map of the whole logged state
+per frame. A long run that logs many keys can need more memory than a default 512 MB test JVM has. To look through a long log, stream it with `forEachFrame(path, frame -> ...)`, which hands you each
+frame and keeps none. To check its length, use `countFrames(path)`.
+
 ## What this package will not do
 
 - **It will not run your OpMode's lifecycle.** The scenario body is a plain lambda and you call what you

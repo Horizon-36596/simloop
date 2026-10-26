@@ -8,12 +8,15 @@ import org.horizon36596.simloop.config.DrivetrainSimConfig;
 import org.horizon36596.simloop.config.SimRobotConfig;
 
 import org.junit.jupiter.api.Test;
+import org.psilynx.psikit.core.LogDataReceiver;
+import org.psilynx.psikit.core.LogTable;
 import org.psilynx.psikit.core.Logger;
 
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -227,6 +230,56 @@ class ScenarioRunnerTest {
 
         // The refusal must not leave the guard stuck: a normal run straight afterwards still works.
         runTicks(outer, 3);
+    }
+
+    /**
+     * A run hands PsiKit back as it found it, so the next logging session in the same JVM is not stamped by
+     * this run's clock or written into this run's file.
+     *
+     * <p>The failure this pins: the run used to end with {@code Logger.end()} only, which keeps every receiver
+     * attached and never touches the time source. A caller that then started PsiKit without its own
+     * {@code Logger.reset()} got the finished run's {@code FakeTimer}, frozen at its last tick, as its clock, so
+     * every frame it logged carried one timestamp and its RLOG decoded as a single frame. Starting PsiKit also
+     * restarted the finished run's writer, which deleted the finished run's RLOG and wrote the new frames there.
+     *
+     * <p>The session after the run reads PsiKit's default clock, which is wall time, so the cycles sleep a few
+     * milliseconds apart to make each timestamp distinct.
+     */
+    @Test
+    void aFinishedRunLeavesNeitherItsClockNorItsWriterBehind() throws Exception {
+        Path rlogPath = Paths.get("build", "sim", "scenario-runner-test-leaves-nothing.rlog");
+        runTicks(rlogPath, 10);
+        assertEquals(10, RlogDecodedCompare.decode(rlogPath).size(), "the run itself: one frame per tick");
+
+        List<Double> stamps = Collections.synchronizedList(new ArrayList<>());
+        LogDataReceiver stampRecorder = new LogDataReceiver() {
+            @Override
+            public void putTable(LogTable table) {
+                stamps.add(table.getTimestamp());
+            }
+        };
+        try {
+            // Deliberately no Logger.reset() here: this is a caller that trusts the run to have cleaned up.
+            Logger.addDataReceiver(stampRecorder);
+            Logger.start();
+            for (int cycle = 0; cycle < 3; cycle++) {
+                Thread.sleep(5);
+                Logger.periodicBeforeUser();
+                Logger.recordOutput("Test/cycle", cycle);
+                Logger.periodicAfterUser(0, 0);
+            }
+            Logger.end();
+        } finally {
+            Logger.reset();
+        }
+
+        assertEquals(3, stamps.size(), "the later session's receiver saw each of its cycles");
+        for (int i = 1; i < stamps.size(); i++) {
+            assertTrue(stamps.get(i) > stamps.get(i - 1),
+                    "the later session's clock advances, so it is not the run's frozen FakeTimer: " + stamps);
+        }
+        assertEquals(10, RlogDecodedCompare.decode(rlogPath).size(),
+                "the later session did not restart the run's writer, so the run's RLOG is untouched");
     }
 
     private static void runTicks(Path rlogPath, int ticks) {

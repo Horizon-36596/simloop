@@ -354,14 +354,14 @@ public final class ScenarioRunner {
             // writer's end(). The file handle stays open until the JVM exits. There is no PsiKit API that
             // reports a dead receiver thread, so this is recorded rather than handled (BACKLOG B34).
             try {
-                Logger.end();
+                shutDownPsiKit();
             } catch (RuntimeException | Error alsoFailedToShutDown) {
                 failureDuringTheRun.addSuppressed(alsoFailedToShutDown);
             }
             throw failureDuringTheRun;
         }
 
-        Logger.end();
+        shutDownPsiKit();
 
         if (ticks == 0) {
             throw new IllegalStateException("ScenarioRunner: '" + opModeName + "' ran no ticks -- the gate said"
@@ -387,6 +387,23 @@ public final class ScenarioRunner {
 
         requireOneDecodedFramePerTick(opModeName, rlogPath, ticks);
         return ticks;
+    }
+
+    /**
+     * Ends this run's logging session and hands PsiKit back as it was before the run: its own clock, no
+     * receivers, no metadata.
+     *
+     * <p>{@code Logger.end()} alone is not enough. Disassembled from the pinned {@code core-0.2.0-beta2} jar,
+     * it joins the writer thread, then builds a new receiver thread and re-adds every receiver to it, and it
+     * never touches the time source. So after a run that only ended, the next caller in the same JVM that
+     * starts PsiKit without its own {@code Logger.reset()} would find this run's {@code FakeTimer}, now
+     * frozen, still installed as PsiKit's clock (every frame stamped the same time, and its log decoding as
+     * one frame), and this run's writer still attached (restarting it deletes and rewrites this run's RLOG).
+     * {@code Logger.reset()} begins with {@code end()} and then restores the default clock and a fresh,
+     * empty receiver list, so calling it here covers both.
+     */
+    private static void shutDownPsiKit() {
+        Logger.reset();
     }
 
     /**
@@ -547,7 +564,7 @@ public final class ScenarioRunner {
     private static void requireOneDecodedFramePerTick(String opModeName, Path rlogPath, int ticks) {
         int decodedFrames;
         try {
-            decodedFrames = RlogDecodedCompare.decode(rlogPath).size();
+            decodedFrames = RlogDecodedCompare.countFrames(rlogPath);
         } catch (IOException | IllegalArgumentException e) {
             // Both of decode's failure modes: an unreadable file (IOException) and a missing or empty one
             // (IllegalArgumentException). Either way the log cannot be shown to be complete, which is the
