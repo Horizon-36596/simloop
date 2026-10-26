@@ -17,6 +17,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.function.Consumer;
 
 /**
  * Compares two RLOG files by <b>decoded</b> field value, not raw bytes (BACKLOG B3,
@@ -270,9 +271,7 @@ public final class RlogDecodedCompare {
      */
     public static Set<String> decodedKeys(Path path) throws IOException {
         Set<String> keys = new TreeSet<>();
-        for (Map<String, String> frame : decode(path)) {
-            keys.addAll(frame.keySet());
-        }
+        forEachFrame(path, frame -> keys.addAll(frame.keySet()));
         keys.removeAll(EXCLUDED_KEYS);
         return keys;
     }
@@ -285,10 +284,9 @@ public final class RlogDecodedCompare {
      * {@link #decodedKeys(Path)} proves a key called {@code measuredIn} exists, and only this proves the
      * number under it is actually inches.
      *
-     * <p><b>Not test-only any more.</b> {@link ScenarioRunner#run} calls this on every real scenario run, to
-     * check that the file it just wrote holds one frame per tick before handing it back (BACKLOG B32). This
-     * method is therefore on the production path, and its cost and its failure modes are a scenario's cost
-     * and failure modes. The rest of this class is still verification-only.
+     * <p>It holds every frame in memory at once, one map of the whole robot state per frame, so a long run with
+     * many keys can need hundreds of MB. To look at a long log, stream it with {@link #forEachFrame}; to check
+     * its length, use {@link #countFrames}.
      *
      * @param path the RLOG to read
      * @return one map per frame, in order, each holding the whole decoded robot state at that frame
@@ -302,12 +300,59 @@ public final class RlogDecodedCompare {
     }
 
     /**
-     * Reads every frame of one RLOG. With {@code withType} false, each value is PsiKit's own rendering
-     * ({@code "12.5"}); with it true, the logged type follows in brackets ({@code "12.5 [Double]"}, or
-     * {@code "... [Raw:struct:Pose2d]"} when a custom type name was logged), which is what
+     * Every frame of one RLOG, in order, handed to {@code visitor} one at a time and then dropped: the same
+     * maps {@link #decode(Path)} returns, without holding them all. A test that reads a long run's log keeps
+     * only what it needs from each frame.
+     *
+     * @param path    the RLOG to read
+     * @param visitor called once per frame with that frame's whole decoded state; the map is the visitor's
+     *                to keep or drop
+     * @return how many frames there were
+     * @throws IOException              if the RLOG exists but cannot be read
+     * @throws IllegalArgumentException if the RLOG is missing or empty (see {@link #decode(Path)})
+     */
+    public static int forEachFrame(Path path, Consumer<Map<String, String>> visitor) throws IOException {
+        return visitFrames(path, false, Objects.requireNonNull(visitor, "visitor"));
+    }
+
+    /**
+     * How many frames one RLOG holds, read without rendering or keeping any of them.
+     *
+     * <p><b>On the production path.</b> {@link ScenarioRunner#run} calls this on every real scenario run, to
+     * check that the file it just wrote holds one frame per tick before handing it back (BACKLOG B32), so its
+     * cost and its failure modes are a scenario's. The rest of this class is verification-only. Until
+     * 2026-10-20 that check decoded the whole log into memory, which ran a 300 s run with the hardware-input
+     * keys out of a 512 MB test JVM.
+     *
+     * @param path the RLOG to read
+     * @return the number of frames
+     * @throws IOException              if the RLOG exists but cannot be read
+     * @throws IllegalArgumentException if the RLOG is missing or empty (see {@link #decode(Path)})
+     */
+    public static int countFrames(Path path) throws IOException {
+        return visitFrames(path, false, null);
+    }
+
+    /**
+     * Reads every frame of one RLOG into a list. With {@code withType} false, each value is PsiKit's own
+     * rendering ({@code "12.5"}); with it true, the logged type follows in brackets ({@code "12.5 [Double]"},
+     * or {@code "... [Raw:struct:Pose2d]"} when a custom type name was logged), which is what
      * {@link #compare} needs to tell a string {@code "1.0"} from a double {@code 1.0}.
      */
     private static List<Map<String, String>> decodeFrames(Path path, boolean withType) throws IOException {
+        List<Map<String, String>> frames = new ArrayList<>();
+        visitFrames(path, withType, frames::add);
+        return frames;
+    }
+
+    /**
+     * The one frame loop. Each frame is rendered as {@link #decodeFrames} describes and handed to
+     * {@code visitor}; with a null visitor nothing is rendered and the frames are only counted.
+     *
+     * @return the number of frames
+     */
+    private static int visitFrames(Path path, boolean withType, Consumer<Map<String, String>> visitor)
+            throws IOException {
         if (!Files.exists(path) || Files.size(path) == 0) {
             throw new IllegalArgumentException(
                     "RLOG file missing or empty, cannot decode: " + path
@@ -321,8 +366,12 @@ public final class RlogDecodedCompare {
         // writer fail its delete and APPEND the new run to the old one (2026-09-26 review).
         try {
             LogTable table = new LogTable(0);
-            List<Map<String, String>> frames = new ArrayList<>();
+            int frames = 0;
             while (replay.updateTable(table)) {
+                frames++;
+                if (visitor == null) {
+                    continue;
+                }
                 Map<String, String> snapshot = new TreeMap<>();
                 for (Map.Entry<String, LogTable.LogValue> entry : table.getAll(true).entrySet()) {
                     LogTable.LogValue value = entry.getValue();
@@ -333,7 +382,7 @@ public final class RlogDecodedCompare {
                     }
                     snapshot.put(entry.getKey(), rendered);
                 }
-                frames.add(snapshot);
+                visitor.accept(snapshot);
             }
             return frames;
         } finally {
