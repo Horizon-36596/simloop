@@ -13,6 +13,10 @@ that those classes resolve from the pinned alpha coordinate.
 
 ## Changes made
 
+The owner clarified the release UI: SimLoop uses a separate AdvantageScope window. The surrounding
+standalone app is not release-ready and is not being shipped. The README and site introduction now
+state that scope. This review added a plot of logged values, not a screenshot or mockup of that app.
+
 - Marked the source/tag boundary on the home page, feature list, vision page, agent index and README.
 - Linked installation to the starter at the pinned tag, added the Android SDK prerequisite and
   explained first-run dependency downloads.
