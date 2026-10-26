@@ -564,7 +564,7 @@ public final class ScenarioRunner {
     private static void requireOneDecodedFramePerTick(String opModeName, Path rlogPath, int ticks) {
         int decodedFrames;
         try {
-            decodedFrames = RlogDecodedCompare.decode(rlogPath).size();
+            decodedFrames = RlogDecodedCompare.countFrames(rlogPath);
         } catch (IOException | IllegalArgumentException e) {
             // Both of decode's failure modes: an unreadable file (IOException) and a missing or empty one
             // (IllegalArgumentException). Either way the log cannot be shown to be complete, which is the
