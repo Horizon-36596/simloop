@@ -25,7 +25,7 @@ evaluationDependsOn(':SimLoop:desktop')
 // Maven Central namespace is granted by proving control of the domain the group is named after, so this
 // group is claimable later and a com.github.* one would have to be swapped for one that is.
 group = 'org.horizon36596'
-version = '0.2.0-alpha.1'
+version = '0.2.0-alpha.2'
 
 android {
     namespace = 'org.horizon36596.simloop'

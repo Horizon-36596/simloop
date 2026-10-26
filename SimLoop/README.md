@@ -8,7 +8,7 @@ from a fake clock rather than the wall, so the same run produces the same log ev
 is a PsiKit RLOG, which AdvantageScope opens and which the `loop` package can score automatically.
 
 Package root: `org.horizon36596.simloop`. Status: **alpha**. The API may change between alpha versions,
-so pin an exact version. Support is best effort. `v0.2.0-alpha.1` is the current alpha; it supersedes
+so pin an exact version. Support is best effort. `v0.2.0-alpha.2` is the current alpha; it supersedes
 `v0.1.0-beta1`, which gets no fixes. It needs **FTC SDK 12.0**. Questions go to
 [Discussions](https://github.com/Horizon-36596/simloop/discussions), bugs to
 [Issues](https://github.com/Horizon-36596/simloop/issues). Every feature, one line each:
@@ -21,12 +21,12 @@ end of this section), and its Pinpoint, OTOS and Limelight 3A fakes are the SDK 
 
 The coordinate spelling below was confirmed on 2026-09-19 against `v0.1.0-beta1`, the earlier build:
 a throwaway stock-layout FTC project resolved it for real from JitPack, with nothing published locally.
-`v0.2.0-alpha.1` uses the same spelling with its own tag.
+Each later tag uses the same spelling with its own tag.
 
 Note the two spellings, because mixing them up fails with `Could not find`, which reads like a missing
 library rather than a wrong name. **JitPack derives its own coordinate from the repository address** and
-ignores what this project calls itself: `com.github.Horizon-36596:simloop:v0.2.0-alpha.1`, with the tag as
-the version, `v` included. The POM inside says `org.horizon36596:SimLoop:0.2.0-alpha.1`, which is what
+ignores what this project calls itself: `com.github.Horizon-36596:simloop:v0.2.0-alpha.2`, with the tag as
+the version, `v` included. The POM inside says `org.horizon36596:SimLoop:0.2.0-alpha.2`, which is what
 `publishToMavenLocal` writes and what a future Maven Central release would use.
 
 JitPack, which builds a tag of this repository on demand:
@@ -72,7 +72,7 @@ repositories over project repositories". Without that line, both forms work and 
 ```groovy
 // TeamCode/build.gradle
 dependencies {
-    testImplementation 'com.github.Horizon-36596:simloop:v0.2.0-alpha.1'
+    testImplementation 'com.github.Horizon-36596:simloop:v0.2.0-alpha.2'
 
     // JUnit 5, if you are not already on it. SimLoop's own tests use it; yours need not.
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'

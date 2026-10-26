@@ -2,9 +2,9 @@
 
 `org.horizon36596.simloop.vision`
 
-!!! note "Development APIs"
-    Distortion, `CameraOccluders`, tilted tags and synthetic frames were added after the
-    `v0.2.0-alpha.1` tag. The pinned alpha does not contain them. Use documentation from the tag you
+!!! note "Added in v0.2.0-alpha.2"
+    Distortion, `CameraOccluders`, tilted tags and synthetic frames were added in
+    `v0.2.0-alpha.2`. `v0.2.0-alpha.1` does not contain them. Use documentation from the tag you
     install; for development work, pin the exact source commit you tested. See
     [Installing it](../getting-started.md).
 

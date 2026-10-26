@@ -5,16 +5,16 @@ run the tests. That is the whole installation. You do not clone the SimLoop repo
 it, and you do not copy any of its source into your project.
 
 Copy this folder from the same tag as `simloopVersion` below. The
-[starter at `v0.2.0-alpha.1`](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.1/simloop-starter)
+[starter at `v0.2.0-alpha.2`](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.2/simloop-starter)
 matches the pinned alpha. Examples on `main` may use development APIs absent from that artifact.
 
 > ## Your FTC project must be on SDK 12.0
 >
-> SimLoop `v0.2.0-alpha.1` is built against **FTC SDK 12.0.0** (the earlier beta used 11.2.1). Update
+> SimLoop `v0.2.0-alpha.2` is built against **FTC SDK 12.0.0** (the earlier beta used 11.2.1). Update
 > your project to SDK 12.0 first. On 11.x your tests would run against a different SDK from the one your
 > robot runs.
 >
-> **Status: alpha.** `v0.2.0-alpha.1` is the current alpha. The API may change between alpha versions,
+> **Status: alpha.** `v0.2.0-alpha.2` is the current alpha. The API may change between alpha versions,
 > so keep the exact version pinned below. `v0.1.0-beta1` is superseded. Questions go to
 > [Discussions](https://github.com/Horizon-36596/simloop/discussions), bugs to
 > [Issues](https://github.com/Horizon-36596/simloop/issues).
@@ -66,7 +66,7 @@ whole is what makes upgrading SimLoop a matter of replacing this folder.
 The one thing you will edit is the first setting in it:
 
 ```groovy
-ext.simloopVersion = 'v0.2.0-alpha.1'
+ext.simloopVersion = 'v0.2.0-alpha.2'
 ```
 
 ## What is in here

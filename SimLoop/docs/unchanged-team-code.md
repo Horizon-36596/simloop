@@ -42,7 +42,7 @@ android {
 }
 
 dependencies {
-    testImplementation 'com.github.Horizon-36596:simloop:v0.2.0-alpha.1'
+    testImplementation 'com.github.Horizon-36596:simloop:v0.2.0-alpha.2'
     testImplementation "org.junit.jupiter:junit-jupiter-api:5.11.3"
     testRuntimeOnly "org.junit.jupiter:junit-jupiter-engine:5.11.3"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher:1.11.3"  // Gradle 9 no longer adds it

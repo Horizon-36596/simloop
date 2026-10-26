@@ -4,14 +4,14 @@ A flat index of this site. Every page, what is on it, and when to read it — so
 the right page instead of crawling navigation.
 
 **SimLoop** is a season-agnostic JVM simulation library for FIRST Tech Challenge robot code. Package root
-`org.horizon36596.simloop`. Version `0.2.0-alpha.1`. Licence BSD-3-Clause: use, modify and ship it freely, and license your own robot code however you like; keep the copyright notice with any copy. Status: alpha, so pin an exact version; the API may change between alpha versions. `v0.2.0-alpha.1` is the current alpha and `v0.1.0-beta1` is superseded. The coordinate is `com.github.Horizon-36596:simloop:v0.2.0-alpha.1` from JitPack, and the version keeps its leading `v` because a JitPack version IS the git tag. The consuming project must be on FTC SDK 12.0.
+`org.horizon36596.simloop`. Version `0.2.0-alpha.2`. Licence BSD-3-Clause: use, modify and ship it freely, and license your own robot code however you like; keep the copyright notice with any copy. Status: alpha, so pin an exact version; the API may change between alpha versions. `v0.2.0-alpha.2` is the current alpha and `v0.1.0-beta1` is superseded. The coordinate is `com.github.Horizon-36596:simloop:v0.2.0-alpha.2` from JitPack, and the version keeps its leading `v` because a JitPack version IS the git tag. The consuming project must be on FTC SDK 12.0.
 
 ## Read this first
 
 Check the dependency's exact tag or source commit before using this index. It describes the current
-source tree, which includes APIs added after `v0.2.0-alpha.1`. In particular, distortion, occluders,
-tilted tags and synthetic frames are development APIs. Read the matching source or generated API
-reference before calling them; the published alpha coordinate above does not contain them.
+source tree, which can be newer than `v0.2.0-alpha.2`. Distortion, occluders, tilted tags and synthetic
+frames arrived in `v0.2.0-alpha.2` and are absent from `v0.2.0-alpha.1`. Read the matching source or
+generated API reference before calling an API newer than your pinned tag.
 
 - **[Every feature](features.md)**: one line per feature, with a link to its page.
 - **[What it does not do](limits.md)**: the authoritative list of what is out of scope. If a task needs
