@@ -71,6 +71,10 @@ Use `RlogDecodedCompare` to compare repeated runs field by field. It ignores Psi
 writer queue-depth metadata, which reflect writer scheduling. Differences in robot-authored fields
 remain failures.
 
+`RlogDecodedCompare.decode(path)` holds every frame in memory at once: one map of the whole logged state
+per frame. A long run that logs many keys can need more memory than a default 512 MB test JVM has. To look through a long log, stream it with `forEachFrame(path, frame -> ...)`, which hands you each
+frame and keeps none. To check its length, use `countFrames(path)`.
+
 ## What this package will not do
 
 - **It will not run your OpMode's lifecycle.** The scenario body is a plain lambda and you call what you

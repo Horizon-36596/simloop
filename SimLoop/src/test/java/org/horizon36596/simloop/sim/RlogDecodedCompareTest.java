@@ -154,6 +154,28 @@ public class RlogDecodedCompareTest {
     }
 
     @Test
+    public void streamingVisitsTheFramesDecodeReturnsAndCountingAgrees() throws IOException {
+        // forEachFrame and countFrames read the log without holding it; they must see what decode sees.
+        Path dir = Files.createTempDirectory("rlog-compare-test");
+        Path path = writeFrames(dir, "run-a",
+                table -> table.put("RealOutputs/Drive/pose/x", 1.0),
+                table -> table.put("RealOutputs/Drive/other", 0.0),
+                table -> table.put("RealOutputs/Drive/pose/x", 9.0));
+
+        List<Map<String, String>> decoded = RlogDecodedCompare.decode(path);
+        List<Map<String, String>> visited = new ArrayList<>();
+        int returned = RlogDecodedCompare.forEachFrame(path, visited::add);
+
+        assertEquals(decoded, visited, "the same frames, in the same order, carried-forward values included");
+        assertEquals(decoded.size(), returned, "forEachFrame returns the number of frames it visited");
+        assertEquals(decoded.size(), RlogDecodedCompare.countFrames(path));
+
+        // Like decode, both release the file (only discriminates on Windows; see decodingAFileReleasesIt).
+        Files.delete(path);
+        assertTrue(!Files.exists(path), "the streamed file could be deleted straight afterwards");
+    }
+
+    @Test
     public void summariseListsTheEarliestFortyKeysAndCountsTheRest() {
         List<RlogDecodedCompare.Mismatch> mismatches = new ArrayList<>();
         // 45 keys; key k first diverges at frame 100 - k, so the key that went wrong earliest sorts LAST by
