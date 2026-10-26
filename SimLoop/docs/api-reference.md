@@ -12,9 +12,15 @@ local build. Build the guide and API reference together from the repository root
 ./gradlew :SimLoop:docsSite
 ```
 
-Then open `SimLoop/build/docs/site/api-reference/index.html`. Running MkDocs alone builds the guide
-but does not copy the API pages. For Javadoc alone, run `:SimLoop:apiDocs` and open
-`SimLoop/build/docs/apiDocs/index.html`.
+Preview the complete build from the repository root:
+
+```powershell
+python -m http.server 8000 --bind 127.0.0.1 --directory SimLoop/build/docs/site
+```
+
+Open [the local API landing page](http://127.0.0.1:8000/api-reference/). Stop the server with `Ctrl+C`.
+Running `mkdocs serve` alone previews the guide but does not copy the API pages. For Javadoc alone,
+run `:SimLoop:apiDocs` and open `SimLoop/build/docs/apiDocs/index.html`.
 
 (Run it from the repository root, not from inside `SimLoop/`. The library is a Gradle subproject of a
 repository that holds only it, so the `:SimLoop` prefix is correct.)
@@ -25,5 +31,6 @@ Javadoc is generated with `-Xdoclint:all` and `-Werror`. Missing comments, param
 descriptions and broken `{@link}` references fail the build. Units and coordinate frames belong in
 the public API comments so callers do not have to infer them from a method name.
 
-The same build ships in every release as `SimLoop-<version>-javadoc.jar`, so the pages your IDE shows and
-the pages on this site are the same build.
+The release's Javadoc jar is built from the same generated reference as that source checkout. Use
+the jar for your installed tag when you need a matching API reference: this unversioned site can
+describe development APIs newer than the published dependency.

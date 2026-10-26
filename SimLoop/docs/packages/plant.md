@@ -20,17 +20,16 @@ one tick, and that state is what the fake then reports back to your robot code.
 
 Each mechanism axis is **first-order**, with four parameters:
 
-- a **time constant** (seconds) — a commanded step reaches ~63% of the way in one, and settles in four or
-  five;
-- a **max speed** (position units per second) — the effort ceiling, which saturates large steps so the
-  response ramps instead of jumping;
+- a **time constant** (seconds) — after a constant-power change, velocity closes about 63% of the gap
+  to its new target in one time constant, and about 98% in four. This is a velocity response, not a
+  promise that the mechanism reaches a position target in that time;
+- a **max speed** (position units per second) — the ceiling used to turn net power into target velocity;
 - **end stops** (min and max position) — the state can never integrate past them, under any command;
 - a **gravity hold fraction** (unitless, `[0, 1)`) — how much of full effort the mechanism's own weight
-  costs it just to stay put. Always a **positive** number: the plant subtracts it, so gravity always pulls
+  costs it just to stay put. It is **nonnegative**: the plant subtracts it, so a nonzero value pulls
   toward `minPosition`. A turret or a horizontal extension reports `0.0`.
 
-That is the whole model. It is calibration-ready — every parameter is something you can measure on a real
-mechanism — and it is deliberately not more than that.
+Measure these parameters on your mechanism. The model omits the effects listed at the end of this page.
 
 ## Units and frames
 
