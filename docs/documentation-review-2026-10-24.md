@@ -35,6 +35,7 @@ that those classes resolve from the pinned alpha coordinate.
 - Replaced the zero-test success claim with a test-report check, scoped variant/log ownership advice
   to the starter, and removed stale no-tag and untested-JDK claims from the publishing guide.
 - Corrected complete-site preview instructions: MkDocs alone does not serve the copied Javadoc.
+- Restored narrow-layout article gutters so code blocks no longer widen the page beyond the viewport.
 
 ## Verification
 
@@ -50,7 +51,11 @@ that those classes resolve from the pinned alpha coordinate.
   link counts are recorded in the PR.
 - The tutorial source checker passes on the guide and fails on a copy with one changed tick count.
 - Three existing tests pass for shaft integration, immediate touch readings and the 63% velocity response.
+- Full local `test :SimLoop:docsSite --offline` passes: 1,249 library, six desktop and two starter
+  example tests, with no failures, errors or skips.
 - The repository leak gate passes all 10 rules, including the added plot and CSV.
+- Responsive checks across both sites pass on all 55 guide pages at 320, 390 and 768 px with no
+  page-width overflow; wide tables and code can still scroll within their own containers.
 
 The plot describes simulated values from the example's placeholder model, not measured robot motion.
 The OpenCV fragment requires the consuming team's processor and native library; it is not a standalone
@@ -74,3 +79,6 @@ JitPack's alpha build-status endpoint returned `ok` for `9116406` with JDK 17, a
 returned HTTP 200 on the same day. The POM lists `RobotCore`, `Hardware` and PsiKit `core` at compile
 scope, with no PsiKit `ftc` dependency. Existing hosted metadata works even though the source was
 private at this check; it does not establish that a future tag can build or that the docs are deployed.
+
+Hosted CI did not start: runs `40095139214` and `40095139201` report an account payment/spending-limit
+restriction on every job, before any build or test step. Local results above are not a hosted CI pass.
