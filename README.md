@@ -10,6 +10,13 @@ score automatically.
 
 Package root: `org.horizon36596.simloop`. Licence: BSD 3-Clause.
 
+Run SimLoop from your robot project's tests or simulation harness and view the result in a separate
+AdvantageScope window. This release covers that library-and-viewer workflow.
+
+The source tree can be newer than the latest tag. Distortion, occlusion, tilted tags and synthetic
+camera frames are development additions after `v0.2.0-alpha.1`; they are not in that pinned artifact.
+Use the starter and documentation from the tag you install, or pin the exact source commit you test.
+
 > **SimLoop is an alpha.** `v0.2.0-alpha.1` is the current alpha and the first public one. The API may
 > change between alpha versions, so pin an exact version in your build. It needs **FTC SDK 12.0**.
 > Support is best effort: a small FTC team maintains it in its own time. `v0.1.0-beta1`, the earlier
@@ -63,11 +70,11 @@ the starter folder is what declares it.
 | Contribute a fix or a feature | [`CONTRIBUTING.md`](CONTRIBUTING.md) |
 | Change code in this repository | [`SimLoop/CLAUDE.md`](SimLoop/CLAUDE.md) |
 
-`SimLoop/docs/` is written to be read as Markdown in the repository and also builds into a site. That
-site is live at **<https://libraries.horizon36596.org/simloop/>**, with the generated API reference
-under [`/javadoc/`](https://libraries.horizon36596.org/simloop/javadoc/). The
-`horizon-36596.github.io/simloop/` address still answers and redirects there. How the hosting is put
-together is in [`SimLoop/PUBLISHING.md`](SimLoop/PUBLISHING.md).
+`SimLoop/docs/` can be read as Markdown and built into a site. Its publishing address is
+**<https://libraries.horizon36596.org/simloop/>**, with generated Javadoc under
+[`/javadoc/`](https://libraries.horizon36596.org/simloop/javadoc/). If the site is unavailable, read the
+docs at your pinned tag or build them locally with `./gradlew :SimLoop:docsSite`.
+[`SimLoop/PUBLISHING.md`](SimLoop/PUBLISHING.md) explains the hosting and deployment checks.
 
 That path is this repository's name, in lower case, because GitHub serves a project site at its
 repository name under the organisation's domain and the path is case-sensitive. It is also why the
@@ -106,20 +113,12 @@ something that will not fit.
 
 ## Why the library sits in a subdirectory
 
-The library is a Gradle **subproject** rather than the root project. That reads as redundant and is not,
-for a reason that is cheaper to keep than to change:
+`SimLoop/` is the Android library subproject; the root build coordinates it with the starter examples
+and desktop keyboard window. Gradle tasks therefore use the `:SimLoop` prefix.
 
-- The Android Gradle Plugin's library plugin is applied to something it expects. A root project that is
-  itself an Android library is a layout nothing else in the FTC ecosystem uses.
-What does **not** depend on it is the published coordinate, which is worth saying because this file used
-to claim the opposite. JitPack names the artifact after the repository, not after the Gradle module, as
-long as the build publishes exactly one module — measured, not assumed: the first build of
-`v0.1.0-beta1` served `com.github.Horizon-36596:simloop`. What would rename it is publishing a **second**
-module, which switches JitPack to its multi-module spelling. So the rule to keep is "one published
-module", not "one particular directory layout".
-
-So `SimLoop/` in a path and `:SimLoop` in a Gradle task are correct everywhere they appear, including in
-the CI workflows.
+The published coordinate follows the repository name, `com.github.Horizon-36596:simloop`. Keep one
+published module: the desktop jar is a classifier of that same publication, not a second module.
+Publishing a second module would change JitPack's artifact naming.
 
 ## Building and testing it
 
@@ -129,20 +128,18 @@ From the repository root:
 ./gradlew test
 ```
 
-1,218 JVM tests (1,212 in the library, 4 in the keyboard-window module, 2 in the example robot), with no
-device and no emulator. The
-documentation site and the API reference:
+The library, keyboard-window and starter-example tests run on the JVM, with no device or emulator.
+To build the documentation site and API reference:
 
 ```bash
 pip install -r SimLoop/docs-requirements.txt
 ./gradlew :SimLoop:docsSite
 ```
 
-All of it is built on every push and every pull request by
-[`.github/workflows/test.yml`](.github/workflows/test.yml), so none of it can quietly become something
-that only builds on one laptop. Pull requests also run a leak check
-([`tools/leak-gate/`](tools/leak-gate/leak-gate.sh)) and a secret scan
-([`.github/workflows/leak-gate.yml`](.github/workflows/leak-gate.yml)).
+[`.github/workflows/test.yml`](.github/workflows/test.yml) defines the automated test and documentation
+checks. Pull-request checks also include the [leak gate](tools/leak-gate/leak-gate.sh) and
+[secret scan](.github/workflows/leak-gate.yml). Check the workflow results for the commit you use; the
+commands above run the tests and documentation build locally.
 
 ## Licence
 

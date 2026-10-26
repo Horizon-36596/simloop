@@ -2,8 +2,8 @@
 
 `org.horizon36596.simloop.config`
 
-The one-way seam. These are interfaces **you** implement, in your season repository, to tell SimLoop your
-robot's numbers. SimLoop reads them; SimLoop never imports anything of yours.
+Implement these interfaces in your robot project to supply its dimensions, motion limits and device
+names. SimLoop reads that configuration without importing your robot or season code.
 
 ## What you implement
 
@@ -36,7 +36,7 @@ robot's numbers. SimLoop reads them; SimLoop never imports anything of yours.
 | `timeConstant()` | seconds, strictly positive |
 | `maxSpeed()` | your position units per second, strictly positive |
 | `minPosition()`, `maxPosition()` | your position units |
-| `gravityHoldPowerFraction()` | unitless, `[0, 1)`, always **positive** |
+| `gravityHoldPowerFraction()` | unitless, `[0, 1)`; `0` means no gravity load |
 
 `PositionalServoSimConfig`
 
@@ -45,12 +45,11 @@ robot's numbers. SimLoop reads them; SimLoop never imports anything of yours.
 | `positionAtCommandZero()`, `positionAtCommandOne()` | your position units |
 | `commandDeadband()`, `commandQuantum()` | servo command units, the same `[0, 1]` scale as the command |
 
-!!! danger "Two of these have defaults that quietly lie"
+!!! warning "Set strafe speed and wheel mounting signs deliberately"
     `maxLateralVelocityTicksPerSecond()` and `wheelMountingSigns()` have defaults, so a config that
-    ignores them compiles. A wrong mounting sign makes a robot spin instead of drive; a wrong strafe speed
-    makes it out-run its own path follower sideways — both in simulation only, so you debug a control
-    problem that is really a config problem. Answer both deliberately. "We measured it and there is no
-    penalty" is a fine answer; "we never looked" is not.
+    omits them compiles. A wrong mounting sign can make the simulated robot spin instead of drive;
+    a wrong strafe speed changes its response to the path follower. Check these values against your
+    robot before tuning the controller from simulation results.
 
 ## Positional servos: why two separate numbers
 

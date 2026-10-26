@@ -1,87 +1,48 @@
 # Spending less on agents
 
-Every one of these tools charges for the text going in and the text coming out. A team on a free tier
-runs out; a team paying for it would rather not pay twice. None of this is specific to SimLoop, and all
-of it is public.
+Usage depends on the tool, model, plan and amount of context processed. Use your tool's own usage
+report to compare changes; this guide makes no percentage-savings promise.
 
-Read the techniques first. They are free, they work in every tool, and they save more than any of the
-tools below.
+## Give the agent a bounded job
 
-## The techniques
+Name the file, behaviour and success condition. For example:
 
-**Most of what an agent reads, it did not need.** That is where the money goes — not in the answer, in
-the context that produced it.
+> Read `TeamCode/.../Slide.java`. Find why the slide overshoots, preserve its hardware names and
+> units, and verify the change with the existing slide test.
 
-### Point at the thing, do not paste the repository
+Include the exact error and relevant test output. Keep the full log available, but start with the
+failure and its surrounding lines rather than pasting every successful build step.
 
-"Read `TeamCode/.../Slide.java` and fix the overshoot" costs a fraction of "here is my project, fix the
-overshoot", and the answer is better, because the agent is not choosing between forty files.
+## Keep the facts easy to find
 
-### Start a new conversation per task
+Put shared project facts in `AGENTS.md`: dependency versions, hardware names, units, tick order and
+required checks. Confirm that the tool has loaded it. Link to the source of a fact instead of keeping
+several copies that can disagree.
 
-A long conversation resends its whole history with every message. Ten small tasks in one conversation
-can cost several times ten small conversations. When the subject changes, start over.
+When you already know the relevant file or symbol, name it. When you do not, let the agent inspect
+the dependencies it needs; an artificially narrow view can produce an incomplete fix.
 
-### Put the standing facts in a file, not in every message
+## Keep the context relevant
 
-That is what `AGENTS.md` in this folder is for. Written once, read automatically, never retyped. Re-typing
-your conventions at the top of each request is the same tokens over and over.
+Use a separate conversation for an unrelated task when the earlier history no longer helps. Keep
+an ongoing fix in the same conversation while its decisions and evidence are still useful. A reset
+that forces the agent to rediscover the project can waste work too.
 
-### Ask for the shape of the answer you want
+Before handing work to a fresh conversation, save the changed files, current hypothesis, exact
+commands and results, and what remains unresolved. A short handoff is more useful than a transcript
+of every attempt.
 
-"One line per finding, no preamble" genuinely costs less than letting a model write four paragraphs of
-throat-clearing first. Output is the expensive half per token.
+## Ask for the output you need
 
-### Do not make an agent search for something you already know
+For a code review, ask for actionable findings with file locations and evidence. For a completed
+change, ask what changed, which checks ran and any remaining limitation. Shortening the report can
+help without removing the investigation or required verification.
 
-If you know the file, say the file. If you know the line, say the line. A five-second look on your part
-removes ten tool calls on its.
+## Measure changes on comparable work
 
-### Let it fail fast
+If you try a different model, context setting or output-compression tool, compare it on similar
+jobs. Record usage, retries and whether the result was correct. Smaller output alone does not show
+that the whole task cost less.
 
-Give the agent the exact error text. An agent that has to reproduce a failure itself spends a build, a
-test run, and a lot of reading to arrive where your clipboard already was.
-
-## The tools
-
-### RTK (Rust Token Killer)
-
-<https://github.com/rtk-ai/rtk>
-
-A CLI proxy. The agent runs `git status`, RTK runs the real command, and hands back a compressed version
-of the output instead of the raw wall of text. A single Rust binary with no dependencies; on Claude Code
-it installs a hook that rewrites eligible shell commands transparently, so nothing in your workflow
-changes.
-
-**What it claims:** 60–90% fewer tokens on common dev commands.
-
-**What is contested:** an independent benchmark published by JetBrains measured it as *more* expensive
-on real agent work at low reasoning effort and about neutral at high effort. The compression is real;
-whether it saves you money depends on how much of your session is actually shell output.
-
-So: worth trying, worth **measuring on your own usage**, not worth treating as a guaranteed saving. It
-also only intercepts shell commands — an agent's built-in file-reading and search tools do not go
-through it, and on a typical FTC session those are most of the traffic.
-
-### Your tool's own context controls
-
-Cheaper than any proxy and already installed. Most agents have a way to clear or compact the
-conversation; in Claude Code that is `/clear` between tasks and `/compact` when one task genuinely needs
-the history. Learn the two commands for whichever tool you use. This is the single biggest lever on the
-list.
-
-### A smaller model for the small jobs
-
-Renaming things, writing javadoc, formatting a table, summarising a log — these do not need the most
-capable model available. Most tools let you switch. The difference in cost between tiers is large and
-the difference in quality on a mechanical task is not.
-
----
-
-## Measure before you optimise
-
-Both of the above sell a number. Yours will be different. Run a normal week, look at what your tool
-reports you actually spent, and change one thing at a time.
-
-An FTC team's bill is usually not dominated by clever tooling — it is dominated by long conversations
-that should have been several short ones. Fix that first and you may not need any of this.
+Change one thing at a time. Keep the configuration that completes the work reliably within your
+team's budget, using the current pricing and limits shown by your provider.

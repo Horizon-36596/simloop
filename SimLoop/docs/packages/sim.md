@@ -36,7 +36,17 @@ ScenarioRunner.run(
 The timer must be constructed, and anything sim-side that reads time must be wired to it, **before** this
 call — that wiring has to happen before the robot under test is built.
 
-## It refuses to hand you a log you cannot trust
+### Logging ownership
+
+`ScenarioRunner` starts and stops PsiKit for the run. Log values inside the tick body; do not call
+`Logger.start()` or `Logger.end()` there. Use `runUntil`'s extra-receivers argument when a live session
+needs another output.
+
+PsiKit's logger is static. Run scenarios sequentially within one JVM, and give separate test processes
+different log paths. If another test creates its own PsiKit logging session, initialise that session
+explicitly rather than relying on state left by an earlier test.
+
+## Log completeness checks
 
 `ScenarioRunner.run` throws rather than returning quietly when any of four things is true: PsiKit's async
 writer queue overflowed, the file is missing or empty, it decodes to a different number of frames than
@@ -57,8 +67,9 @@ Field keys gain a prefix. `Logger.recordOutput("Slide/positionInches", x)` is re
 `RealOutputs/Slide/positionInches`, both by `RlogDecodedCompare` and by
 [`RunResult`](loop.md).
 
-Two runs of the same scenario must decode identically, field for field. That is what
-`RlogDecodedCompare` is for, and it is how determinism is tested rather than asserted.
+Use `RlogDecodedCompare` to compare repeated runs field by field. It ignores PsiKit's console and
+writer queue-depth metadata, which reflect writer scheduling. Differences in robot-authored fields
+remain failures.
 
 `RlogDecodedCompare.decode(path)` holds every frame in memory at once: one map of the whole logged state
 per frame. A long run that logs many keys can need more memory than a default 512 MB test JVM has. To look through a long log, stream it with `forEachFrame(path, frame -> ...)`, which hands you each
@@ -72,6 +83,7 @@ frame and keeps none. To check its length, use `countFrames(path)`.
 - **It will not schedule commands.** If you use SolversLib, SolversLib still owns control flow.
 - **It will not vary the time step.** The tick is fixed, on purpose — a variable step is the single
   easiest way to make two runs disagree.
-- **It will not read wall-clock time anywhere.** If you introduce a `System.nanoTime()` on a sim path, you
-  have broken determinism, and nothing here will catch it for you. The one class that may wait on the
-  wall clock is `sim.live.RealTimePacer`, and it never changes what a tick computes.
+- **It will not make wall-clock-dependent robot behaviour deterministic.** Model time comes from
+  `FakeTimer`. The runner may wait for log I/O, and `sim.live.RealTimePacer` can pace live input, but
+  neither advances model time. In your scenario code, use the fake clock or the
+  [OpMode runner's supported timer rewriting](opmode.md).

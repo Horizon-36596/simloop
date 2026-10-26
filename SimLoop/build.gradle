@@ -393,13 +393,19 @@ tasks.register('checkDocsVersion') {
     }
 }
 
-// `--strict` turns a broken internal link into a failed build. A documentation site's most common defect
-// is a link that goes nowhere, and it is invisible to everyone except the reader who followed it.
+tasks.register('checkDocExamples', Exec) {
+    group = 'documentation'
+    description = 'Checks that the complete tutorial example matches its compiled test source.'
+    workingDir projectDir
+    commandLine 'python', 'docs-tools/check-examples.py'
+}
+
+// `--strict` fails the build on broken guide links. Generated Javadoc is copied by docsSite afterwards.
 tasks.register('mkdocsBuild', Exec) {
     group = 'documentation'
     description = 'Renders the markdown pages. Needs, in this directory: pip install -r docs-requirements.txt'
 
-    dependsOn 'checkDocsVersion'
+    dependsOn 'checkDocsVersion', 'checkDocExamples'
 
     workingDir projectDir
     commandLine 'python', '-m', 'mkdocs', 'build', '-f', 'mkdocs.yml', '--strict'
@@ -426,7 +432,8 @@ tasks.register('docsSite', Copy) {
     def builtSiteDir = layout.buildDirectory.dir('docs/site').get().asFile
     doLast {
         logger.lifecycle('Documentation site built: ' + builtSiteDir)
-        logger.lifecycle('Read it with: python -m mkdocs serve - run from the SimLoop directory.')
+        logger.lifecycle('Preview the complete site: python -m http.server 8000 --bind 127.0.0.1 --directory "'
+                + builtSiteDir + '"')
     }
 }
 
