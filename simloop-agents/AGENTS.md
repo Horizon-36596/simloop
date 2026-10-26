@@ -1,9 +1,8 @@
 # AGENTS.md — this project uses SimLoop
 
-Instructions for an AI coding agent working in this repository. Written in the open `AGENTS.md` format,
-which Cursor, Codex, Gemini CLI, Copilot's coding agent, Zed, Windsurf, Jules, Junie and Aider read from
-the repository root without being told to. Claude Code reads it too when the project has no
-`CLAUDE.md`; if yours does, one import line in it points here — see `simloop-agents/pointers/`.
+Instructions for an AI coding agent working in this repository, in the `AGENTS.md` format.
+Check how your tool loads project instructions and confirm that this file is included. The
+`simloop-agents/pointers/` folder has files for tools and projects that need an explicit pointer.
 
 Everything above the last heading is about **SimLoop**, the simulation library this project tests with,
 and is the same in every project. The last section is about your robot and is yours to fill in.
@@ -136,7 +135,9 @@ a specific subsystem, the answer is a config implementation on this side, not a 
 
 ## The whole public surface
 
-Thirteen packages. Complete as of `v0.2.0-alpha.1`. Every feature, one line each:
+Thirteen packages in the current source tree. Check this project's pinned dependency before using a
+type below: distortion, occluders, tilted tags and synthetic frames were added after
+`v0.2.0-alpha.1` and are absent from that tag. Every feature, one line each:
 <https://libraries.horizon36596.org/simloop/features/>.
 
 | Package | Classes | What it is for |

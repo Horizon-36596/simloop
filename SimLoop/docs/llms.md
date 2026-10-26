@@ -8,6 +8,11 @@ the right page instead of crawling navigation.
 
 ## Read this first
 
+Check the dependency's exact tag or source commit before using this index. It describes the current
+source tree, which includes APIs added after `v0.2.0-alpha.1`. In particular, distortion, occluders,
+tilted tags and synthetic frames are development APIs. Read the matching source or generated API
+reference before calling them; the published alpha coordinate above does not contain them.
+
 - **[Every feature](features.md)**: one line per feature, with a link to its page.
 - **[What it does not do](limits.md)**: the authoritative list of what is out of scope. If a task needs
   something on that list, there is no API for it; say so rather than searching. A photoreal camera image,

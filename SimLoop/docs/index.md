@@ -22,6 +22,11 @@ No robot, no Driver Station, no emulator. A test run is a few seconds.
 
 [Every feature](features.md) lists what it does, one line each.
 
+!!! note "Match the docs to your dependency"
+    These source docs can include changes newer than the published tag. The vision guide marks its
+    development APIs. For a build pinned to `v0.2.0-alpha.1`, use the
+    [docs at that tag](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.1/SimLoop/docs).
+
 ## The fastest way in
 
 Copy one folder into your FTC project and add one line to `TeamCode/build.gradle`:

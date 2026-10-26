@@ -32,7 +32,7 @@ run.maxValue("RealOutputs/Slide/positionInches");   // worst case over the run
 **The key needs its `RealOutputs/` prefix.** Ask for a key nothing logged and you get a
 `MetricNotFoundException`, never a zero — a silent zero is a passing test that measured nothing.
 
-## `UNKNOWN` is a real answer, and it is the important one
+## Read unknown guardrails before accepting a score
 
 A guardrail that cannot check itself from a run returns `UNKNOWN` with a reason, rather than passing. An
 envelope with four unknowns in it is guarding much less than it appears to, so read
@@ -42,9 +42,8 @@ because no scenario logs a loop time yet.
 ## It will not report a score that did not reproduce
 
 `StopReport.reportedScore()` throws if the best candidate failed to reproduce, rather than handing back a
-best-effort number. The one mistake the class exists to prevent is printing a score the second run did not
-agree with. The number that failed is still available, named `unreproducedScoreForDiagnosis()`, so a
-determinism failure can say *which* number did not come back.
+best-effort number. The unreproduced value is available through `unreproducedScoreForDiagnosis()` so
+you can investigate the difference without reporting it as a verified result.
 
 ## Units and frames
 

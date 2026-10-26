@@ -1,6 +1,7 @@
 # Installing it
 
-There are two ways in, and the first one is three steps.
+Copy the starter folder to add SimLoop to an FTC project. The manual setup below explains the same
+build settings if you want to maintain them yourself.
 
 !!! warning "Your project must be on FTC SDK 12.0"
     SimLoop `v0.2.0-alpha.1` is built against **FTC SDK 12.0.0**, and the earlier beta was built against
@@ -30,7 +31,7 @@ your robot runs. Update the project first.
 
 ## The three-step way: copy the starter folder
 
-[`simloop-starter/`](https://github.com/Horizon-36596/simloop/tree/main/simloop-starter) is one folder
+[`simloop-starter/`](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.1/simloop-starter) is one folder
 that carries every build setting SimLoop needs, plus a small example robot that drives itself.
 
 1. **Copy the folder** into the root of your FTC project, beside `TeamCode/` and `FtcRobotController/`.
@@ -46,16 +47,20 @@ that carries every build setting SimLoop needs, plus a small example robot that 
     ./gradlew :TeamCode:testDebugUnitTest
     ```
 
-Two tests run and pass in a few seconds, with no robot and no Driver Station. That is the example robot
-driving itself in simulation.
+The two starter tests should pass without a robot or Driver Station. On the first run, Gradle may
+need to download dependencies or wait for JitPack to build the pinned tag. Later runs use the cache.
+
+Copy the starter from the same tag as the dependency it declares. The repository's `main` branch can
+contain examples for APIs that have not been released. After the starter passes, add a test for your
+own robot; passing the example checks the installation, not your robot's configuration or physics.
 
 !!! tip "Why a folder and not a quickstart repository"
     A team starts its season in one repository. A folder you drop into that repository needs no merge,
     and removing it is deleting the folder and one line.
 
-The starter's own [README](https://github.com/Horizon-36596/simloop/tree/main/simloop-starter#readme)
-says what is in it, and [Your first simulated test](first-test.md) walks through the same code line by
-line.
+The starter's own [README](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.1/simloop-starter#readme)
+says what is in it. [Your first simulated test](first-test.md) walks through a separate slide example,
+including the clock, plant, log and assertions.
 
 ## The manual way: what the starter folder is actually doing
 

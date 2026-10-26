@@ -3,11 +3,10 @@
 By the end of this page you have a test that drives a linear slide to a target in simulation, asserts it
 got there, and leaves an RLOG you can open in AdvantageScope.
 
-!!! success "This example is not a sketch"
-    The code below is a real test in SimLoop's own test sourceset -
-    `SimLoop/src/test/java/org/horizon36596/simloop/example/SlideReachesTargetExampleTest.java` - and it
-    runs in CI with everything else. If a signature on this page ever stops compiling, the build goes red
-    before you find out the hard way.
+The maintained example is
+`SimLoop/src/test/java/org/horizon36596/simloop/example/SlideReachesTargetExampleTest.java`.
+It runs with the library's tests. Use the source at your dependency's tag if a snippet here differs
+from the version you installed.
 
 ## The five things a simulated test always has
 
@@ -161,7 +160,7 @@ class SlideReachesTargetExampleTest {
 }
 ```
 
-## Two things that will catch you
+## Check the log key, motor feedback and tick order
 
 **The key you log is not the key you read.** PsiKit files everything `Logger.recordOutput` writes beneath
 `RealOutputs/`. A run that logged `"Slide/positionInches"` is queried as
@@ -192,17 +191,25 @@ and run your module's test task:
 ./gradlew :TeamCode:testDebugUnitTest
 ```
 
-Three seconds of robot time takes well under a second of yours.
+The scenario advances three seconds of simulated time. Build and test startup time depend on your
+machine and whether Gradle has cached its dependencies.
 
-(The copy that lives in SimLoop's own tests is not something you need; it is there so that this page
-cannot drift away from the library.)
+The complete example also lives in SimLoop's test sources. Compare with the version at your pinned
+tag if you adapt the code.
 
 ## Opening the log
 
-The run wrote `build/sim/slide-reaches-target.rlog`. Open it in
+The test writes `build/sim/slide-reaches-target.rlog` relative to the test task's working directory.
+For a standard FTC `TeamCode` test, look under `TeamCode/build/sim/`. Open the file in
 [AdvantageScope](https://github.com/Mechanical-Advantage/AdvantageScope): **File - Open**, pick the file,
 then drag `RealOutputs/Slide/positionInches` onto a line graph. You should see it rise and flatten at 12
 inches.
+
+![Recorded slide position rises, overshoots the 12 inch target, and settles back to it](assets/first-test-slide.svg)
+
+*A recorded run of this example: 150 ticks at 0.02 s, using the example's placeholder plant. The final
+position is 12.000 in when rounded to three decimals. This is simulated data, not a robot measurement.
+[Download the plotted values](assets/first-test-slide.csv).*
 
 !!! warning "`build/` is deleted by `./gradlew clean`"
     The log is a build output, not a document. If it is gone, re-run the test - that is the command that

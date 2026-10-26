@@ -1,6 +1,6 @@
 # Every feature
 
-Everything SimLoop `0.2.0-alpha.1` does, one line each. Each line links to the page that explains it. What
+Features in the current source tree, one line each. Each line links to the page that explains it. What
 it does **not** do is on [What it does not do](limits.md).
 
 ## Run your code

@@ -4,6 +4,10 @@ Copy **this folder** into the root of your FTC project, add **one line** to `Tea
 run the tests. That is the whole installation. You do not clone the SimLoop repository, you do not build
 it, and you do not copy any of its source into your project.
 
+Copy this folder from the same tag as `simloopVersion` below. The
+[starter at `v0.2.0-alpha.1`](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.1/simloop-starter)
+matches the pinned alpha. Examples on `main` may use development APIs absent from that artifact.
+
 > ## Your FTC project must be on SDK 12.0
 >
 > SimLoop `v0.2.0-alpha.1` is built against **FTC SDK 12.0.0** (the earlier beta used 11.2.1). Update
@@ -46,8 +50,9 @@ apply from: "$rootDir/simloop-starter/simloop.gradle"
 ./gradlew :TeamCode:testDebugUnitTest
 ```
 
-Two tests run and pass, in a few seconds, with no robot and no Driver Station. They are the example robot
-in this folder driving itself in simulation.
+The two example tests should pass without a robot or Driver Station. The first run may take longer
+while Gradle downloads dependencies. These tests check the installation using the example robot;
+add tests for your own hardware names, mechanisms and OpModes next.
 
 ## Why one line and not ten
 
