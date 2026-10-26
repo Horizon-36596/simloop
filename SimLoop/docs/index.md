@@ -93,10 +93,11 @@ These are enforced by tests in the module, not by good intentions.
 - **No season imports.** No file in `org.horizon36596.simloop` imports `org.firstinspires.ftc.teamcode`.
   Season facts arrive through the `config` interfaces.
 - **Depends only on** the FTC SDK 12.0 and PsiKit. No SolversLib, no follower library.
-- **Deterministic.** No wall-clock reads on any sim path. `update(deltaTime)` mutates state; getters are
-  pure reads.
-- **The fakes replicate real device semantics exactly** — every method of the interface, including the
-  ones nobody calls, behaving the way the hardware does.
+- **Deterministic model time.** Plants advance from the supplied `deltaTime`; getters are pure reads.
+  I/O waits and live pacing do not advance that clock. Robot code must use sim time too.
+- **SDK-facing fakes.** Robot code uses FTC SDK types. The fake devices implement their state and
+  control interfaces; readings come from the simulation model. See the
+  [hardware guide](packages/fakehardware.md) for behavior and limits.
 
 ## Help build SimLoop
 

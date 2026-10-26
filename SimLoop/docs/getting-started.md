@@ -15,10 +15,13 @@ build settings if you want to maintain them yourself.
 
 ## What you need first
 
-- **Java 17 or newer** to run Gradle. Android Studio ships one.
+- **A JDK compatible with your project's Gradle wrapper.** Java 17 is the baseline for this build;
+  Android Studio includes a JDK, but its version must still match what your wrapper supports.
 - **An FTC SDK 12.0 project.** `RobotCore` and `Hardware` at `12.0.0`.
+- **The Android SDK required by that project**, installed and configured for Gradle. A plain JVM test
+  still builds through the Android Gradle Plugin; it does not need an Android emulator.
 
-That is the whole list. You do **not** need to clone this repository, and you do not need SolversLib,
+You do **not** need to clone this repository, and you do not need SolversLib,
 Pedro Pathing, Road Runner, FTC Dashboard or Robolectric. SimLoop depends on none of them.
 
 ### Why SDK 12.0

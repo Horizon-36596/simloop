@@ -11,7 +11,7 @@ You do not need to read the rest of the SimLoop docs first. You need to know wha
 On the robot there is one clock: real time. In a SimLoop test there are two. The **sim clock** is a
 `FakeTimer`, and SimLoop moves it forward by a fixed step each tick - usually 20 ms, the same as one loop
 on a Control Hub. The **wall clock** is your laptop's real time, and it keeps running at its own speed. A
-laptop does one 20 ms tick in well under a millisecond, so the two clocks drift apart fast. Everything the
+laptop may advance many sim ticks during one real millisecond, or take longer on a busy run. Everything the
 sim simulates - motors turning, mechanisms moving, the robot driving - follows the sim clock. So any code
 that looks at the wall clock is looking at the wrong clock. A 250 ms wait that reads the wall clock can
 last 30 *simulated* seconds, and a different number every run. (That is a real measurement: it happened

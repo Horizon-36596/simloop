@@ -8,6 +8,9 @@ The maintained example is
 It runs with the library's tests. Use the source at your dependency's tag if a snippet here differs
 from the version you installed.
 
+The documentation build also checks that the complete Java block below matches that test, apart
+from its class-level documentation comment. A change to one must update the other.
+
 ## The five things a simulated test always has
 
 Whatever you are testing, the shape is the same:

@@ -40,8 +40,10 @@ check for an `exclude` or a platform constraint on `org.firstinspires.ftc`.
 
 ## `SDK location not found`
 
-Nothing to do with SimLoop. A Gradle build in a fresh checkout or a new git worktree needs
-`local.properties`, which is not in version control. Copy it from a working checkout.
+Gradle cannot find the Android SDK. The tests run on the JVM, but the Android project still needs its
+SDK installed and configured. On the same machine, a fresh checkout or worktree can use
+`local.properties` from a working checkout. On another machine, set `sdk.dir` to that machine's SDK
+location; do not copy someone else's absolute path. Keep this file out of version control.
 
 ## The mechanism moves a tick late, and no gain fixes it
 

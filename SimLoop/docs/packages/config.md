@@ -2,8 +2,8 @@
 
 `org.horizon36596.simloop.config`
 
-The one-way seam. These are interfaces **you** implement, in your season repository, to tell SimLoop your
-robot's numbers. SimLoop reads them; SimLoop never imports anything of yours.
+Implement these interfaces in your robot project to supply its dimensions, motion limits and device
+names. SimLoop reads that configuration without importing your robot or season code.
 
 ## What you implement
 

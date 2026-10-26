@@ -4,8 +4,8 @@ Copy one of these, paste it into whatever agent you use, and fill in the `<angle
 in any tool. They assume the agent can read your repository and run `./gradlew`; if yours cannot, paste
 the relevant file in with the prompt.
 
-These are starting points, not incantations. The reason they are longer than "write me a test" is that
-every extra sentence is a decision the agent would otherwise make for you, silently and probably wrong.
+These prompts specify the behaviour, inputs and verification to ask for. Replace the examples with
+your robot's details, and review the resulting code and test evidence.
 
 ---
 
