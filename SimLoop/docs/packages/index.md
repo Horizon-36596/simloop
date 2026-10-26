@@ -16,7 +16,7 @@ what that package will not do.
 | [`loop`](loop.md) | once you score runs | Turning a log into a number, with guardrails on what may not get worse. |
 | [`field`](field.md) | if you model game pieces | Possession, game-piece physics, goals, field structures. |
 | [`sensor`](sensor.md) | if you use touch, distance or colour sensors | What a sensor on the robot sees or touches on the field. |
-| [`vision`](vision.md) | if you use a camera | Which pieces and AprilTags a camera sees, and where. No image. |
+| [`vision`](vision.md) | if you use a camera | Which pieces and AprilTags a camera sees, and where. Synthetic frames for pixel pipelines, not photos. |
 | [`fit`](fit.md) | once you have a real robot log | Fits the motor model to the log and reports the sim-against-robot gap. |
 | [`viz`](viz.md) | if you want to see it | Mechanisms, robot parts and shot arcs drawn into the log for AdvantageScope. |
 

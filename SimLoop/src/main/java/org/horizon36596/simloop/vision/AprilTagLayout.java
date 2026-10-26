@@ -22,8 +22,10 @@ import java.util.TreeMap;
  * written in is the frame a fake Limelight's {@code botpose} comes back in, exactly as a real Limelight's
  * {@code botpose} is in the frame of the field map uploaded to it.
  *
- * <p><b>Tags are vertical.</b> Each tag hangs plumb, its face pointing horizontally in the direction
- * {@code facingRad}. A tag tilted back or lying flat is not modelled.
+ * <p><b>Tags hang plumb unless you tilt them.</b> {@link Builder#addTag} adds a tag whose face points
+ * horizontally in the direction {@code facingRad}. {@link Builder#addTiltedTag} also tilts the face up or
+ * down about the tag's own horizontal axis, for a tag on a sloped panel or lying flat. A tag turned within
+ * its own plane (its top edge not level) is not modelled.
  *
  * <p>Immutable. Build one with {@link #builder()}; {@link #empty()} is a field with no tags.
  */
@@ -85,27 +87,46 @@ public final class AprilTagLayout {
         private final double yInches;
         private final double zInches;
         private final double facingRad;
+        private final double tiltUpRad;
         private final double sizeInches;
         private final RigidTransform3 fieldToTag;
+        private final double[] faceNormal;
 
         private Tag(int id, double xInches, double yInches, double zInches, double facingRad,
-                double sizeInches) {
+                double tiltUpRad, double sizeInches) {
             this.id = id;
             this.xInches = xInches;
             this.yInches = yInches;
             this.zInches = zInches;
             this.facingRad = facingRad;
+            this.tiltUpRad = tiltUpRad;
             this.sizeInches = sizeInches;
             double cos = StrictMath.cos(facingRad);
             double sin = StrictMath.sin(facingRad);
             // Target space, as Limelight describes it: +X to the right and +Y down for someone looking at
             // the tag, +Z along the line of sight, into the tag. Right-handed. A viewer in front looks along
             // -normal, and their right is that direction turned 90 degrees clockwise seen from above.
-            this.fieldToTag = RigidTransform3.fromAxes(
-                    new double[] {-sin, cos, 0.0},
-                    new double[] {0.0, 0.0, -1.0},
-                    new double[] {-cos, -sin, 0.0},
-                    xInches, yInches, zInches);
+            if (tiltUpRad == 0.0) {
+                // The plumb tag, written out so it is bit-identical to every earlier version.
+                this.fieldToTag = RigidTransform3.fromAxes(
+                        new double[] {-sin, cos, 0.0},
+                        new double[] {0.0, 0.0, -1.0},
+                        new double[] {-cos, -sin, 0.0},
+                        xInches, yInches, zInches);
+                this.faceNormal = new double[] {cos, sin, 0.0};
+            } else {
+                // Tilting turns the face normal up by tiltUpRad about the viewer's right, which stays level.
+                double cosTilt = StrictMath.cos(tiltUpRad);
+                double sinTilt = StrictMath.sin(tiltUpRad);
+                double[] right = {-sin, cos, 0.0};
+                double[] into = {-cos * cosTilt, -sin * cosTilt, -sinTilt};
+                double[] down = {
+                        into[1] * right[2] - into[2] * right[1],
+                        into[2] * right[0] - into[0] * right[2],
+                        into[0] * right[1] - into[1] * right[0]};
+                this.fieldToTag = RigidTransform3.fromAxes(right, down, into, xInches, yInches, zInches);
+                this.faceNormal = new double[] {-into[0], -into[1], -into[2]};
+            }
         }
 
         /** {@return the tag id, as printed on the tag and reported by a detector} */
@@ -133,6 +154,19 @@ public final class AprilTagLayout {
             return facingRad;
         }
 
+        /**
+         * {@return how far the face normal points above horizontal, radians; 0 for a plumb tag, positive
+         * for a tag leaning back so its face looks up, {@code PI / 2} for a tag lying face up on the floor}
+         */
+        public double getTiltUpRad() {
+            return tiltUpRad;
+        }
+
+        /** {@return the unit vector the printed face points along, field frame, {@code {x, y, z}}, a fresh copy} */
+        public double[] getFaceNormal() {
+            return faceNormal.clone();
+        }
+
         /** {@return the edge length of the tag square whose corners are reported, inches} */
         public double getSizeInches() {
             return sizeInches;
@@ -152,7 +186,9 @@ public final class AprilTagLayout {
         @Override
         public String toString() {
             return "Tag(" + id + " at (" + xInches + ", " + yInches + ", " + zInches + ") in, facing "
-                    + StrictMath.toDegrees(facingRad) + " deg, " + sizeInches + " in)";
+                    + StrictMath.toDegrees(facingRad) + " deg"
+                    + (tiltUpRad != 0.0 ? ", tilted up " + StrictMath.toDegrees(tiltUpRad) + " deg" : "")
+                    + ", " + sizeInches + " in)";
         }
     }
 
@@ -179,6 +215,34 @@ public final class AprilTagLayout {
          */
         public Builder addTag(int id, double xInches, double yInches, double zInches, double facingRad,
                 double sizeInches) {
+            return addTiltedTag(id, xInches, yInches, zInches, facingRad, 0.0, sizeInches);
+        }
+
+        /**
+         * Adds a tag whose face is tilted up or down from vertical: a tag on a sloped panel, or one lying
+         * flat. The viewer's right along the tag stays level; the face normal is {@code facingRad} in plan,
+         * raised by {@code tiltUpRad}.
+         *
+         * @param id         the tag id; each id may appear once
+         * @param xInches    tag centre, field X, inches
+         * @param yInches    tag centre, field Y, inches
+         * @param zInches    tag centre height above the floor, inches
+         * @param facingRad  the direction the printed face points in plan, radians CCW from field {@code +X}
+         * @param tiltUpRad  how far the face normal points above horizontal, radians, in
+         *                   {@code [-PI / 2, PI / 2]}: positive for a tag leaning back (face looking up),
+         *                   {@code PI / 2} for a tag lying face up on the floor, 0 for a plumb tag
+         * @param sizeInches the edge length of the square a detector reports corners for, inches (&gt; 0)
+         * @return this builder
+         * @throws IllegalArgumentException on a repeated id, a non-finite number, a non-positive size or a
+         *                                  tilt outside {@code [-PI / 2, PI / 2]}
+         */
+        public Builder addTiltedTag(int id, double xInches, double yInches, double zInches, double facingRad,
+                double tiltUpRad, double sizeInches) {
+            requireFinite(tiltUpRad, "tiltUpRad");
+            if (Math.abs(tiltUpRad) > Math.PI / 2.0) {
+                throw new IllegalArgumentException("tag " + id + " tilt must be within [-PI/2, PI/2] rad, got "
+                        + tiltUpRad);
+            }
             requireFinite(xInches, "xInches");
             requireFinite(yInches, "yInches");
             requireFinite(zInches, "zInches");
@@ -190,7 +254,7 @@ public final class AprilTagLayout {
             if (tags.containsKey(id)) {
                 throw new IllegalArgumentException("tag id " + id + " is already in the layout");
             }
-            tags.put(id, new Tag(id, xInches, yInches, zInches, facingRad, sizeInches));
+            tags.put(id, new Tag(id, xInches, yInches, zInches, facingRad, tiltUpRad, sizeInches));
             return this;
         }
 

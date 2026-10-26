@@ -128,8 +128,10 @@ limelight.setRobotPose(fieldX, fieldY, fieldHeading);   // or setRobotPoseFromLo
 
 Robot code calls `start()`, `pipelineSwitch(i)`, `updateRobotOrientation(yawDeg)` and `getLatestResult()`
 as usual and gets `botpose`, `getBotpose_MT2()` and fiducial results. Staleness and timestamps run on sim
-time. Seeded noise, latency and a frame rate are optional on the builder. The geometry is
-[`vision`](vision.md)'s `SimTagCamera`.
+time. Optional on the builder: seeded noise (and the matching `getStddevMt1/Mt2`), seeded dropouts,
+latency, a frame rate, lens distortion (`distortion(k1, k2, p1, p2, k3)`, which moves corner and centre
+pixels) and the robot's own body as boxes (`robotBody(...)`). The geometry is [`vision`](vision.md)'s
+`SimTagCamera`, so tilted tags in the layout work too.
 
 **Your test JVM needs the real `org.json`:** `testRuntimeOnly "org.json:json:20250517"`. Android's copy
 is a stub.
@@ -174,7 +176,7 @@ They are useful in a test and do not exist on real hardware, so never wire seaso
   constructor performs. Every read and write **throws**, on purpose: there is no peripheral behind the
   bus. The Pinpoint and OTOS fakes emulate their own register files instead.
 - **No sensor noise or drift** on the IMU, Pinpoint, OTOS, distance or colour fakes. The Limelight has
-  optional seeded noise.
+  optional seeded noise and dropouts.
 - **No webcams.** A `WebcamName` lookup fails in `init()` as on a robot without one.
 - **No Limelight pipelines but AprilTags.** Network-only calls (field map upload, snapshots, Python,
   calibration) throw.

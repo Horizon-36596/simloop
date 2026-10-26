@@ -27,7 +27,8 @@ it does **not** do is on [What it does not do](limits.md).
 - Limelight 3A: AprilTag results from the tags the robot can see, parsed by the SDK. [`fakehardware`](packages/fakehardware.md#limelight-3a)
 - REV touch, 2m distance and Color Sensor V3 fakes, scripted or driven from the field. [`fakehardware`](packages/fakehardware.md#touch-distance-and-colour-sensors)
 - Sensors driven from the field: range ray, colour probe, contact switch on a robot mount. [`sensor`](packages/sensor.md)
-- Simulated camera: which pieces and AprilTags are in the image, and where. No rendering. [`vision`](packages/vision.md)
+- Simulated camera: which pieces and AprilTags are in the image, and where, through a distorted lens, with boxes, the robot body and other pieces in the way. [`vision`](packages/vision.md)
+- Synthetic camera frames: the scene drawn as RGB pixels for a real `VisionProcessor`, with ground-truth labels and a PNG writer. Flat colours, not for tuning thresholds. [`vision`](packages/vision.md#synthetic-frames-for-a-pixel-pipeline)
 
 ## Physics and field
 

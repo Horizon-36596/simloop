@@ -37,23 +37,29 @@ Game pieces do have physics: they roll, bounce, collide, fly and score
 - **`ObstacleBox` has no top**, so pieces cannot rest on one. Use a `KinematicBody`.
 - **The physics numbers are defaults** for a foam ball a few inches across. Measure yours.
 
-## Vision is geometry only
+## Vision: geometry, and drawings that are not photographs
 
-`vision` says which pieces and AprilTags a camera would see and where, and `FakeLimelight3A` turns that
-into Limelight results. There is **no image**. So:
+`vision` says which pieces and AprilTags a camera would see and where, through a pinhole or a distorted
+lens, with boxes, the robot's own body and other pieces in the way. `FakeLimelight3A` turns that into
+Limelight results. `SimFrameRenderer` can also draw the scene as RGB pixels so a real pixel pipeline runs.
+Those **synthetic frames are flat colours under one light, not camera images**. So:
 
-- Colour thresholds, blob detection and lighting cannot be tested, and a synthetic scene must never be
-  used to tune them.
-- No lens distortion, no motion blur, no dropouts. The robot's own body does not block the view.
+- **Colour thresholds must never be tuned on synthetic frames.** A threshold that passes on one shows the
+  code path runs, nothing about real lighting. Tune on real photos from your camera.
+- No shadows, highlights, textures, motion blur, rolling shutter, exposure or white balance. Synthetic tag
+  interiors do not decode as a real tag family.
+- No roll. Only what you give as a box, a piece or a tag blocks the view; boxes are axis-aligned.
+- No frame timing in `SimCamera` or the renderer: latency is your sim glue's job.
 - Limelight: AprilTag pipelines only. Its network-only calls throw.
-- **No webcams.** A `WebcamName` lookup fails in `init()`.
+- **No webcams.** A `WebcamName` lookup fails in `init()`. Your sim glue hands frames to your processor
+  itself.
 
 ## Sensors are simple
 
 - A distance sensor is a single ray, not a 25 degree cone, and sees every surface.
 - A colour sensor reads one set of counts per kind of piece, whatever the distance or angle.
 - No noise or drift on the IMU, Pinpoint, OTOS, distance or colour fakes. The Limelight has optional
-  seeded noise.
+  seeded noise and dropouts, and synthetic frames optional seeded pixel noise.
 - No legacy `BNO055IMU`, and no generic I2C devices.
 
 ## It ships no field

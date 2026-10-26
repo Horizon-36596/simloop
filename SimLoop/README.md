@@ -115,7 +115,7 @@ does **not** do, and a flat index written for AI agents. Start at `docs/index.md
 | `sim` | `FakeTimer` (the one clock), `ScenarioRunner` (the fixed-timestep tick loop plus the whole PsiKit lifecycle, and `runUntil` for a run of unknown length), and `RlogDecodedCompare` (field-by-field RLOG comparison for determinism tests). |
 | `sim/live` | Live drive: a recorded, replayable gamepad input track (`GamepadInputTrack`), a keyboard-to-gamepad keymap (`KeyboardGamepadSource`), and `RealTimePacer`. |
 | `field` | Field bookkeeping and game-piece simulation: the localizer-to-field frame transform, trigger and scoring volumes, obstacles, game-piece possession and rolling/flight physics, and a seeded random source. |
-| `vision` | A simulated camera: lens and mount geometry, and which game pieces fall inside the image and where, as `CameraSighting`s. Geometry only; no image is rendered. |
+| `vision` | A simulated camera: lens (optionally distorted) and mount geometry, which game pieces and AprilTags fall inside the image and where, with boxes, the robot body and other pieces in the way, and `SimFrameRenderer`'s synthetic RGB frames for running a pixel pipeline. Synthetic frames are flat colours, never for tuning thresholds. |
 | `viz` | `MechanismSketch` and its definitions: a robot's joints drawn as a PsiKit mechanism for AdvantageScope. `ArticulatedRobotModel`: a joint tree that turns joint values into the component poses a custom AdvantageScope robot asset draws. |
 | `loop` | Scoring runs from their logs and keeping the best: `RunResult` (a run read back from its RLOG), `Objective` and `Scorer` (measure), guardrails and `Gate` (accept or reject a candidate), and `LoopDriver` (last-best bookkeeping, `Milestone`s, the `StopReport`). It proposes nothing. |
 | `fit` | Fitting the sim to a real robot log: `LeastSquares` (Householder QR, written out), `FirstOrderFit` (the plant model `FakeMotor` steps, plus friction), `RlogTimeSeries` (timestamped columns of an RLOG) and `GapReport` (the markdown sim-vs-real table). A season supplies its own key names and sim parameters. |
@@ -334,13 +334,15 @@ limelight.setRobotPose(fieldX, fieldY, fieldHeading);   // or setRobotPoseFromLo
   is an empty, invalid result, as on the robot; `stop()` keeps the last result, which goes stale.
 - **Geometry** is `vision/SimTagCamera`: all four corners must be in the image and in front of the lens,
   the tag must face the camera (optionally within `maxIncidenceDegrees`), be within range, and not be
-  behind an `ObstacleBox` given to `occluders(...)`. MegaTag2 uses the yaw you sent.
+  behind an `ObstacleBox` given to `occluders(...)` or `robotBody(...)` (robot frame). Tags may be tilted.
+  MegaTag2 uses the yaw you sent.
 - **Optional:** seeded Gaussian noise on tx/ty and botpose (`noise(seed, ...)`, off by default,
-  byte-identical for a seed), capture and targeting latency, and a camera frame rate.
+  byte-identical for a seed) with `stdev_mt1`/`stdev_mt2` reporting its spread, seeded dropouts
+  (`dropout(seed, p)`), lens distortion on the pixel outputs (`distortion(k1, k2, p1, p2, k3)`), capture
+  and targeting latency, and a camera frame rate.
 - **Your test JVM needs the real `org.json`** (`testRuntimeOnly "org.json:json:20250517"`); Android's
   `android.jar` copy is a stub. `SimLoop/build.gradle` shows the line.
-- **Not modelled:** non-AprilTag pipelines, lens distortion, blur and dropouts, tag-on-tag and robot-body
-  occlusion, tilted tags, stddevs, and the network-only calls (`uploadFieldmap`, snapshots, python,
+- **Not modelled:** non-AprilTag pipelines, blur, tag-on-tag occlusion, and the network-only calls (`uploadFieldmap`, snapshots, python,
   calibration), which throw. Robot-space poses use `+y` left; this has not been checked on a real 3A.
 
 ## Running a team's OpMode unchanged (`opmode/`)

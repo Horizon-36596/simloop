@@ -53,9 +53,10 @@ before writing a test, not after one fails.
 
 The public surface is completely listed below. If the thing you want is not in it, it does not exist,
 and the right move is to say so. **Before claiming SimLoop can do something, check
-[what it does not do](https://libraries.horizon36596.org/simloop/limits/).** A rendered camera image,
+[what it does not do](https://libraries.horizon36596.org/simloop/limits/).** A photoreal camera image,
 intake rollers that really grip, a shipped field, a command scheduler and controller tuning are all
-deliberately out of scope. Game-piece physics, a geometry-only camera and fitting the plant to a real log
+deliberately out of scope. Game-piece physics, a camera with distortion and occlusion, synthetic frames (never for tuning colour
+thresholds) and fitting the plant to a real log
 do exist, each with stated limits. A plausible method name half-remembered from another library is the single most common way
 this goes wrong.
 
@@ -149,7 +150,7 @@ Thirteen packages. Complete as of `v0.2.0-alpha.1`. Every feature, one line each
 | `simclock` | `SimClockLoader`, `SimClockElapsedTime`, `SimClockHooks`, `SimClockScheduler`, `JvmInstructions` | Used by `OpModeRunner.forTeamClass(...)` to move this project's own timer calls onto sim time. Not called directly. |
 | `field` | `GamePiece`, `GamePieceTracker`, `PossessionState`, `TriggerVolume`, `FieldFrameTransform`, `FieldWorld`, `GamePiecePhysicsConfig`, `ObstacleBox`, `ScoringVolume`, `KinematicBody`, `HingeDynamics`, `BodyCell`, `ConvexShape`, `RobotShape`, `OrientedBox`, `StaticRobot`, `FootprintContact`, `RobotContact`, `SeededRandom` | Game pieces with possession and physics, goals, field structures, robot contact. Intaking is still a box test. |
 | `sensor` | `SensorMount`, `RangeFinder`, `RangeHit`, `ColorProbe`, `ContactSwitch` | What a touch, distance or colour sensor on the robot sees or touches on the field. |
-| `vision` | `CameraLens`, `CameraMount`, `SimCamera`, `CameraSighting`, `AprilTagLayout`, `SimTagCamera`, `TagSighting`, `RigidTransform3`, `RobotFramePoint` | Which pieces and AprilTags a camera sees, and where. Geometry only; no image. |
+| `vision` | `CameraLens`, `CameraMount`, `CameraOccluders`, `SimCamera`, `CameraSighting`, `AprilTagLayout`, `SimTagCamera`, `TagSighting`, `SimFrameRenderer`, `SimFrame`, `FrameStyle`, `RigidTransform3`, `RobotFramePoint` | Which pieces and AprilTags a camera sees, and where, through a distorted lens with occlusion. Synthetic RGB frames for running a pixel pipeline; flat colours, never for tuning thresholds. |
 | `fit` | `FirstOrderFit`, `GapReport`, `LeastSquares`, `RlogTimeSeries` | Fitting the first-order plant to a real robot log, and a sim-against-robot gap report. Changes no constant. |
 | `loop` | `RunResult`, `Objective`, `Guardrail`, `EnvelopeGuardrails`, `Scorer`, `Gate`, `Milestone`, `LoopDriver`, `StopReport` | Reading a log back and scoring it. |
 | `viz` | `MechanismSketch`, `MechanismSketchDefinition`, `JointDefinition`, `RevoluteJointDefinition`, `LinearJointDefinition`, `TurretSketch`, `TurretSketchDefinition`, `ArticulatedRobotModel`, `ShotArc`, `ShotArcRecorder`, `RobotVector3` | Drawing mechanisms, robot parts and shots for AdvantageScope. Inches and radians in, metres in the log. |
