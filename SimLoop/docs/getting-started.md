@@ -4,12 +4,12 @@ Copy the starter folder to add SimLoop to an FTC project. The manual setup below
 build settings if you want to maintain them yourself.
 
 !!! warning "Your project must be on FTC SDK 12.0"
-    SimLoop `v0.2.0-alpha.1` is built against **FTC SDK 12.0.0**, and the earlier beta was built against
+    SimLoop `v0.2.0-alpha.2` is built against **FTC SDK 12.0.0**, and the earlier beta was built against
     11.2.1. Update your FTC project to SDK 12.0 before you add SimLoop. See
     [Why SDK 12.0](#why-sdk-120) below.
 
 !!! note "Status: alpha"
-    `v0.2.0-alpha.1` is the current alpha. The API may change between alpha versions, so pin the exact
+    `v0.2.0-alpha.2` is the current alpha. The API may change between alpha versions, so pin the exact
     version. `v0.1.0-beta1` is superseded and gets no fixes. Questions go to
     [Discussions](https://github.com/Horizon-36596/simloop/discussions).
 
@@ -34,7 +34,7 @@ your robot runs. Update the project first.
 
 ## The three-step way: copy the starter folder
 
-[`simloop-starter/`](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.1/simloop-starter) is one folder
+[`simloop-starter/`](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.2/simloop-starter) is one folder
 that carries every build setting SimLoop needs, plus a small example robot that drives itself.
 
 1. **Copy the folder** into the root of your FTC project, beside `TeamCode/` and `FtcRobotController/`.
@@ -61,7 +61,7 @@ own robot; passing the example checks the installation, not your robot's configu
     A team starts its season in one repository. A folder you drop into that repository needs no merge,
     and removing it is deleting the folder and one line.
 
-The starter's own [README](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.1/simloop-starter#readme)
+The starter's own [README](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.2/simloop-starter#readme)
 says what is in it. [Your first simulated test](first-test.md) walks through a separate slide example,
 including the clock, plant, log and assertions.
 
@@ -98,10 +98,10 @@ repositories {
 ```groovy
 // TeamCode/build.gradle
 dependencies {
-    testImplementation 'com.github.Horizon-36596:simloop:v0.2.0-alpha.1'
+    testImplementation 'com.github.Horizon-36596:simloop:v0.2.0-alpha.2'
 
     // The keyboard window for driving the sim live. Optional; same coordinate, `desktop` classifier.
-    testImplementation 'com.github.Horizon-36596:simloop:v0.2.0-alpha.1:desktop'
+    testImplementation 'com.github.Horizon-36596:simloop:v0.2.0-alpha.2:desktop'
 
     // JUnit 5, if you are not already on it.
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.11.3'
@@ -122,8 +122,8 @@ android {
 it belongs on the robot, and this scope is what keeps it out of the APK.
 
 !!! warning "The version string includes the `v`"
-    JitPack's version **is** the git tag, letter for letter. The tag is `v0.2.0-alpha.1`, so the version is
-    `v0.2.0-alpha.1`. Omitting the `v` requests a different version and can fail with `Could not find`.
+    JitPack's version **is** the git tag, letter for letter. The tag is `v0.2.0-alpha.2`, so the version is
+    `v0.2.0-alpha.2`. Omitting the `v` requests a different version and can fail with `Could not find`.
 
 !!! tip "Declare the JUnit Platform launcher"
     Gradle 9 removed the implicit test-framework dependencies that older Gradle builds could rely on.
@@ -200,16 +200,16 @@ repositories {
 
 ```groovy
 dependencies {
-    testImplementation 'org.horizon36596:SimLoop:0.2.0-alpha.1'
+    testImplementation 'org.horizon36596:SimLoop:0.2.0-alpha.2'
 }
 ```
 
 !!! note "Two coordinates for one library, and both are correct"
-    `org.horizon36596:SimLoop:0.2.0-alpha.1` is what this project declares, and it is what
+    `org.horizon36596:SimLoop:0.2.0-alpha.2` is what this project declares, and it is what
     `publishToMavenLocal` writes and what a future Maven Central release would use. **JitPack ignores
     all three parts and derives its own** from the repository address: the group becomes
     `com.github.Horizon-36596`, the artifact becomes the repository name `simloop`, and the version is
-    the tag verbatim — so a JitPack dependency is spelled `com.github.Horizon-36596:simloop:v0.2.0-alpha.1`.
+    the tag verbatim — so a JitPack dependency is spelled `com.github.Horizon-36596:simloop:v0.2.0-alpha.2`.
 
     Use the coordinate for the repository you are resolving from.
 

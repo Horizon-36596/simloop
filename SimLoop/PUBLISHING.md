@@ -9,14 +9,14 @@ Central. The build wiring this describes lives at the bottom of `SimLoop/build.g
 |---|---|
 | Group (in the POM) | `org.horizon36596` |
 | Artifact (in the POM) | `SimLoop` |
-| Version (in the POM) | `0.2.0-alpha.1` |
-| **What a consumer actually writes** | **`com.github.Horizon-36596:simloop:v0.2.0-alpha.1`** |
+| Version (in the POM) | `0.2.0-alpha.2` |
+| **What a consumer actually writes** | **`com.github.Horizon-36596:simloop:v0.2.0-alpha.2`** |
 | Packaging | `aar`, plus sources and javadoc jars, plus the keyboard window jar (classifier `desktop`) |
 
 **JitPack ignores every one of those first three values and derives its own.** The group becomes
 `com.github.<owner>`, the artifact becomes the **repository** name, and the version is the git tag
-verbatim, leading `v` included. A consumer writes `com.github.Horizon-36596:simloop:v0.2.0-alpha.1`;
-JitPack's served POM uses that coordinate too. The declared `org.horizon36596:SimLoop:0.2.0-alpha.1`
+verbatim, leading `v` included. A consumer writes `com.github.Horizon-36596:simloop:v0.2.0-alpha.2`;
+JitPack's served POM uses that coordinate too. The declared `org.horizon36596:SimLoop:0.2.0-alpha.2`
 coordinate belongs to `publishToMavenLocal` and a possible Maven Central publication.
 
 That is JitPack's **single-module** spelling, and this build gets it because `jitpack.yml` installs
@@ -32,7 +32,8 @@ publication, `com.github.Horizon-36596:simloop:<tag>:desktop`, and not as a modu
 ## Version scheme
 
 `MAJOR.MINOR.PATCH`, with an `-alpha.N` suffix while the API is still moving. The current release is
-`0.2.0-alpha.1`, the first public alpha. `0.1.0-beta1` came before it and is superseded; it gets no fixes.
+`0.2.0-alpha.2`. `0.2.0-alpha.1` was the first public alpha. `0.1.0-beta1` came before it and is
+superseded; it gets no fixes.
 
 - **`-alpha.N`** says the API may change between alpha versions without a major bump. That is the true
   state today and should stay until teams outside Horizon have used it for a season.

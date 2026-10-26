@@ -79,7 +79,7 @@ the same line yourself, in `TeamCode/build.gradle`:
 
 ```groovy
 dependencies {
-    testImplementation "com.github.Horizon-36596:simloop:v0.2.0-alpha.1:desktop"
+    testImplementation "com.github.Horizon-36596:simloop:v0.2.0-alpha.2:desktop"
 }
 ```
 

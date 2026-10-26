@@ -13,11 +13,11 @@ Package root: `org.horizon36596.simloop`. Licence: BSD 3-Clause.
 Run SimLoop from your robot project's tests or simulation harness and view the result in a separate
 AdvantageScope window. This release covers that library-and-viewer workflow.
 
-The source tree can be newer than the latest tag. Distortion, occlusion, tilted tags and synthetic
-camera frames are development additions after `v0.2.0-alpha.1`; they are not in that pinned artifact.
-Use the starter and documentation from the tag you install, or pin the exact source commit you test.
+Distortion, occlusion, tilted tags and synthetic camera frames arrived in `v0.2.0-alpha.2`; they are not
+in `v0.2.0-alpha.1`. The source tree can be newer than the latest tag, so use the starter and
+documentation from the tag you install, or pin the exact source commit you test.
 
-> **SimLoop is an alpha.** `v0.2.0-alpha.1` is the current alpha and the first public one. The API may
+> **SimLoop is an alpha.** `v0.2.0-alpha.2` is the current alpha. The API may
 > change between alpha versions, so pin an exact version in your build. It needs **FTC SDK 12.0**.
 > Support is best effort: a small FTC team maintains it in its own time. `v0.1.0-beta1`, the earlier
 > build on JitPack, is superseded and will not get fixes.

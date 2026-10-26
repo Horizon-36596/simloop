@@ -36,7 +36,7 @@ site_dir: build/docs/site
 # This is a SECOND place the version is written; `SimLoop/build.gradle` is the authoritative one. They are
 # not linked yet, so PUBLISHING.md's release checklist lists this file as a place to bump. Wiring the two
 # together is a build change and belongs with the rest of the site build.
-copyright: "SimLoop 0.2.0-alpha.1 · Horizon (FTC 36596) · BSD-3-Clause"
+copyright: "SimLoop 0.2.0-alpha.2 · Horizon (FTC 36596) · BSD-3-Clause"
 
 theme:
   name: material

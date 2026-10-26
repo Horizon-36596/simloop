@@ -15,7 +15,7 @@ Run SimLoop from your robot project's tests or simulation harness, then **open t
 AdvantageScope**, in its own window, to see the run.
 
 !!! warning "Status: alpha"
-    `v0.2.0-alpha.1` is the current release and the first public alpha. The API may change between
+    `v0.2.0-alpha.2` is the current release. The API may change between
     alpha versions, so **pin the exact version** in your build. It needs **FTC SDK 12.0**. Questions go
     to [Discussions](https://github.com/Horizon-36596/simloop/discussions); bugs go to
     [Issues](https://github.com/Horizon-36596/simloop/issues). `v0.1.0-beta1` is superseded and gets no
@@ -28,9 +28,9 @@ AdvantageScope**, in its own window, to see the run.
 [Every feature](features.md) lists what it does, one line each.
 
 !!! note "Match the docs to your dependency"
-    These source docs can include changes newer than the published tag. The vision guide marks its
-    development APIs. For a build pinned to `v0.2.0-alpha.1`, use the
-    [docs at that tag](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.1/SimLoop/docs).
+    These source docs can include changes newer than the published tag. For a build pinned to
+    `v0.2.0-alpha.2`, use the
+    [docs at that tag](https://github.com/Horizon-36596/simloop/tree/v0.2.0-alpha.2/SimLoop/docs).
 
 ## The fastest way in
 
