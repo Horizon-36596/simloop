@@ -72,7 +72,8 @@ Your classes are loaded a second time for each run. So:
   can see are listed in `result.warnings()`.
 - **It will not move `Object.wait`, `Thread.join`, latches, futures or executors.**
 - **It refuses some things outright**, and fails the run even if your code catches the refusal: a
-  `Thread.sleep` on any thread but a `LinearOpMode`'s own, and a method reference `this::sleep` (write
+  `Thread.sleep` on any thread but a `LinearOpMode`'s own or an iterative OpMode's own during `init()`,
+  and a method reference `this::sleep` (write
   `ms -> sleep(ms)` instead).
 - **It will not rewrite an OpMode instance you built yourself.** Only `forTeamClass` loads classes through
   it.

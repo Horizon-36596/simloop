@@ -376,6 +376,8 @@ RLOG has one frame per tick and the usual completeness checks.
   the first `loop()` on the first ACTIVE tick, `loop()` per tick, `stop()` - with `telemetry.update()`
   after each, as the SDK does. Each call runs on the OpMode's own thread while the sim waits (never both
   at once); breakpoints still work, and a debugger that suspends all threads pauses the watchdog too.
+  Under `forTeamClass` a wait in `init()` holds it for ticks of sim time, as the SDK lets `init()` block;
+  waits in the other calls are refused.
 - **`LinearOpMode`**: `runOpMode()` runs on its own thread in strict lockstep with the sim (never both at
   once). A tick ends when the OpMode repeats a lifecycle check (`opModeIsActive()`, `isStopRequested()`,
   `opModeInInit()`, `isStarted()`) it already made this tick at the same place, so one pass of

@@ -128,6 +128,7 @@ its top-level package (see [Pedro Pathing](#pedro-pathing-and-other-libraries)).
 | `System.currentTimeMillis()` | 1 January 2026, 00:00 UTC, plus sim time. The same date every run, so a file name made from it repeats. |
 | `sleep(ms)` in a `LinearOpMode` | Waits that many ms of **sim** time: `sleep(1000)` is exactly 50 ticks. The duration can be anything: `sleep(500)`, `sleep(ms * 2)`, `sleep(fast ? 100 : 1000)`, or `sleep(millis)` inside a helper method. |
 | `Thread.sleep(ms)`, `Thread.sleep(ms, nanos)`, `TimeUnit.MILLISECONDS.sleep(ms)` | The same as `sleep(ms)`, but like the real ones they throw `InterruptedException` if STOP is pressed while they wait. `Thread.sleep(0)` returns at once, as on the robot, even in an iterative OpMode. |
+| `Thread.sleep(ms)` and the other waits above in an iterative OpMode's `init()`, your own or a library's (Pedro Pathing's Pinpoint localizer sleeps 500 ms in its constructor) | Holds `init()` for that many ms of **sim** time, as the SDK lets `init()` block on the robot: `Thread.sleep(500)` is exactly 25 ticks. Meanwhile motors keep their power and no other OpMode method runs; `init_loop()` starts on the tick after `init()` returns, or `start()` does if PLAY came first. STOP does not interrupt the wait (the SDK does not interrupt an iterative OpMode): sim time ends there, so the rest of it takes no time, then `stop()` runs. Waits in `init_loop()`, `start()`, `loop()` and `stop()` are still refused. |
 | Android's `SystemClock.uptimeMillis()`, `elapsedRealtime()`, `elapsedRealtimeNanos()`, `SystemClock.sleep(ms)` | Sim time in ms (or ns), and a sim-time wait. (In a JVM test Android's own `SystemClock` reads 0 and waits for nothing; rewritten, it is never used.) |
 | `idle()` in a `LinearOpMode` | Like the SDK's, it takes no time by itself; the tick ends when the same `idle()` runs a second time in it. So `while (timer.seconds() < 2) { idle(); }` waits 2 s of sim time, one pass per tick after the first, and `sleep(50); idle();` takes exactly the 3 ticks of the sleep. |
 | `System::nanoTime`, `ElapsedTime::new`, `() -> System.nanoTime()` | Method references and lambdas follow along. |
@@ -192,6 +193,9 @@ OpModeRunner.forTeamClass("org.firstinspires.ftc.teamcode.MyAuto", hardwareMap)
         .run();
 ```
 
+With Pedro listed, its own waits move too: the Pinpoint localizer's 500 ms sleep while the device
+calibrates takes 25 ticks of sim time, even when your iterative OpMode builds the follower in `init()`.
+
 What that costs: Pedro's classes are then loaded afresh for each run, like yours, so a Pedro `Pose` or
 `Path` cannot be handed from the test into the run, or from one run to the next through the blackboard (see
 the trade-off below). Hand over numbers instead.
@@ -229,9 +233,10 @@ changes that let a test hand one in, which is the better fix when you can make i
 ## Error messages, and what to do
 
 **"SimLoop cannot run Thread.sleep(10) at ...loop(MyTeleOp.java:42) on sim time: MyTeleOp is an iterative
-OpMode, whose init(), init_loop(), start(), loop() and stop() must each return promptly"**
-You called `Thread.sleep` inside an iterative `OpMode`. On a robot this freezes the whole loop, gamepads
-included. Instead, start an `ElapsedTime` and check it on each `loop()` call, or make it a `LinearOpMode`.
+OpMode, whose init_loop(), start(), loop() and stop() must each return promptly"**
+You called `Thread.sleep` inside an iterative `OpMode`, outside `init()`. On a robot this freezes the whole
+loop, gamepads included. Instead, start an `ElapsedTime` and check it on each `loop()` call, or make it a
+`LinearOpMode`. A wait in `init()` is allowed, as it is on the robot.
 
 **"SimLoop refused a call in MyAuto's code, so the run fails even though that code carried on ...: SimLoop
 cannot run Thread.sleep(50) at ... on sim time: it was called on thread "arm-helper", and only MyAuto's own

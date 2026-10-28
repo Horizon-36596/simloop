@@ -13,7 +13,8 @@ public interface SimClockScheduler {
     /**
      * {@return null if {@code thread} may wait in sim time, or else a sentence saying why it may not}, to go
      * after "SimLoop cannot run Thread.sleep(500) at MyAuto.java:12 on sim time: ". Only the thread the sim
-     * steps can wait: a {@code LinearOpMode}'s own thread. Any other thread runs in real time beside the sim.
+     * steps can wait: a {@code LinearOpMode}'s own thread, or an iterative OpMode's own thread while it is in
+     * {@code init()}. Any other thread runs in real time beside the sim.
      *
      * @param thread the thread that wants to wait
      */
@@ -24,7 +25,9 @@ public interface SimClockScheduler {
      * takes to cover {@code seconds} of sim time; no real time passes.
      *
      * @param seconds how long to wait, in seconds of sim time; zero or less waits no ticks
-     * @return true if the wait ran its full length, false if the OpMode was stopped before or during it
+     * @return true if the wait returns normally, false if it ends as interrupted: a {@code LinearOpMode} was
+     *         stopped before or during it. An iterative OpMode is not interrupted at STOP, as on the robot, so
+     *         its wait returns true, cut short because sim time ends at STOP
      */
     boolean holdFor(double seconds);
 

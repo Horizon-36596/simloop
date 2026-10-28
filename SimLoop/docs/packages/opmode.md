@@ -56,7 +56,10 @@ One INIT tick, `initLoopTicks` INIT_LOOP ticks, `activeTicks` ACTIVE ticks, then
 4. every fake device updates, then the `eachTick` step runs.
 
 An iterative `OpMode` gets the SDK's own call order: `init()`, `init_loop()` each INIT_LOOP tick, `start()`
-and the first `loop()` on the first ACTIVE tick, `loop()` each tick after, `stop()` on STOP.
+and the first `loop()` on the first ACTIVE tick, `loop()` each tick after, `stop()` on STOP. Under
+`forTeamClass`, `init()` may wait, as the SDK lets it: a `Thread.sleep` there holds it for `ceil(ms / tick)`
+ticks, and the OpMode's next call comes on the tick after it returns. See
+[Running your timer code unchanged](../unchanged-team-code.md).
 
 A `LinearOpMode`'s `runOpMode()` runs on its own thread in lockstep with the sim. One pass of
 `while (opModeIsActive()) { ... }` is one tick. `waitForStart()` holds until PLAY. `sleep(ms)` holds for

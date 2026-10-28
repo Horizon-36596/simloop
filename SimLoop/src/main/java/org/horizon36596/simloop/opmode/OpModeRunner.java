@@ -521,7 +521,8 @@ public final class OpModeRunner {
             stepper = opMode instanceof LinearOpMode
                     ? new LinearOpModeStepper((LinearOpMode) opMode, context, tickSeconds, stuckTimeoutMillis,
                             threads.group())
-                    : new IterativeOpModeStepper(opMode, context, stuckTimeoutMillis, threads.group());
+                    : new IterativeOpModeStepper(opMode, context, tickSeconds, stuckTimeoutMillis,
+                            threads.group());
             rewiring = context.inject(hardwareMap, telemetry, services());
             simClockBridge = simClock != null ? new SimClockBridge(opModeName, stepper) : null;
             if (simClock != null) {
