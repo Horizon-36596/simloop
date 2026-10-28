@@ -47,7 +47,7 @@ generated API reference before calling an API newer than your pinned tag.
 | [Making your timers sim-safe](sim-safe-timers.md) | Why `ElapsedTime`, `sleep` and `System.nanoTime()` read the wrong clock in a sim, and the change that fixes each. | Timer code you can change. |
 | [Running your timer code unchanged](unchanged-team-code.md) | `OpModeRunner.forTeamClass(...)`: build setup, what it rewrites, every warning and error message. | Timer code you cannot change. |
 | [RUN_TO_POSITION in the sim](run-to-position.md) | What is exact (the SDK side) and approximate (hub firmware) in `FakeMotor`'s closed loops. | Using `RUN_TO_POSITION` or `setVelocity`. |
-| [Using SimLoop with an AI agent](agents.md) | The `simloop-agents/` toolkit: a portable `AGENTS.md`, four skills, prompts, token notes — and the rules an agent most often gets wrong. | A team is setting up agent-assisted development, or you are one. |
+| [Using SimLoop with an AI agent](agents.md) | The `simloop-agents/` toolkit: a portable `AGENTS.md`, five skills, prompts, token notes — and the rules an agent most often gets wrong. | A team is setting up agent-assisted development, or you are one. |
 | [Troubleshooting](troubleshooting.md) | Failures that read like a robot-code bug and are not. | A build or run failed. |
 | [Reporting a bug](support.md) | Where issues go, and what a complete report contains. | Filing something. |
 

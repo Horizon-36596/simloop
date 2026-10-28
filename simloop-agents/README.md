@@ -1,7 +1,7 @@
 # Programming SimLoop with an AI agent
 
 A toolkit for teams who want to use an AI coding agent on their robot code: a context file that teaches
-any agent how SimLoop works, four skills for the jobs that come up, prompts to start from, and notes on
+any agent how SimLoop works, five skills for the jobs that come up, prompts to start from, and notes on
 not spending more than you need to.
 
 The toolkit is optional Markdown. No build file reads it, and removing it does not affect SimLoop.
@@ -62,6 +62,7 @@ your-ftc-project/.claude/skills/write-a-sim-test/SKILL.md
 your-ftc-project/.claude/skills/add-a-mechanism/SKILL.md
 your-ftc-project/.claude/skills/debug-a-failing-sim/SKILL.md
 your-ftc-project/.claude/skills/review-sim-code/SKILL.md
+your-ftc-project/.claude/skills/run-loop/SKILL.md
 ```
 
 They are picked up automatically — no install step — and because they live in your repository, everyone
@@ -80,7 +81,7 @@ agent has loaded both the SimLoop guidance and your robot-specific instructions.
 | File | What it is |
 |---|---|
 | [`AGENTS.md`](AGENTS.md) | The library overview, API inventory, simulation rules and test structure. Copy it to your repository root and add your robot's details. |
-| [`skills/`](skills) | Four procedures: write a sim test, add a mechanism, debug a failing sim, review sim code. Written for any agent; drop straight into `.claude/skills/` unmodified. |
+| [`skills/`](skills) | Five procedures: write a sim test, add a mechanism, debug a failing sim, review sim code, and run the edit-replay-score loop (`run-loop`, started by hand only). Written for any agent; drop straight into `.claude/skills/` unmodified. |
 | [`prompts/`](prompts/README.md) | Copy-paste starting points, including one for learning and one for auditing your tests before a competition. |
 | [`pointers/`](pointers) | One-line files for the tools that need a nudge, and for a project that already has its own instructions file. Deliberately thin — they point at the one copy rather than duplicating it. |
 | [`token-savers.md`](token-savers.md) | Ways to keep context focused and compare usage without assuming fixed savings. |

@@ -107,7 +107,7 @@ something that will not fit.
 |---|---|
 | [`SimLoop/`](SimLoop) | The library. The only thing that is published. |
 | [`simloop-starter/`](simloop-starter) | The folder teams copy: the build settings, and the example robot. |
-| [`simloop-agents/`](simloop-agents/README.md) | An optional toolkit for teams programming with an AI agent: a portable `AGENTS.md`, four skills, prompts, and notes on cost. Markdown only — no build file reads it, and deleting it changes nothing. |
+| [`simloop-agents/`](simloop-agents/README.md) | An optional toolkit for teams programming with an AI agent: a portable `AGENTS.md`, five skills, prompts, and notes on cost. Markdown only — no build file reads it, and deleting it changes nothing. |
 | [`examples/`](examples/build.gradle) | A Gradle module with no sources of its own — it compiles the starter folder and runs its tests, so the thing teams copy cannot rot. Never published. |
 | [`docs/landing-site/`](docs/landing-site/README.md) | The page that fronts `libraries.horizon36596.org`. Nothing builds it; it belongs in the `Horizon-36596.github.io` repository and is kept here so it is version-controlled somewhere. |
 
