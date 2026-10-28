@@ -9,6 +9,7 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
 
 import org.firstinspires.ftc.teamcode.simclockfixture.InitHelperThreadTeleOp;
 import org.firstinspires.ftc.teamcode.simclockfixture.PedroLocalizerTeleOp;
+import org.firstinspires.ftc.teamcode.simclockfixture.ResetThenSleepInitTeleOp;
 import org.firstinspires.ftc.teamcode.simclockfixture.SleepyInitLoopTeleOp;
 import org.firstinspires.ftc.teamcode.simclockfixture.SleepyInitTeleOp;
 import org.horizon36596.simloop.fakehardware.FakeHardwareMap;
@@ -75,6 +76,14 @@ class IterativeInitWaitTest {
                 "getRuntime() followed the sim clock through the wait, as it follows the real one on a robot");
         assertTrue((Integer) OpMode.blackboard.get("encoderAfterSleep") > 0,
                 "the motor init() started kept turning while init() waited");
+    }
+
+    @Test
+    void aResetRuntimeJustBeforeTheWaitCountsTheWholeWait() {
+        runner(ResetThenSleepInitTeleOp.class).initLoopTicks(30).activeTicks(1).run();
+
+        assertEquals(0.5, (Double) OpMode.blackboard.get("runtimeAfterSleep"), 0.005,
+                "getRuntime() counts from the resetRuntime() call, as on a robot, not from the tick after it");
     }
 
     @Test

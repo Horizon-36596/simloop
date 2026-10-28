@@ -299,6 +299,7 @@ final class IterativeOpModeStepper implements OpModeStepper {
             awaitCallOrPark(method, phase, tick);
             if (parked) {
                 heldCall = method;
+                context.afterUserCode(); // a resetRuntime() before the wait counts from this tick, not the next
                 return;
             }
             failure = thrown;

@@ -105,9 +105,10 @@ final class OpModeContext {
      * Runs when user code held in a wait across ticks carries on, as an iterative OpMode's {@code init()} does
      * after a sleep: {@code getRuntime()} reads the sim runtime again, as it keeps following the real clock on
      * the robot. Gamepads and {@code time} stay as they were, because the SDK updates those only before a call.
+     * The stepper calls {@link #afterUserCode} when the code starts to wait, so a {@code resetRuntime()} made
+     * before it is already counted.
      */
     void resumeUserCode() {
-        afterUserCode(); // keep a resetRuntime() the code made before it waited
         anchorRuntime();
     }
 
