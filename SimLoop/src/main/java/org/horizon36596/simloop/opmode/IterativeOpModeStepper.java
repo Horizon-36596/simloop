@@ -19,14 +19,41 @@ import com.qualcomm.robotcore.eventloop.opmode.OpMode;
  *
  * <p>Breakpoints in an iterative OpMode still work: a debugger stops at them on any thread, and one that
  * suspends every thread (the default in IntelliJ and Android Studio) pauses the watchdog too.
+ *
+ * <h2>A wait in {@code init()}</h2>
+ * The SDK calls {@code init()} on the OpMode's own thread and starts {@code init_loop()} only once it returns,
+ * so on a robot {@code init()} may block: a library that sleeps while a sensor calibrates (Pedro Pathing's
+ * Pinpoint localizer sleeps 500 ms in its constructor) just makes INIT take longer. Under
+ * {@link OpModeRunner#forTeamClass} such a rewritten wait holds {@code init()} for whole ticks of sim time,
+ * rounded up, through {@link #holdForSimSeconds}. While it holds:
+ * <ul>
+ *   <li>sim time moves and the devices and plants update, and no other OpMode method runs, so the tick on
+ *       which {@code init()} returns runs nothing else and {@code init_loop()} starts on the tick after;</li>
+ *   <li>gamepads and {@code time} are not updated, since the SDK updates them only before a call
+ *       ({@code OpMode.internalPreUserCode()}), but {@code getRuntime()} follows the sim clock as it follows
+ *       the real one on the robot;</li>
+ *   <li>if PLAY comes first, {@code init_loop()} never runs and {@code start()} runs, with the first
+ *       {@code loop()}, on the tick after {@code init()} returns, as {@code internalRunOpMode()} goes straight
+ *       to {@code start()} once {@code isStarted} is set;</li>
+ *   <li>if STOP comes first, the wait returns normally, because the SDK does not interrupt an iterative
+ *       OpMode at STOP ({@code OpModeInternal.internalStop()} waits for its thread to finish). Sim time ends
+ *       at STOP, so the rest of the wait passes with none; then {@code init()} finishes, {@code start()} runs
+ *       if PLAY had come, and {@code stop()} runs.</li>
+ * </ul>
+ * A wait in {@code init_loop()}, {@code start()}, {@code loop()} or {@code stop()} is still refused (see
+ * {@link SimClockBridge}).
  */
 final class IterativeOpModeStepper implements OpModeStepper {
 
     /** The SDK's own force-stop exception, thrown by {@code terminateOpModeNow()}; matched by name. */
     static final String FORCE_STOP = "com.qualcomm.robotcore.eventloop.opmode.OpModeManagerImpl$ForceStopException";
 
+    /** The name {@link #callInProgress} has while {@code init()} runs: the one call that may wait. */
+    private static final String INIT = "init()";
+
     private final OpMode opMode;
     private final OpModeContext context;
+    private final double tickSeconds;
     private final int maxWaits;
     private final CallThread thread;
 
@@ -39,6 +66,9 @@ final class IterativeOpModeStepper implements OpModeStepper {
     /** True once the call last handed over has returned or thrown. Guarded by {@link #lock}. */
     private boolean callDone;
 
+    /** True while that call is held in a wait, until the sim resumes it on the next tick. Guarded by {@link #lock}. */
+    private boolean parked;
+
     /** What that call threw, or null. Guarded by {@link #lock}. */
     private Throwable thrown;
 
@@ -48,15 +78,36 @@ final class IterativeOpModeStepper implements OpModeStepper {
     /** Set on the OpMode thread by {@code requestOpModeStop()}; read on the sim thread after the call. */
     private volatile boolean askedToStop;
 
+    /** The call running on the OpMode thread, such as {@code "init()"}, or null between calls. */
+    private volatile String callInProgress;
+
+    /** STOP has come: a wait in progress, or one started after it, takes no more ticks. */
+    private volatile boolean stopping;
+
+    /** Sim thread only: the call held in a wait across ticks, or null. */
+    private String heldCall;
+
+    /** Sim thread only: PLAY has been pressed. */
+    private boolean played;
+
+    /** Sim thread only: {@code start()} has been called. */
+    private boolean startCalled;
+
     /** Sim thread only: the OpMode has finished. */
     private boolean ended;
 
     /** Sim thread only: the OpMode thread got stuck and was left behind. */
     private boolean abandoned;
 
-    IterativeOpModeStepper(OpMode opMode, OpModeContext context, int maxWaits, ThreadGroup group) {
+    /**
+     * @param tickSeconds the length of one tick, in seconds of sim time, for rounding a wait in {@code init()}
+     * @param maxWaits    the stuck timeout, in one-millisecond waits
+     */
+    IterativeOpModeStepper(OpMode opMode, OpModeContext context, double tickSeconds, int maxWaits,
+                           ThreadGroup group) {
         this.opMode = opMode;
         this.context = context;
+        this.tickSeconds = tickSeconds;
         this.maxWaits = maxWaits;
         this.thread = new CallThread(group);
     }
@@ -74,14 +125,23 @@ final class IterativeOpModeStepper implements OpModeStepper {
         }
         switch (phase) {
             case INIT:
-                call("init()", phase, tick, opMode::init);
+                call(INIT, phase, tick, opMode::init);
                 break;
             case INIT_LOOP:
-                call("init_loop()", phase, tick, opMode::init_loop);
+                if (!resumeHeldCall(phase, tick)) {
+                    call("init_loop()", phase, tick, opMode::init_loop);
+                }
                 break;
             case ACTIVE:
                 if (tickInPhase == 0) {
                     context.markStarted();
+                    played = true;
+                }
+                if (resumeHeldCall(phase, tick)) {
+                    break;
+                }
+                if (!startCalled) {
+                    startCalled = true;
                     call("start()", phase, tick, opMode::start);
                 }
                 if (!ended) {
@@ -89,11 +149,84 @@ final class IterativeOpModeStepper implements OpModeStepper {
                 }
                 break;
             case STOP:
-                stop(phase, tick);
+                // Before the held call resumes, so its wait ends now: there is no sim time after STOP.
+                stopping = true;
+                context.markStopRequested();
+                resumeHeldCall(phase, tick);
+                if (!ended && played && !startCalled) {
+                    // PLAY came while init() waited: internalRunOpMode() still calls start() before stop().
+                    startCalled = true;
+                    call("start()", phase, tick, opMode::start);
+                }
+                if (!ended) {
+                    stop(phase, tick);
+                }
                 break;
             default:
                 throw new IllegalStateException("unknown phase " + phase);
         }
+    }
+
+    /** {@return true while {@code init()} is running on the OpMode thread, where a wait holds for sim time} */
+    boolean inInit() {
+        return INIT.equals(callInProgress);
+    }
+
+    /**
+     * On the OpMode's own thread, in {@code init()}: holds it for enough ticks to cover {@code seconds} of sim
+     * time, the way the sim-clock hooks ask for a rewritten {@code Thread.sleep}. Each tick the sim resumes it
+     * instead of calling another OpMode method.
+     *
+     * @param seconds how long, in seconds of sim time
+     * @return true if the wait returns normally: always, unless the run is being torn down, because the SDK
+     *         does not interrupt an iterative OpMode at STOP (after STOP the rest of the wait takes no time)
+     */
+    boolean holdForSimSeconds(double seconds) {
+        long ticks = LinearOpModeStepper.ticksFor(seconds, tickSeconds);
+        for (long t = 0; t < ticks && !stopping; t++) {
+            if (!park()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * On the OpMode thread: ends this tick for the call in progress and blocks until the sim resumes it.
+     *
+     * @return false if the OpMode thread must end instead (the run is being torn down)
+     */
+    private boolean park() {
+        synchronized (lock) {
+            parked = true;
+            lock.notifyAll();
+            while (parked && !exit) {
+                try {
+                    lock.wait();
+                } catch (InterruptedException ignored) {
+                    // Only the sim resumes a held call; an interrupt is not that.
+                }
+            }
+            return !exit;
+        }
+    }
+
+    /**
+     * Resumes the call held in a wait, if there is one, for this tick.
+     *
+     * @return true if there was one: this tick belonged to it, whether or not it has now returned
+     */
+    private boolean resumeHeldCall(OpModePhase phase, int tick) {
+        if (heldCall == null) {
+            return false;
+        }
+        context.resumeUserCode();
+        synchronized (lock) {
+            parked = false;
+            lock.notifyAll();
+        }
+        finishCall(heldCall, phase, tick);
+        return true;
     }
 
     @Override
@@ -148,10 +281,30 @@ final class IterativeOpModeStepper implements OpModeStepper {
 
     private void call(String method, OpModePhase phase, int tick, Runnable userCode) {
         context.beforeUserCode();
-        Throwable failure = runOnOpModeThread(method, phase, tick, () -> {
+        callInProgress = method;
+        handOver(() -> {
             userCode.run();
             opMode.telemetry.update();
         });
+        finishCall(method, phase, tick);
+    }
+
+    /**
+     * Waits for the call on the OpMode thread to return or to be held in a wait, and once it has returned does
+     * what follows a call: surface what it threw, and run {@code stop()} if it asked to stop.
+     */
+    private void finishCall(String method, OpModePhase phase, int tick) {
+        Throwable failure;
+        synchronized (lock) {
+            awaitCallOrPark(method, phase, tick);
+            if (parked) {
+                heldCall = method;
+                return;
+            }
+            failure = thrown;
+        }
+        heldCall = null;
+        callInProgress = null;
         if (failure != null) {
             if (FORCE_STOP.equals(failure.getClass().getName())) {
                 ended = true; // terminateOpModeNow(): the SDK ends the OpMode on the spot, without stop()
@@ -168,13 +321,8 @@ final class IterativeOpModeStepper implements OpModeStepper {
         }
     }
 
-    /**
-     * Hands {@code work} to the OpMode thread and waits, bounded, for it to finish.
-     *
-     * @return what it threw, or null
-     * @throws OpModeException if it did not finish within {@link #maxWaits} one-millisecond waits
-     */
-    private Throwable runOnOpModeThread(String method, OpModePhase phase, int tick, Runnable work) {
+    /** Hands {@code work} to the OpMode thread, starting the thread on the first call. */
+    private void handOver(Runnable work) {
         if (thread.getState() == Thread.State.NEW) {
             thread.start();
         }
@@ -183,21 +331,29 @@ final class IterativeOpModeStepper implements OpModeStepper {
             callDone = false;
             thrown = null;
             lock.notifyAll();
-            int waits = 0;
-            while (!callDone) {
-                if (waits++ >= maxWaits) {
-                    throw abandon(method, phase, tick);
-                }
-                try {
-                    lock.wait(1);
-                } catch (InterruptedException interrupted) {
-                    Thread.currentThread().interrupt();
-                    throw new OpModeException("The thread running the sim was interrupted while "
-                            + opMode.getClass().getSimpleName() + "." + method + " was running.", phase, tick,
-                            interrupted);
-                }
+        }
+    }
+
+    /**
+     * Waits, bounded, until the call on the OpMode thread has returned or is held in a wait. Caller holds the
+     * lock.
+     *
+     * @throws OpModeException if neither happened within {@link #maxWaits} one-millisecond waits
+     */
+    private void awaitCallOrPark(String method, OpModePhase phase, int tick) {
+        int waits = 0;
+        while (!callDone && !parked) {
+            if (waits++ >= maxWaits) {
+                throw abandon(method, phase, tick);
             }
-            return thrown;
+            try {
+                lock.wait(1);
+            } catch (InterruptedException interrupted) {
+                Thread.currentThread().interrupt();
+                throw new OpModeException("The thread running the sim was interrupted while "
+                        + opMode.getClass().getSimpleName() + "." + method + " was running.", phase, tick,
+                        interrupted);
+            }
         }
     }
 

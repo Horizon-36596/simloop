@@ -267,8 +267,13 @@ final class LinearOpModeStepper implements OpModeStepper {
                 + " thread is a daemon and is left running; the cause shows where it was.", phase, tick, whereItIs);
     }
 
-    /** {@return how many ticks a wait of {@code seconds} holds the OpMode for: enough to cover it, never fewer} */
-    private long ticksFor(double seconds) {
+    /**
+     * {@return how many ticks a wait of {@code seconds} holds the OpMode for: enough to cover it, never fewer}
+     *
+     * @param seconds     the wait, in seconds of sim time
+     * @param tickSeconds the length of one tick, in seconds of sim time
+     */
+    static long ticksFor(double seconds, double tickSeconds) {
         if (!(seconds > 0)) {
             return 0;
         }
@@ -291,7 +296,7 @@ final class LinearOpModeStepper implements OpModeStepper {
      * @return true if the wait ran its full length, false if STOP came before or during it
      */
     boolean holdForSimSeconds(double seconds) {
-        long ticks = ticksFor(seconds);
+        long ticks = ticksFor(seconds, tickSeconds);
         for (long t = 0; t < ticks && !stopping; t++) {
             thread.park();
         }

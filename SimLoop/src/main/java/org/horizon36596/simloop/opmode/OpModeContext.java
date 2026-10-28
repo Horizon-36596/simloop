@@ -98,11 +98,30 @@ final class OpModeContext {
     void beforeUserCode() {
         opMode.gamepad1.copy(driverStationGamepad1);
         opMode.gamepad2.copy(driverStationGamepad2);
+        opMode.time = anchorRuntime();
+    }
+
+    /**
+     * Runs when user code held in a wait across ticks carries on, as an iterative OpMode's {@code init()} does
+     * after a sleep: {@code getRuntime()} reads the sim runtime again, as it keeps following the real clock on
+     * the robot. Gamepads and {@code time} stay as they were, because the SDK updates those only before a call.
+     */
+    void resumeUserCode() {
+        afterUserCode(); // keep a resetRuntime() the code made before it waited
+        anchorRuntime();
+    }
+
+    /**
+     * Moves the SDK's private {@code startTime} so that {@code getRuntime()} reads the sim runtime now.
+     *
+     * @return the sim runtime, in seconds since INIT or the OpMode's last {@code resetRuntime()}
+     */
+    private double anchorRuntime() {
         double runtimeSeconds = timer.time() - runtimeOriginSeconds;
-        opMode.time = runtimeSeconds;
         opMode.resetRuntime();
         anchoredStartTime = SdkOpModeAccess.startTime(opMode) - Math.round(runtimeSeconds * 1e9);
         SdkOpModeAccess.setStartTime(opMode, anchoredStartTime);
+        return runtimeSeconds;
     }
 
     /** Runs after every piece of user code: an OpMode that called {@code resetRuntime()} restarts the count. */
