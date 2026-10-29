@@ -32,6 +32,9 @@ final class OpModeContext {
     /** The operator's gamepad as the Driver Station holds it. */
     final Gamepad driverStationGamepad2 = new Gamepad();
 
+    /** Where a script's gamepad is staged on its way to the OpMode, with its PlayStation names folded in. */
+    private final Gamepad staged = new Gamepad();
+
     /** Sim time, in seconds, at which {@code getRuntime()} reads zero. */
     private double runtimeOriginSeconds;
 
@@ -73,6 +76,26 @@ final class OpModeContext {
         return rewiring;
     }
 
+    /**
+     * Copies a script's gamepad into the OpMode's the way the SDK delivers Driver Station data, with the buttons
+     * the script pressed by their PlayStation names counted too. {@code Gamepad.copy} carries only the Xbox names
+     * ({@code toByteArray}) and sets the PlayStation ones from them ({@code updateButtonAliases}), so on its own it
+     * drops {@code triangle = true}: a real Driver Station has one button there, sent under its Xbox name. Each
+     * PlayStation name is ORed into its Xbox twin on a staging copy, never on the script's gamepad, so a button
+     * the script releases is released. The pairs are the SDK's ({@code updateButtonAliases}, RobotCore 12.0.0).
+     */
+    private void deliver(Gamepad script, Gamepad toOpMode) {
+        staged.copy(script);
+        staged.a |= script.cross;
+        staged.b |= script.circle;
+        staged.x |= script.square;
+        staged.y |= script.triangle;
+        staged.back |= script.share;
+        staged.start |= script.options;
+        staged.guide |= script.ps;
+        toOpMode.copy(staged);
+    }
+
     /** Makes {@code getRuntime()} and {@code time} count from the sim clock's current reading: INIT. */
     void startRuntimeHere() {
         runtimeOriginSeconds = timer.time();
@@ -96,8 +119,8 @@ final class OpModeContext {
      * SDK's edge detection), and {@code time} and {@code getRuntime()} are set to the sim runtime.
      */
     void beforeUserCode() {
-        opMode.gamepad1.copy(driverStationGamepad1);
-        opMode.gamepad2.copy(driverStationGamepad2);
+        deliver(driverStationGamepad1, opMode.gamepad1);
+        deliver(driverStationGamepad2, opMode.gamepad2);
         double runtimeSeconds = timer.time() - runtimeOriginSeconds;
         opMode.time = runtimeSeconds;
         opMode.resetRuntime();

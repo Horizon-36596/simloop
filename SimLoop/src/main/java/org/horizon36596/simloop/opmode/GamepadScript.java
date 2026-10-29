@@ -9,7 +9,9 @@ import com.qualcomm.robotcore.hardware.Gamepad;
  *
  * <p>The two gamepads passed in are the same objects on every tick, so a button stays held until the script
  * releases it, exactly like a real one. Write only fields ({@code gamepad1.left_stick_y = -1f},
- * {@code gamepad1.a = true}); do not keep references to them outside the call.
+ * {@code gamepad1.a = true}); do not keep references to them outside the call. A button can be pressed by either
+ * of its names ({@code a} or {@code cross}, {@code y} or {@code triangle}, {@code back} or {@code share}, ...): the
+ * OpMode sees both names pressed, as it would on the robot.
  *
  * <p>A script must be a pure function of its arguments (and of state it owns) for a run to be deterministic.
  */
