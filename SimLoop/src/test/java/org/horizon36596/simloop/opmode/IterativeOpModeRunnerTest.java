@@ -192,6 +192,48 @@ class IterativeOpModeRunnerTest {
         assertEquals(2, opMode.presses, "aWasPressed() fires once per press, not once per tick held");
     }
 
+    /** Records each tick what the OpMode sees of one button, under both its names. */
+    static class TriangleReader extends OpMode {
+        final List<String> seen = new ArrayList<>();
+        int trianglePresses, yPresses, sharePresses;
+
+        @Override public void init() { }
+
+        @Override
+        public void loop() {
+            seen.add((gamepad1.triangle ? "T" : "-") + (gamepad1.y ? "Y" : "-") + (gamepad1.back ? "B" : "-")
+                    + (gamepad1.share ? "S" : "-"));
+            if (gamepad1.triangleWasPressed()) {
+                trianglePresses++;
+            }
+            if (gamepad1.yWasPressed()) {
+                yPresses++;
+            }
+            if (gamepad1.shareWasPressed()) {
+                sharePresses++;
+            }
+        }
+    }
+
+    @Test
+    void aButtonPressedByItsPlayStationNameReachesTheOpModeUnderBothNamesAndReleases() {
+        TriangleReader opMode = new TriangleReader();
+        GamepadScript script = (phase, tick, gamepad1, gamepad2) -> {
+            if (phase != OpModePhase.ACTIVE) {
+                return;
+            }
+            gamepad1.triangle = tick >= 1 && tick < 3; // pressed by its PlayStation name for two ticks
+            gamepad1.share = tick == 5;                 // and share tapped once
+        };
+        runner(opMode, new FakeTimer()).activeTicks(7).gamepads(script).run();
+
+        assertEquals(Arrays.asList("----", "TY--", "TY--", "----", "----", "--BS", "----"), opMode.seen,
+                "triangle and y are one button, and so are share and back; released when the script lets go");
+        assertEquals(1, opMode.trianglePresses, "triangleWasPressed() once");
+        assertEquals(1, opMode.yPresses, "yWasPressed() once: it is the same button");
+        assertEquals(1, opMode.sharePresses, "shareWasPressed() once");
+    }
+
     @Test
     void requestOpModeStopRunsStopAtOnceAndNothingAfterIt() {
         FakeTimer timer = new FakeTimer();
