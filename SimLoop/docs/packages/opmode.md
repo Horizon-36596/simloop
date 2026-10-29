@@ -81,6 +81,10 @@ A `LinearOpMode`'s `runOpMode()` runs on its own thread in lockstep with the sim
   recording telemetry. What it cannot swap is listed in `result.warnings()`.
 - **Threads the OpMode starts run in real time beside the sim.** They are listed in `result.warnings()`.
   `.failOnOpModeThreads(true)` fails the run instead.
+- **The map always has a battery.** A map with no voltage sensor gets a 12 V `FakeVoltageSensor` named
+  `"Control Hub"` when the run starts, as a real robot's map holds its hubs' sensors, so
+  `hardwareMap.voltageSensor.iterator().next()` works. Register your own `FakeVoltageSensor` to set another
+  voltage; the runner then adds none.
 - **A runner runs once.** Build a new runner and a new OpMode to run again, as the SDK builds a fresh
   OpMode for every INIT.
 

@@ -7,6 +7,7 @@ import com.qualcomm.robotcore.robocol.TelemetryMessage;
 import org.firstinspires.ftc.robotcore.internal.opmode.OpModeServices;
 import org.horizon36596.simloop.config.SimRobotConfig;
 import org.horizon36596.simloop.fakehardware.FakeHardwareMap;
+import org.horizon36596.simloop.fakehardware.FakeVoltageSensor;
 import org.horizon36596.simloop.sim.FakeTimer;
 import org.horizon36596.simloop.sim.ScenarioRunner;
 import org.horizon36596.simloop.simclock.SimClockLoader;
@@ -121,6 +122,12 @@ public final class OpModeRunner {
 
     /** The default tick, in seconds: 50 Hz, about what a real FTC control loop manages. */
     public static final double DEFAULT_TICK_SECONDS = 0.02;
+
+    /**
+     * The name the runner gives the battery it adds to a map that has no voltage sensor: a Control Hub's own
+     * voltage sensor is configured under the hub's name, which is {@code "Control Hub"} unless the team renamed it.
+     */
+    public static final String DEFAULT_VOLTAGE_SENSOR_NAME = "Control Hub";
 
     /**
      * The default for {@link #stuckTimeoutMillis(int)}: how long, in milliseconds of real time, an OpMode
@@ -497,6 +504,20 @@ public final class OpModeRunner {
         return ticks;
     }
 
+    /**
+     * A real robot's map always holds its hubs' voltage sensors, and robot code that compensates for the battery
+     * reads one as {@code hardwareMap.voltageSensor.iterator().next()}, which throws
+     * {@code NoSuchElementException} on a map with none. So a map with no voltage sensor gets a
+     * {@link FakeVoltageSensor} at its nominal 12 V under {@link #DEFAULT_VOLTAGE_SENSOR_NAME} before the OpMode
+     * sees it. It stays in the map after the run. A map that has a voltage sensor of its own is left alone, so a
+     * test that wants another voltage registers one.
+     */
+    private void addBatteryIfMissing() {
+        if (hardwareMap.voltageSensor.size() == 0) {
+            hardwareMap.register(DEFAULT_VOLTAGE_SENSOR_NAME, new FakeVoltageSensor());
+        }
+    }
+
     /** One run's state: which tick it is on, the stepper driving the OpMode, and what the run noticed. */
     private final class Run {
         final int totalTicks = 1 + initLoopTicks + activeTicks + 1;
@@ -522,6 +543,7 @@ public final class OpModeRunner {
                     ? new LinearOpModeStepper((LinearOpMode) opMode, context, tickSeconds, stuckTimeoutMillis,
                             threads.group())
                     : new IterativeOpModeStepper(opMode, context, stuckTimeoutMillis, threads.group());
+            addBatteryIfMissing();
             rewiring = context.inject(hardwareMap, telemetry, services());
             simClockBridge = simClock != null ? new SimClockBridge(opModeName, stepper) : null;
             if (simClock != null) {
