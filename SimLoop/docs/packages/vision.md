@@ -35,6 +35,9 @@ A simulated camera on the robot, at two levels:
 | `SimFrame` | One synthetic frame: RGB bytes, a ground-truth piece and tag label per pixel, and a PNG writer. |
 | `FrameStyle` | The flat colours and the one light frames are painted with. |
 | `RigidTransform3`, `RobotFramePoint` | A 3-D rotation plus translation, and a point on the floor in the robot frame. |
+| `VisionFaults` | Faults to inject for a stress test: noise, latency, jitter, drops, repeats, reordering, occlusion, false detections, wrong ids. |
+| `VisionFaultInjector` | Applies the content faults to one frame of sightings, tags or pixels. |
+| `FaultedFrameStream` | Applies the timing faults to a stream of frames of any kind. |
 
 `FakeLimelight3A` in [`fakehardware`](fakehardware.md) is built on `SimTagCamera`, so a Limelight and a
 plain camera share one description.
@@ -187,6 +190,44 @@ pixels.
 *A synthetic frame from `SimFrameRendererTest`: 320 x 240, two pieces, a wall box and a tag. Flat
 colours, one light, no shadows. Not a camera image.*
 
+### Faults for stress tests
+
+To check what your vision code does when the camera misbehaves, describe the faults once and apply them
+to each frame. Every fault is seeded, so a failing run replays exactly, and each fault draws from its own
+stream, so turning one on does not change another's draws. Every rate is a test input you choose, not a
+measured camera.
+
+```java
+VisionFaults faults = VisionFaults.builder(36596)
+        .pixelNoise(8.0, 3.0)                 // extra centre and radius noise, px
+        .latency(0.120, 0.040)                // 120 ms extra, up to 40 ms jitter either way
+        .dropFrames(0.10)
+        .repeatFrames(0.05)                   // same capture stamp delivered twice
+        .reorderFrames(0.05)                  // capture stamps go backwards
+        .missDetections(0.20)                 // partial occlusion
+        .blackout(0.01, 15)                   // full occlusion, 15 frames at a time
+        .falseDetections(0.10, "ball", 4.0, 20.0, 0xF0D020)
+        .wrongIds(0.05, "red", "blue")
+        .build();
+VisionFaultInjector injector = new VisionFaultInjector(faults);
+FaultedFrameStream<List<CameraSighting>> stream = new FaultedFrameStream<>(faults);
+
+// each capture:
+stream.offer(captureNanos, captureNanos + yourLatencyNanos,
+        injector.applyToSightings(camera.observe(pieces, x, y, heading), camera.getLens()));
+// each loop:
+for (FaultedFrameStream.Delivery<List<CameraSighting>> d : stream.pollDue(nowNanos)) {
+    yourPipeline.onFrame(d.getFrame(), d.getCaptureNanos());
+}
+```
+
+`applyToTags` and `applyToFrame` do the same for `TagSighting`s and synthetic frames. A false piece
+sighting has piece id `VisionFaultInjector.FALSE_PIECE_ID` (-1, "no piece"); a misread or false tag names
+the layout tag it claims to be while its transforms are what was actually seen, so a pose solved from it is
+wrong the way it would be on a robot. No fault produces a non-finite number: a sighting noise pushes off
+the image, or to a radius of zero or less, is dropped. `FakeLimelight3A.Builder.faults(...)` takes the same
+description.
+
 ## Units and frames
 
 - Robot pose, piece positions, tag positions, field boxes: field frame, FTC-Cartesian, centre origin,
@@ -249,8 +290,11 @@ So:
   FIRST field CAD: its licence forbids redistribution.
 - **No noise in `SimCamera` or `SimTagCamera`.** `FakeLimelight3A` adds seeded noise and dropouts;
   `SimFrameRenderer` adds seeded pixel noise. A team's own sim glue adds detection noise on top of
-  `SimCamera` if it wants it.
+  `SimCamera` if it wants it, or uses `VisionFaultInjector`.
 - **No OpenCV.** SimLoop hands you bytes; your test turns them into a `Mat`.
 - **No frame timing.** `SimCamera` and `SimFrameRenderer` see the scene at the instant you call them.
   Frame rate, exposure latency and processing delay are your sim glue's job (`FakeLimelight3A` has its
-  own).
+  own). `FaultedFrameStream` adds faulty timing on top of whatever your glue does.
+- **A folding lens images only inside its fold.** With distortion strong enough that
+  `getMaxValidRadius()` is finite, pixels past the fold have no ray: `groundPointInRobotFrame` returns
+  `null` for them and `SimFrameRenderer` draws them black and unlabelled.

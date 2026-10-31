@@ -131,7 +131,13 @@ as usual and gets `botpose`, `getBotpose_MT2()` and fiducial results. Staleness 
 time. Optional on the builder: seeded noise (and the matching `getStddevMt1/Mt2`), seeded dropouts,
 latency, a frame rate, lens distortion (`distortion(k1, k2, p1, p2, k3)`, which moves corner and centre
 pixels) and the robot's own body as boxes (`robotBody(...)`). The geometry is [`vision`](vision.md)'s
-`SimTagCamera`, so tilted tags in the layout work too.
+`SimTagCamera`, so tilted tags in the layout work too. Noise that would put a tag's centre outside the
+image drops that tag from the frame instead of reporting an impossible `tx`.
+
+For stress tests, `faults(VisionFaults)` adds [`vision`](vision.md)'s fault injection: blackouts, missed,
+misread and false tags, extra latency and jitter, and dropped or out-of-order frames. With faults on,
+`botpose` is solved from the tags seen, so a misread tag moves it. The extra latency is not reported in
+`cl` or `tl`.
 
 **Your test JVM needs the real `org.json`:** `testRuntimeOnly "org.json:json:20250517"`. Android's copy
 is a stub.

@@ -210,6 +210,11 @@ public final class CameraLens {
      * pipeline does before casting a ray through a pixel. Newton's method on the distortion model, started
      * from the distorted point; deterministic.
      *
+     * <p>A lens whose distortion folds over ({@link #getMaxValidRadius()} finite) images only pixels inside
+     * the fold. For a pixel beyond it no direction exists, and the result is wherever the search stopped,
+     * which does not project back to the pixel. Check with {@link #project} when the pixel may lie there;
+     * {@link SimCamera#groundPointInRobotFrame} does.
+     *
      * @param xPx pixel x, from the left edge
      * @param yPx pixel y, from the top edge
      * @return {@code {X / Z, Y / Z}} of the ray through the pixel, optical frame

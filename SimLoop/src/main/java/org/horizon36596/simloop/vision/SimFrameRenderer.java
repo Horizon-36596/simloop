@@ -116,14 +116,14 @@ public final class SimFrameRenderer {
             for (int x = 0; x < width; x++) {
                 int p = y * width + x;
                 int tile = (y / TILE) * tilesX + x / TILE;
-                double[] c = lens.undistortPixel(x + 0.5, y + 0.5);
+                double[] c = rayThrough(lens, x + 0.5, y + 0.5);
                 centreRayX[p] = c[0];
                 centreRayY[p] = c[1];
                 grow(tile, c[0], c[1]);
                 if (n > 1) {
                     for (int j = 0; j < n; j++) {
                         for (int i = 0; i < n; i++) {
-                            double[] r = lens.undistortPixel(x + (i + 0.5) / n, y + (j + 0.5) / n);
+                            double[] r = rayThrough(lens, x + (i + 0.5) / n, y + (j + 0.5) / n);
                             int s = p * n * n + j * n + i;
                             subRayX[s] = r[0];
                             subRayY[s] = r[1];
@@ -140,7 +140,27 @@ public final class SimFrameRenderer {
         axisZRobot = minus(mount.opticalToRobot(0.0, 0.0, 1.0), lensRobot);
     }
 
+    /**
+     * The ray a pixel looks along, or {@code {NaN, NaN}} when no ray through the lens lands on it: past a
+     * distorted lens's fold-over radius, where undistorting returns a direction that projects somewhere else
+     * (often mirrored through the centre). Such a pixel sees nothing and is drawn black, unlabelled, as the
+     * dark corner outside a real lens's image circle is.
+     */
+    private static double[] rayThrough(CameraLens lens, double xPx, double yPx) {
+        double[] ray = lens.undistortPixel(xPx, yPx);
+        if (lens.hasDistortion()) {
+            double[] back = lens.project(ray[0], ray[1], 1.0);
+            if (back == null || Math.hypot(back[0] - xPx, back[1] - yPx) > 1e-6) {
+                return new double[] {Double.NaN, Double.NaN};
+            }
+        }
+        return ray;
+    }
+
     private void grow(int tile, double x, double y) {
+        if (Double.isNaN(x)) {
+            return;                                         // a pixel no ray reaches widens no tile
+        }
         tileBounds[4 * tile] = Math.min(tileBounds[4 * tile], x);
         tileBounds[4 * tile + 1] = Math.max(tileBounds[4 * tile + 1], x);
         tileBounds[4 * tile + 2] = Math.min(tileBounds[4 * tile + 2], y);
@@ -209,22 +229,37 @@ public final class SimFrameRenderer {
             for (int y = ty * TILE; y < y1; y++) {
                 for (int x = tx * TILE; x < x1; x++) {
                     int p = y * width + x;
-                    trace(scene, candidates, centreRayX[p], centreRayY[p], hit);
-                    pieceIds[p] = hit.pieceId;
-                    tagIds[p] = hit.tagId;
+                    boolean imaged = !Double.isNaN(centreRayX[p]);
+                    if (imaged) {
+                        trace(scene, candidates, centreRayX[p], centreRayY[p], hit);
+                        pieceIds[p] = hit.pieceId;
+                        tagIds[p] = hit.tagId;
+                    } else {
+                        pieceIds[p] = -1;
+                        tagIds[p] = -1;
+                    }
                     double r;
                     double g;
                     double bl;
                     if (n == 1) {
-                        shade(scene, hit, colour);
-                        r = colour[0];
-                        g = colour[1];
-                        bl = colour[2];
+                        if (imaged) {
+                            shade(scene, hit, colour);
+                            r = colour[0];
+                            g = colour[1];
+                            bl = colour[2];
+                        } else {
+                            r = 0.0;
+                            g = 0.0;
+                            bl = 0.0;
+                        }
                     } else {
                         r = 0.0;
                         g = 0.0;
                         bl = 0.0;
                         for (int s = p * n * n, end = s + n * n; s < end; s++) {
+                            if (Double.isNaN(subRayX[s])) {
+                                continue;                   // no ray reaches this sub-pixel: black
+                            }
                             trace(scene, candidates, subRayX[s], subRayY[s], hit);
                             shade(scene, hit, colour);
                             r += colour[0];

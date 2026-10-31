@@ -468,7 +468,9 @@ public final class SimCamera {
      * @param pointHeightInches   the height of the plane the ray is intersected with — the ball's centre
      *                            height, i.e. its radius, for a ball on the floor
      * @return the point in the robot frame, or {@code null} when the ray never reaches that plane (it
-     *         points at or above the horizon relative to the plane)
+     *         points at or above the horizon relative to the plane), or when no ray through the lens lands on
+     *         that pixel at all: past a distorted lens's fold-over radius, where undistorting would otherwise
+     *         return a direction that projects somewhere else (often mirrored through the centre)
      */
     public RobotFramePoint groundPointInRobotFrame(double centreXPx, double centreYPx, double pointHeightInches) {
         requireFinite(centreXPx, "centreXPx");
@@ -478,6 +480,15 @@ public final class SimCamera {
         double[] normalized = lens.undistortPixel(centreXPx, centreYPx);
         double xOverZ = normalized[0];
         double yOverZ = normalized[1];
+        if (lens.hasDistortion()) {
+            // Undistortion is a search: a pixel the lens cannot image has no answer, and the search then stops
+            // on a direction that does not come back to the pixel. Check the round trip; a noisy detection
+            // off the image corner of a strongly distorted lens is exactly that case.
+            double[] back = lens.project(xOverZ, yOverZ, 1.0);
+            if (back == null || Math.hypot(back[0] - centreXPx, back[1] - centreYPx) > UNDISTORT_TOLERANCE_PX) {
+                return null;
+            }
+        }
         double[] rayEnd = mount.opticalToRobot(xOverZ, yOverZ, 1.0);
         double[] rayStart = mount.opticalToRobot(0.0, 0.0, 0.0);
         double dForward = rayEnd[0] - rayStart[0];
@@ -607,6 +618,9 @@ public final class SimCamera {
     public CameraMount getMount() {
         return mount;
     }
+
+    /** How far an undistorted ray may project from its pixel and still count as the pixel's ray, pixels. */
+    private static final double UNDISTORT_TOLERANCE_PX = 1e-6;
 
     private static void requireFinite(double value, String name) {
         if (!Double.isFinite(value)) {
