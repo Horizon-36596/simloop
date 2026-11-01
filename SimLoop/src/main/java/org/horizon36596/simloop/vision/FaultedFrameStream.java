@@ -23,10 +23,11 @@ import java.util.List;
  *   <li><b>Latency</b>: delivery is the caller's time plus {@link VisionFaults#getExtraLatencySeconds()} plus
  *       a uniform shift of up to {@link VisionFaults#getLatencyJitterSeconds()} either way, never before the
  *       capture. A frame never overtakes the one offered before it because of jitter: it waits for it.</li>
- *   <li><b>Reorder</b>: the frame is held back until the next frame offered has been delivered, and comes at
- *       the start of the next {@link #pollDue} call after that, so its capture stamp is older than the one
- *       delivered before it. Two held in a row come out newest first. A held frame with no next frame is
- *       never delivered.</li>
+ *   <li><b>Reorder</b>: the frame is held back until the next frame that is not dropped has been delivered,
+ *       and comes at the start of the next {@link #pollDue} call after that, so its capture stamp is older
+ *       than the one delivered before it. A dropped frame does not release it: it waits for the next
+ *       delivered one. Two held in a row come out newest first. A held frame with no later delivered frame
+ *       is never delivered.</li>
  *   <li><b>Repeat</b>: after delivery, the same frame (same stamp, same contents object) is delivered once
  *       more, at the start of the next {@link #pollDue} call that is at least one nanosecond later.</li>
  * </ol>
@@ -159,6 +160,7 @@ public final class FaultedFrameStream<T> {
         lastOfferedCaptureNanos = captureNanos;
         offered++;
         if (faults.getDropProbability() > 0.0 && dropRandom.nextFraction() < faults.getDropProbability()) {
+            // A held-back frame stays held: the next frame that is not dropped releases it.
             dropped++;
             return;
         }
@@ -236,6 +238,11 @@ public final class FaultedFrameStream<T> {
     public int inFlight() {
         int held = 0;
         for (Pending<T> p : queue) {
+            for (Pending<T> f = p.follower; f != null; f = f.follower) {
+                held++;
+            }
+        }
+        for (Pending<T> p : late) {
             for (Pending<T> f = p.follower; f != null; f = f.follower) {
                 held++;
             }

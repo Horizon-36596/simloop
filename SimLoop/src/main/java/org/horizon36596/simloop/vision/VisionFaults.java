@@ -134,7 +134,7 @@ public final class VisionFaults {
         return repeatProbability;
     }
 
-    /** {@return the chance a frame is held back and delivered after the frame captured next} */
+    /** {@return the chance a frame is held back and delivered after the next frame that is not dropped} */
     public double getReorderProbability() {
         return reorderProbability;
     }
@@ -348,8 +348,8 @@ public final class VisionFaults {
         }
 
         /**
-         * Deliver a frame after the one captured next, so capture stamps go backwards. A frame held back
-         * when no later frame is ever offered is not delivered.
+         * Deliver a frame after the next frame that is not dropped, so capture stamps go backwards. A frame
+         * held back when no later frame is ever delivered is not delivered either.
          *
          * @param probability chance each frame is held back, in {@code [0, 1]}
          * @return this builder

@@ -49,7 +49,10 @@ public final class VisionFaultInjector {
     private static final int PATCH_RGB = 0x303030;
 
     private final VisionFaults faults;
-    private final SeededRandom noiseRandom;
+    private final SeededRandom centreNoiseRandom;
+    private final SeededRandom radiusNoiseRandom;
+    private final SeededRandom tagAngleNoiseRandom;
+    private final SeededRandom pixelNoiseRandom;
     private final SeededRandom missRandom;
     private final SeededRandom blackoutRandom;
     private final SeededRandom patchRandom;
@@ -69,7 +72,10 @@ public final class VisionFaultInjector {
             throw new IllegalArgumentException("faults must not be null; use VisionFaults.none()");
         }
         this.faults = faults;
-        this.noiseRandom = stream(faults.getSeed(), 1);
+        this.centreNoiseRandom = stream(faults.getSeed(), 1);
+        this.radiusNoiseRandom = stream(faults.getSeed(), 7);
+        this.tagAngleNoiseRandom = stream(faults.getSeed(), 8);
+        this.pixelNoiseRandom = stream(faults.getSeed(), 9);
         this.missRandom = stream(faults.getSeed(), 2);
         this.blackoutRandom = stream(faults.getSeed(), 3);
         this.patchRandom = stream(faults.getSeed(), 4);
@@ -123,9 +129,9 @@ public final class VisionFaultInjector {
             if (missed()) {
                 continue;
             }
-            double x = s.getCentreXPx() + gaussian(noiseRandom, faults.getCentreNoiseStdDevPx());
-            double y = s.getCentreYPx() + gaussian(noiseRandom, faults.getCentreNoiseStdDevPx());
-            double r = s.getRadiusPx() + gaussian(noiseRandom, faults.getRadiusNoiseStdDevPx());
+            double x = s.getCentreXPx() + gaussian(centreNoiseRandom, faults.getCentreNoiseStdDevPx());
+            double y = s.getCentreYPx() + gaussian(centreNoiseRandom, faults.getCentreNoiseStdDevPx());
+            double r = s.getRadiusPx() + gaussian(radiusNoiseRandom, faults.getRadiusNoiseStdDevPx());
             if (!(r > 0.0) || !discOverlapsImage(x, y, r, lens)) {
                 continue;
             }
@@ -190,8 +196,8 @@ public final class VisionFaultInjector {
             TagSighting t = s;
             double sigma = faults.getTagAngleNoiseStdDevDegrees();
             if (sigma > 0.0) {
-                t = withAngles(s, s.getTxDegrees() + gaussian(noiseRandom, sigma),
-                        s.getTyDegrees() + gaussian(noiseRandom, sigma), lens);
+                t = withAngles(s, s.getTxDegrees() + gaussian(tagAngleNoiseRandom, sigma),
+                        s.getTyDegrees() + gaussian(tagAngleNoiseRandom, sigma), lens);
                 if (t == null) {
                     continue;
                 }
@@ -338,7 +344,7 @@ public final class VisionFaultInjector {
         double sigma = faults.getPixelNoiseStdDevCounts();
         if (sigma > 0.0) {
             for (int i = 0; i < rgb.length; i++) {
-                long v = Math.round((rgb[i] & 0xFF) + gaussian(noiseRandom, sigma));
+                long v = Math.round((rgb[i] & 0xFF) + gaussian(pixelNoiseRandom, sigma));
                 rgb[i] = (byte) Math.max(0L, Math.min(255L, v));
             }
         }

@@ -15,6 +15,7 @@ import org.horizon36596.simloop.field.FieldWorld;
 import org.horizon36596.simloop.field.GamePiece;
 import org.horizon36596.simloop.field.GamePieceTracker;
 import org.horizon36596.simloop.field.ObstacleBox;
+import org.horizon36596.simloop.field.SeededRandom;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -132,12 +133,54 @@ class VisionFaultsTest {
             assertEquals(idsX, idsY, "frame " + i);
         }
 
+        // Centre noise alone, and centre noise with radius noise: every centre must move the same way.
+        VisionFaultInjector centreOnly = new VisionFaultInjector(VisionFaults.builder(3).pixelNoise(4.0, 0.0).build());
+        VisionFaultInjector centreAndRadius = new VisionFaultInjector(
+                VisionFaults.builder(3).pixelNoise(4.0, 0.001).build());
+        for (int i = 0; i < 200; i++) {
+            List<CameraSighting> a = centreOnly.applyToSightings(in, LENS);
+            List<CameraSighting> b = centreAndRadius.applyToSightings(in, LENS);
+            assertEquals(a.size(), b.size(), "frame " + i);
+            for (int k = 0; k < a.size(); k++) {
+                assertEquals(a.get(k).getCentreXPx(), b.get(k).getCentreXPx(), "frame " + i + " sighting " + k);
+                assertEquals(a.get(k).getCentreYPx(), b.get(k).getCentreYPx(), "frame " + i + " sighting " + k);
+            }
+        }
+
+        // Tag-angle noise alone, and with pixel noise on the rendered frames in between: the same tag angles.
+        SimTagCamera camera = tagCamera();
+        List<TagSighting> truth = camera.observe(WALL, 0.0, 0.0, 0.0);
+        SimFrame frame = smallFrame();
+        VisionFaultInjector anglesOnly = new VisionFaultInjector(VisionFaults.builder(3).tagAngleNoise(2.0).build());
+        VisionFaultInjector anglesAndPixels = new VisionFaultInjector(
+                VisionFaults.builder(3).tagAngleNoise(2.0).frameNoise(10.0).build());
+        for (int i = 0; i < 50; i++) {
+            List<TagSighting> a = anglesOnly.applyToTags(truth, WALL, camera, 0.0, 0.0, 0.0);
+            List<TagSighting> b = anglesAndPixels.applyToTags(truth, WALL, camera, 0.0, 0.0, 0.0);
+            anglesOnly.applyToFrame(frame);
+            anglesAndPixels.applyToFrame(frame);
+            assertEquals(a.size(), b.size(), "frame " + i);
+            for (int k = 0; k < a.size(); k++) {
+                assertEquals(a.get(k).getTxDegrees(), b.get(k).getTxDegrees(), "frame " + i + " tag " + k);
+                assertEquals(a.get(k).getTyDegrees(), b.get(k).getTyDegrees(), "frame " + i + " tag " + k);
+            }
+        }
+
         // The drops alone, and the drops with jitter: the same frames must be dropped.
         FaultedFrameStream<Integer> dropOnly = new FaultedFrameStream<Integer>(
                 VisionFaults.builder(3).dropFrames(0.3).build());
         FaultedFrameStream<Integer> dropAndJitter = new FaultedFrameStream<Integer>(
                 VisionFaults.builder(3).dropFrames(0.3).latency(0.0, 0.004).build());
         assertEquals(deliveredFrames(dropOnly, 300), deliveredFrames(dropAndJitter, 300));
+    }
+
+    /** A small rendered frame with one ball in it. */
+    private static SimFrame smallFrame() {
+        GamePieceTracker tracker = new GamePieceTracker(4, FieldWorld.unbounded());
+        tracker.updateRobotPose(0.0, 0.0, 0.0);
+        tracker.addLoosePiece("red", 30.0, 0.0, 1.4);
+        return SimFrameRenderer.builder(CameraLens.fromHorizontalFov(70.0, 40, 25), FRONT).build()
+                .render(tracker.getPieces(), 0.0, 0.0, 0.0, CameraOccluders.none(), AprilTagLayout.empty());
     }
 
     private static List<Integer> ids(List<CameraSighting> list) {
@@ -456,6 +499,84 @@ class VisionFaultsTest {
         assertEquals(neverDelivered, stream.inFlight(), "the undelivered frames are still held");
         assertTrue(outOfOrder <= stream.getReordered() && outOfOrder >= stream.getReordered() - neverDelivered,
                 outOfOrder + " out of order, " + stream.getReordered() + " reordered, " + neverDelivered + " held");
+    }
+
+    /** True when the first draws of stream {@code salt} for {@code seed} fall below (true) or not (false) p. */
+    private static boolean drawsAre(int seed, int salt, double p, boolean... below) {
+        SeededRandom r =VisionFaultInjector.stream(seed, salt);
+        for (boolean b : below) {
+            if ((r.nextFraction() < p) != b) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** A seed whose first draws from one fault's stream fall below (true) or at or above (false) {@code p}. */
+    private static int seedWhere(int salt, double p, boolean... below) {
+        for (int seed = 0; seed < 100_000; seed++) {
+            if (drawsAre(seed, salt, p, below)) {
+                return seed;
+            }
+        }
+        throw new AssertionError("no seed found");
+    }
+
+    @Test
+    void inFlightCountsAFrameHeldBehindAnotherHeldFrame() {
+        // Frames 0 and 1 held, frame 2 not (reorder draws on stream salt 13). Delivering 2 releases 1, and 0
+        // still waits behind 1: two frames in flight, not one.
+        int seed = seedWhere(13, 0.5, true, true, false);
+        FaultedFrameStream<Integer> stream = new FaultedFrameStream<Integer>(
+                VisionFaults.builder(seed).reorderFrames(0.5).build());
+        for (int i = 0; i < 3; i++) {
+            stream.offer(i * 20 * MS, i * 20 * MS, i);
+        }
+        assertEquals(1, stream.pollDue(40 * MS).size());
+        assertEquals(2, stream.inFlight(), "frame 1 released, frame 0 still behind it");
+        assertEquals(Integer.valueOf(1), stream.pollDue(60 * MS).get(0).getFrame());
+        assertEquals(1, stream.inFlight());
+        assertEquals(Integer.valueOf(0), stream.pollDue(80 * MS).get(0).getFrame());
+        assertEquals(0, stream.inFlight());
+
+        // And at every step of a long run: in flight is offered, less dropped, less delivered.
+        FaultedFrameStream<Integer> busy = new FaultedFrameStream<Integer>(
+                VisionFaults.builder(9).reorderFrames(0.5).dropFrames(0.2).latency(0.0, 0.01).build());
+        for (int i = 0; i < 600; i++) {
+            if (i < 500) {
+                busy.offer(i * 20 * MS, i * 20 * MS + 5 * MS, i);
+            }
+            busy.pollDue(i * 20 * MS);
+            assertEquals(busy.getOffered() - busy.getDropped() - busy.getDelivered(), busy.inFlight(), "step " + i);
+        }
+    }
+
+    @Test
+    void aDroppedFrameDoesNotReleaseAHeldOneTheNextDeliveredFrameDoes() {
+        // Frame 0 kept and held, frame 1 dropped, frame 2 kept and not held. Drops draw on salt 11 for every
+        // frame; reorders on salt 13 only for the frames that are kept.
+        int seed = -1;
+        for (int s = 0; s < 100_000 && seed < 0; s++) {
+            if (drawsAre(s, 11, 0.5, false, true, false) && drawsAre(s, 13, 0.5, true, false)) {
+                seed = s;
+            }
+        }
+        assertTrue(seed >= 0, "no seed found");
+        FaultedFrameStream<Integer> stream = new FaultedFrameStream<Integer>(
+                VisionFaults.builder(seed).dropFrames(0.5).reorderFrames(0.5).build());
+        stream.offer(0, 0, 0);
+        assertTrue(stream.pollDue(0).isEmpty(), "frame 0 is held");
+        stream.offer(20 * MS, 20 * MS, 1);
+        assertEquals(1, stream.getDropped());
+        assertTrue(stream.pollDue(20 * MS).isEmpty(), "the dropped frame 1 does not release frame 0");
+        stream.offer(40 * MS, 40 * MS, 2);
+        List<FaultedFrameStream.Delivery<Integer>> atTwo = stream.pollDue(40 * MS);
+        assertEquals(1, atTwo.size());
+        assertEquals(Integer.valueOf(2), atTwo.get(0).getFrame());
+        List<FaultedFrameStream.Delivery<Integer>> after = stream.pollDue(60 * MS);
+        assertEquals(1, after.size());
+        assertEquals(Integer.valueOf(0), after.get(0).getFrame());
+        assertTrue(after.get(0).isOutOfOrder());
     }
 
     @Test
