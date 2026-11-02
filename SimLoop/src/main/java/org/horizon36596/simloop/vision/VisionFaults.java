@@ -349,7 +349,8 @@ public final class VisionFaults {
 
         /**
          * Deliver a frame after the next frame that is not dropped, so capture stamps go backwards. A frame
-         * held back when no later frame is ever delivered is not delivered either.
+         * held back when no later frame is ever delivered is not delivered either. At 1.0 every frame is held
+         * behind the next, so no frame is ever delivered: use it only to model a stream that never arrives.
          *
          * @param probability chance each frame is held back, in {@code [0, 1]}
          * @return this builder

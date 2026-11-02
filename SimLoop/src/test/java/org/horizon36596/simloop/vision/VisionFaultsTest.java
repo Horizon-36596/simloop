@@ -580,6 +580,110 @@ class VisionFaultsTest {
     }
 
     @Test
+    void allFourTimingFaultsTogetherLoseNoFrameAndDeliverNoneTwice() {
+        FaultedFrameStream<Integer> stream = new FaultedFrameStream<Integer>(VisionFaults.builder(21)
+                .latency(0.05, 0.03).dropFrames(0.2).repeatFrames(0.2).reorderFrames(0.2).build());
+        boolean[] seen = new boolean[400];
+        boolean[] repeatSeen = new boolean[400];
+        List<FaultedFrameStream.Delivery<Integer>> previousPoll = Collections.emptyList();
+        long nonRepeats = 0;
+        int repeats = 0;
+        for (int i = 0; i < 420; i++) {
+            long now = i * 20 * MS;
+            if (i < 400) {
+                stream.offer(now, now, i);
+            }
+            List<FaultedFrameStream.Delivery<Integer>> poll = stream.pollDue(now);
+            int newNonRepeats = 0;
+            for (FaultedFrameStream.Delivery<Integer> d : poll) {
+                int f = d.getFrame();
+                assertTrue(d.getDeliveredNanos() >= d.getCaptureNanos(), "frame " + f + " delivered before capture");
+                assertTrue(d.getDeliveredNanos() <= now, "frame " + f + " delivered after the poll");
+                if (d.isRepeat()) {
+                    repeats++;
+                    assertTrue(seen[f], "frame " + f + " repeated before it was delivered");
+                    assertFalse(repeatSeen[f], "frame " + f + " repeated twice");
+                    repeatSeen[f] = true;
+                    boolean originalInPreviousPoll = false;
+                    for (FaultedFrameStream.Delivery<Integer> p : previousPoll) {
+                        if (!p.isRepeat() && p.getFrame().equals(d.getFrame())) {
+                            originalInPreviousPoll = true;
+                            assertEquals(p.getCaptureNanos(), d.getCaptureNanos());
+                        }
+                    }
+                    assertTrue(originalInPreviousPoll, "the repeat of frame " + f + " follows the poll of its original");
+                } else {
+                    assertFalse(seen[f], "frame " + f + " delivered twice");
+                    seen[f] = true;
+                    nonRepeats++;
+                    newNonRepeats++;
+                }
+            }
+            // In flight holds every offered frame neither dropped nor delivered, plus the repeats this poll owes.
+            long owedRepeats = stream.inFlight() - (stream.getOffered() - stream.getDropped() - nonRepeats);
+            assertTrue(owedRepeats >= 0 && owedRepeats <= newNonRepeats, "step " + i + ": " + owedRepeats);
+            previousPoll = poll;
+        }
+        // Drained: nothing owed, so the books balance exactly.
+        assertEquals(stream.getOffered(), nonRepeats + stream.getDropped() + stream.inFlight());
+        assertEquals(400, stream.getOffered());
+        assertEquals(stream.getRepeated(), repeats);
+        assertEquals(stream.getDelivered(), nonRepeats + repeats);
+        assertTrue(stream.getDropped() > 40 && repeats > 20 && stream.getReordered() > 20,
+                stream.getDropped() + " dropped, " + repeats + " repeated, " + stream.getReordered() + " reordered");
+        assertTrue(stream.inFlight() <= 10, "only a held tail stays in flight: " + stream.inFlight());
+    }
+
+    @Test
+    void dropFramesAtOneDropsEveryFrame() {
+        FaultedFrameStream<Integer> stream = new FaultedFrameStream<Integer>(
+                VisionFaults.builder(6).dropFrames(1.0).repeatFrames(1.0).reorderFrames(1.0).build());
+        assertTrue(deliveredFrames(stream, 200).isEmpty());
+        assertEquals(200, stream.getOffered());
+        assertEquals(200, stream.getDropped());
+        assertEquals(0, stream.getDelivered());
+        assertEquals(0, stream.getReordered());
+        assertEquals(0, stream.inFlight());
+    }
+
+    @Test
+    void repeatFramesAtOneDeliversEveryFrameExactlyTwiceBackToBack() {
+        FaultedFrameStream<Integer> stream = new FaultedFrameStream<Integer>(
+                VisionFaults.builder(6).repeatFrames(1.0).build());
+        List<FaultedFrameStream.Delivery<Integer>> all = new ArrayList<FaultedFrameStream.Delivery<Integer>>();
+        for (int i = 0; i < 201; i++) {
+            if (i < 200) {
+                stream.offer(i * 20 * MS, i * 20 * MS, i);
+            }
+            all.addAll(stream.pollDue(i * 20 * MS));
+        }
+        assertEquals(400, all.size());
+        for (int i = 0; i < 200; i++) {
+            assertEquals(Integer.valueOf(i), all.get(2 * i).getFrame());
+            assertFalse(all.get(2 * i).isRepeat());
+            assertEquals(Integer.valueOf(i), all.get(2 * i + 1).getFrame());
+            assertTrue(all.get(2 * i + 1).isRepeat());
+        }
+        assertEquals(400, stream.getDelivered());
+        assertEquals(200, stream.getRepeated());
+        assertEquals(0, stream.inFlight());
+    }
+
+    @Test
+    void reorderFramesAtOneNeverDeliversAnything() {
+        // Documented contract: every frame is held behind the next, and no frame is ever not held, so the chain
+        // only grows. All 200 frames stay in flight.
+        FaultedFrameStream<Integer> stream = new FaultedFrameStream<Integer>(
+                VisionFaults.builder(6).reorderFrames(1.0).build());
+        assertTrue(deliveredFrames(stream, 200).isEmpty());
+        assertTrue(stream.pollDue(10_000 * MS).isEmpty());
+        assertEquals(200, stream.getOffered());
+        assertEquals(0, stream.getDelivered());
+        assertEquals(199, stream.getReordered());
+        assertEquals(200, stream.inFlight());
+    }
+
+    @Test
     void badArgumentsAreRefused() {
         assertThrows(IllegalArgumentException.class, () -> VisionFaults.builder(1).dropFrames(1.5));
         assertThrows(IllegalArgumentException.class, () -> VisionFaults.builder(1).latency(-0.1, 0.0));

@@ -27,7 +27,8 @@ import java.util.List;
  *       and comes at the start of the next {@link #pollDue} call after that, so its capture stamp is older
  *       than the one delivered before it. A dropped frame does not release it: it waits for the next
  *       delivered one. Two held in a row come out newest first. A held frame with no later delivered frame
- *       is never delivered.</li>
+ *       is never delivered, so at a reorder probability of 1.0 every frame waits on the next and nothing
+       is ever delivered.</li>
  *   <li><b>Repeat</b>: after delivery, the same frame (same stamp, same contents object) is delivered once
  *       more, at the start of the next {@link #pollDue} call that is at least one nanosecond later.</li>
  * </ol>

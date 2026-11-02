@@ -1,6 +1,7 @@
 package org.horizon36596.simloop.fakehardware;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -212,5 +213,34 @@ class FakeLimelight3AFaultsTest {
         }
         assertTrue(empty >= 10, "blacked-out results: " + empty);
         assertNotEquals(400, empty);
+    }
+
+    private static boolean finite(Pose3D pose) {
+        return Double.isFinite(pose.getPosition().x) && Double.isFinite(pose.getPosition().y)
+                && Double.isFinite(pose.getPosition().z) && Double.isFinite(pose.getOrientation().getRoll())
+                && Double.isFinite(pose.getOrientation().getPitch()) && Double.isFinite(pose.getOrientation().getYaw());
+    }
+
+    @Test
+    void aResultWithNoTagsIsInvalidAndItsBotposesAreFiniteUnderEveryFaultAtOnce() {
+        FakeLimelight3A ll = builder().frameRateHz(25.0).faults(VisionFaults.builder(5).blackout(0.05, 10)
+                .reorderFrames(0.3).missDetections(0.9).build()).build();
+        ll.start();
+        int noTags = 0;
+        int withTags = 0;
+        for (int i = 0; i < 600; i++) {
+            ll.setRobotPose(-10.0 + i * 0.03, 2.0, 0.05);
+            ll.update(TICK);
+            LLResult r = ll.getLatestResult();
+            assertTrue(finite(r.getBotpose()) && finite(r.getBotpose_MT2()), "tick " + i);
+            if (r.getFiducialResults().isEmpty()) {
+                noTags++;
+                assertFalse(r.isValid(), "tick " + i + ": a result with no tags is not valid");
+            } else {
+                withTags++;
+            }
+        }
+        assertTrue(noTags > 100 && withTags > 20, noTags + " results with no tags, " + withTags + " with");
+        assertTrue(ll.getFaultStream().getReordered() > 0);
     }
 }
