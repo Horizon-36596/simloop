@@ -15,7 +15,10 @@ package org.horizon36596.simloop.vision;
  *
  * <p><b>Determinism.</b> Every fault draws from its own {@link org.horizon36596.simloop.field.SeededRandom},
  * seeded from {@link #getSeed()} and the fault's name, so the same seed and the same sequence of frames give
- * the same faults, and turning one fault on or off does not move another fault's draws.
+ * the same faults. Turning one fault on or off leaves the others' draws alone, with one exception: a fault
+ * that draws only for what an earlier fault let through draws for less when that fault takes more away. A
+ * wrong id is drawn only for a sighting that was not missed, and a dropped frame draws no jitter, reorder or
+ * repeat, so turning on misses or drops changes which sightings get wrong ids and which frames are held back.
  *
  * <p><b>Every rate here is a test input, not a measurement.</b> None of the defaults describe a real camera;
  * the defaults are "off". Pick the levels your test needs and say so in the test.

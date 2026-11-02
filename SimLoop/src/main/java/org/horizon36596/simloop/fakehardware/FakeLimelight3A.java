@@ -128,8 +128,9 @@ import java.util.List;
  * and out-of-order frames) act on when a frame becomes the device's current result; the extra delay is
  * <em>not</em> added to {@code cl} or {@code tl}, so it models delay the device does not report. The device
  * serves the last frame delivered in a tick, so an out-of-order frame shows (its {@code ts} goes backwards)
- * only on a tick with no newer frame, which needs a {@link Builder#frameRateHz} below the tick rate; a
- * repeated frame is the frame already being served, so it changes nothing a poll can see.
+ * only on a tick with no newer frame, which needs a {@link Builder#frameRateHz} below the tick rate. A
+ * repeated frame is delivered after any held frame released on the same tick, so it can hide that
+ * out-of-order frame; otherwise it is the frame already being served and changes nothing a poll can see.
  *
  * <p><b>Optics and occlusion.</b> {@link Builder#distortion} gives the lens OpenCV's distortion model:
  * corner pixels ({@code pts}) and the centre pixel ({@code txp}, {@code typ}) are distorted, and the angles
@@ -709,6 +710,7 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
             reported.add(s);
             reportedAngles.add(new double[] {tx, ty, centrePx[0], centrePx[1]});
         }
+        boolean noiseDroppedEveryTag = !seen.isEmpty() && reported.isEmpty();
         seen = reported;
         JSONObject json = new JSONObject();
         json.put("pID", pipelineIndex);
@@ -793,6 +795,11 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
         json.put("v", count > 0 ? 1 : 0);
         json.put("botpose_tagcount", count);
         if (count == 0) {
+            if (noiseDroppedEveryTag) {
+                // Make the five pose draws a frame with a tag makes, and throw them away, so the noise of
+                // every later frame is the same as if the tags had been reported.
+                skipPoseDraws();
+            }
             double[] zeros = new double[6];
             json.put("botpose", toJson(zeros));
             json.put("botpose_orb", toJson(zeros));
@@ -868,6 +875,18 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
     /** Degrees into [-180, 180). */
     private static double wrapDegrees(double degrees) {
         return degrees - 360.0 * StrictMath.floor((degrees + 180.0) / 360.0);
+    }
+
+    /**
+     * Makes the five draws a frame's pose estimates take (MegaTag1 x, y and yaw, MegaTag2 x and y), in that
+     * order, and discards them.
+     */
+    private void skipPoseDraws() {
+        gaussian(positionStdDevInches);
+        gaussian(positionStdDevInches);
+        gaussian(yawStdDevDegrees);
+        gaussian(positionStdDevInches);
+        gaussian(positionStdDevInches);
     }
 
     /** One zero-mean Gaussian draw of this standard deviation, or exactly 0 with noise off (no draw). */

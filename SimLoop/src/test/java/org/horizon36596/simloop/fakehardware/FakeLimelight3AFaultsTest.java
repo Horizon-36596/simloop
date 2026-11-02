@@ -74,6 +74,44 @@ class FakeLimelight3AFaultsTest {
     }
 
     @Test
+    void aFrameWhoseTagsTheNoiseDropsMakesTheSameDrawsAsOneThatReportsThem() {
+        // The same seed through two lenses. The tags' true angles are the same in both, so the noise draws
+        // are too, but 60 degrees of noise often pushes all three tags out of the narrow image and seldom
+        // out of the wide one. A frame that drops every tag must still make its pose draws, or every later
+        // frame's noise moves: tag angles and MegaTag1 (from the true pose, with no faults) must match.
+        FakeLimelight3A narrow = builder().noise(3, 60.0, 1.0, 1.0).build();
+        FakeLimelight3A wide = FakeLimelight3A.builder(WALL, LEVEL, 170.0, 170.0).noise(3, 60.0, 1.0, 1.0).build();
+        narrow.start();
+        wide.start();
+        int framesNarrowDroppedEveryTag = 0;
+        int tagsCompared = 0;
+        for (int i = 0; i < 300; i++) {
+            narrow.update(TICK);
+            wide.update(TICK);
+            LLResult n = narrow.getLatestResult();
+            LLResult w = wide.getLatestResult();
+            if (n.getFiducialResults().isEmpty() && !w.getFiducialResults().isEmpty()) {
+                framesNarrowDroppedEveryTag++;
+            }
+            for (LLResultTypes.FiducialResult nf : n.getFiducialResults()) {
+                for (LLResultTypes.FiducialResult wf : w.getFiducialResults()) {
+                    if (nf.getFiducialId() == wf.getFiducialId()) {
+                        assertEquals(wf.getTargetXDegrees(), nf.getTargetXDegrees(), 0.0, "tx, frame " + i);
+                        assertEquals(wf.getTargetYDegrees(), nf.getTargetYDegrees(), 0.0, "ty, frame " + i);
+                        tagsCompared++;
+                    }
+                }
+            }
+            if (!n.getFiducialResults().isEmpty() && !w.getFiducialResults().isEmpty()) {
+                assertEquals(metres(w.getBotpose(), 'x'), metres(n.getBotpose(), 'x'), 0.0, "MT1 x, frame " + i);
+            }
+        }
+        assertTrue(framesNarrowDroppedEveryTag > 10, "the narrow lens dropped every tag in some frames: "
+                + framesNarrowDroppedEveryTag);
+        assertTrue(tagsCompared > 30, "tags reported by both: " + tagsCompared);
+    }
+
+    @Test
     void moderateNoiseIsUnchangedByTheImageEdgeRule() {
         // 0.5 degree noise cannot push a tag 12 in off the axis at 72 in out of the image: nothing drops.
         FakeLimelight3A ll = builder().noise(3, 0.5, 1.0, 1.0).build();
