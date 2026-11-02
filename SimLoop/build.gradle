@@ -374,24 +374,10 @@ tasks.named('check') {
 // Three tasks rather than one, because each of the three can fail for its own reason and a reader
 // chasing a red build should be told which one it was.
 
-// Fails if the version in mkdocs.yml and the version in this file have drifted apart. They are not
-// linked - `copyright:` in mkdocs.yml is what stamps the footer of every page - and a site claiming one
-// version while the jar beside it is another is worse than a site with no version on it at all. The file
-// is read while this build script is configured, not while the task runs, so the check survives Gradle's
-// configuration cache.
-def mkdocsConfigText = file('mkdocs.yml').text
-def declaredVersion = project.version.toString()
-tasks.register('checkDocsVersion') {
-    group = 'documentation'
-    description = 'Fails if mkdocs.yml stamps a different version than this build does.'
-    doLast {
-        if (!mkdocsConfigText.contains(declaredVersion)) {
-            throw new GradleException("mkdocs.yml never mentions version " + declaredVersion
-                    + ", so every page would stamp the wrong one in its footer. Bump the `copyright:` "
-                    + "line in this module's mkdocs.yml to match `version` in its build.gradle.")
-        }
-    }
-}
+// Pass the module's authoritative version to MkDocs. Its !ENV YAML tag resolves the footer
+// at build time, so mkdocs.yml never needs a second copy of the release version.
+def docsCopyright = "SimLoop ${project.version} · Horizon (FTC 36596) · BSD-3-Clause"
+
 
 tasks.register('checkDocExamples', Exec) {
     group = 'documentation'
@@ -405,9 +391,10 @@ tasks.register('mkdocsBuild', Exec) {
     group = 'documentation'
     description = 'Renders the markdown pages. Needs, in this directory: pip install -r docs-requirements.txt'
 
-    dependsOn 'checkDocsVersion', 'checkDocExamples'
+    dependsOn 'checkDocExamples'
 
     workingDir projectDir
+    environment 'SIMLOOP_DOCS_COPYRIGHT', docsCopyright
     commandLine 'python', '-m', 'mkdocs', 'build', '-f', 'mkdocs.yml', '--strict'
 
     doFirst {

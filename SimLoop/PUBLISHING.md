@@ -59,9 +59,10 @@ except where a row says it was overtaken.
 | `EnvelopeGuardrails` guardrail names | `withinBound`, `loopTimeUnderBudget` and `safeStopAtEnd` now embed their thresholds in `Guardrail.name()`. Any persisted last-best score from an earlier version will read as a different envelope in `Gate` and must be re-baselined. Non-finite and negative thresholds are now rejected at construction. |
 | `RunResult.fromRlog` | `RealOutputs/Console` and `RealOutputs/Logger/QueuedCycles` are no longer scoreable, so `keys()` and `frames()` no longer contain them. |
 
-`SimLoop/build.gradle` declares the source version. Installation snippets, the starter, agent guides
-and the site footer repeat it. Review all current-version references during a release; keep references
-to older tags where they explain compatibility or historical checks.
+`SimLoop/build.gradle` declares the source version. The documentation footer is populated from
+that value by the `docsSite` Gradle task; it is not repeated in `mkdocs.yml`. Installation snippets,
+the starter and agent guides may still contain current-version references. Review those during a release,
+and keep references to older tags where they explain compatibility or historical checks.
 
 ## Cutting a release
 
@@ -70,10 +71,11 @@ to older tags where they explain compatibility or historical checks.
    and read by people and agents who have nothing else, so a missing unit is a release defect there in a
    way it is not in an IDE.
 2. **Update the approved version** in `SimLoop/build.gradle` and its current-version references.
-   Search the root and module READMEs, `SimLoop/docs/`, `SimLoop/mkdocs.yml`, `simloop-starter/` and
-   `simloop-agents/`. Review each match rather than replacing historical tags blindly. Run
-   `./gradlew :SimLoop:docsSite`; its version check verifies the footer, and its example check verifies
-   the first-test snippet. These checks do not replace reviewing installation coordinates.
+   Search the root and module READMEs, `SimLoop/docs/`, `simloop-starter/` and `simloop-agents/`.
+   Review each match rather than replacing historical tags blindly. Run
+   `./gradlew :SimLoop:docsSite`; the generated pages take their footer version directly from Gradle,
+   and the example check verifies the first-test snippet. These checks do not replace reviewing
+   installation coordinates.
 3. **Verify the artifact locally before anyone can consume it** — the section below says how, and it is
    the part people skip.
 4. **Commit, tag, push the tag.** The tag is the version, e.g. `v0.2.0-alpha.1`.
