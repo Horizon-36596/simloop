@@ -31,12 +31,8 @@ docs_dir: docs
 # site is never committed by accident.
 site_dir: build/docs/site
 
-# The version stamp, shown in the footer of every page so a reader always knows what they are looking at.
-#
-# This is a SECOND place the version is written; `SimLoop/build.gradle` is the authoritative one. They are
-# not linked yet, so PUBLISHING.md's release checklist lists this file as a place to bump. Wiring the two
-# together is a build change and belongs with the rest of the site build.
-copyright: "SimLoop 0.2.0-alpha.2 · Horizon (FTC 36596) · BSD-3-Clause"
+# The footer comes from the version in SimLoop/build.gradle, passed by the docsSite Gradle task.
+copyright: !ENV SIMLOOP_DOCS_COPYRIGHT
 
 theme:
   name: material
