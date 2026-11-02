@@ -89,6 +89,29 @@ class CameraLensDistortionTest {
         assertEquals(BARREL.getCentreYPx(), centre[1], 1e-12);
     }
 
+    /**
+     * Regression, found by noise injection: a noisy ball centre just off the corner of an image whose corners
+     * lie past a folding lens's reach used to come back from {@code groundPointInRobotFrame} as a confident
+     * floor point, mirrored through the image centre (pixel (-400, -300), up and left, gave a point to the
+     * RIGHT of the robot). No ray lands on such a pixel, so there is no floor point.
+     */
+    @Test
+    void aPixelNoRayReachesHasNoGroundPoint() {
+        CameraLens folding = CameraLens.fromHorizontalFov(70.0, 640, 400).withDistortion(-0.45, 0.0, 0.0, 0.0, 0.0);
+        SimCamera camera = new SimCamera("fold", folding, CameraMount.front(6.0, 10.0, 22.0));
+        for (double[] px : new double[][] {{-400.0, -300.0}, {-2000.0, 200.0}, {-50.0, 450.0}, {700.0, -40.0}}) {
+            double[] ray = folding.undistortPixel(px[0], px[1]);
+            double[] back = folding.project(ray[0], ray[1], 1.0);
+            assertTrue(back == null || Math.hypot(back[0] - px[0], back[1] - px[1]) > 1.0,
+                    "the lens cannot image (" + px[0] + ", " + px[1] + ")");
+            assertNull(camera.groundPointInRobotFrame(px[0], px[1], 1.4),
+                    "no ray reaches (" + px[0] + ", " + px[1] + "), so no floor point");
+        }
+        // The image centre and a pixel well inside still round-trip and still have a floor point.
+        assertNotNull(camera.groundPointInRobotFrame(320.0, 300.0, 1.4));
+        assertNotNull(camera.groundPointInRobotFrame(200.0, 350.0, 1.4));
+    }
+
     @Test
     void pastTheFoldOverRadiusNothingIsImaged() {
         CameraLens lens = PINHOLE.withDistortion(-0.3, 0.0, 0.0, 0.0, 0.0);

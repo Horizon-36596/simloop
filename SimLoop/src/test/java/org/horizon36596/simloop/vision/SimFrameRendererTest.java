@@ -109,6 +109,33 @@ class SimFrameRendererTest {
                 "the distortion moved the piece by more than the tolerance, or this test proves nothing");
     }
 
+    /**
+     * Regression: with a lens whose distortion folds over before the image corners, the corner pixels have no
+     * ray through the lens. They used to be traced along whatever direction the undistortion search stopped
+     * on, often mirrored through the centre, so a piece in the lower right could also be drawn in the upper
+     * left corner. They now see nothing: black, no label. The middle of the image is drawn as before.
+     */
+    @Test
+    void cornersPastAFoldingLensesReachAreBlackAndUnlabelled() {
+        CameraLens folding = LENS.withDistortion(-0.45, 0.0, 0.0, 0.0, 0.0);
+        double[] cornerRay = folding.undistortPixel(0.5, 0.5);
+        double[] back = folding.project(cornerRay[0], cornerRay[1], 1.0);
+        assertTrue(back == null || Math.hypot(back[0] - 0.5, back[1] - 0.5) > 1.0,
+                "this lens must not reach the corner, or this test proves nothing");
+
+        GamePieceTracker tracker = pieces("red", 26.0, 0.0);
+        SimFrame frame = SimFrameRenderer.builder(folding, FRONT).style(STYLE).supersampling(2).build()
+                .render(tracker.getPieces(), 0.0, 0.0, 0.0, CameraOccluders.none(), AprilTagLayout.empty());
+        assertEquals(0x000000, frame.getRgb(0, 0));
+        assertEquals(-1, frame.getPieceIdAt(0, 0));
+        assertEquals(-1, frame.getTagIdAt(0, 0));
+        assertTrue(frame.getRgb(160, 120) != 0x000000, "the image centre is still drawn");
+        int pieceId = tracker.getPieces().get(0).getId();
+        assertTrue(frame.pixelCountOfPiece(pieceId) > 0, "the piece in the middle is still drawn");
+        double[] centroid = frame.centroidOfPiece(pieceId);
+        assertTrue(Math.abs(centroid[0] - 160.0) < 20.0, "drawn once, near the middle: " + centroid[0]);
+    }
+
     @Test
     void whatTheOccludedObserveHidesHasNoPixels() {
         GamePieceTracker tracker = pieces("red", 34.0, 0.0, "blue", 30.0, 14.0);

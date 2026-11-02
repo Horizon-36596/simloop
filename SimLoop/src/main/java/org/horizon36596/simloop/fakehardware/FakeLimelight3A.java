@@ -13,9 +13,12 @@ import org.horizon36596.simloop.vision.AprilTagLayout;
 import org.horizon36596.simloop.vision.CameraLens;
 import org.horizon36596.simloop.vision.CameraOccluders;
 import org.horizon36596.simloop.vision.CameraMount;
+import org.horizon36596.simloop.vision.FaultedFrameStream;
 import org.horizon36596.simloop.vision.RigidTransform3;
 import org.horizon36596.simloop.vision.SimTagCamera;
 import org.horizon36596.simloop.vision.TagSighting;
+import org.horizon36596.simloop.vision.VisionFaultInjector;
+import org.horizon36596.simloop.vision.VisionFaults;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -112,6 +115,23 @@ import java.util.List;
  * visibility rule is missed in a frame with a fixed probability, drawn from its own {@link SeededRandom} in
  * tag id order, so a pose filter can be tested against frames that lose a tag now and then.
  *
+ * <p><b>Noise and the image edge.</b> A tag whose noisy {@code tx}/{@code ty} put its centre outside the
+ * image is not reported in that frame, as a detector cannot report a target it does not see; the noise
+ * draws are the same either way, so this changes nothing for a tag well inside the image.
+ *
+ * <p><b>Faults</b> (off unless {@link Builder#faults} is called): a {@link VisionFaults} for stress tests.
+ * Its content faults ({@link VisionFaultInjector}: blackouts, missed tags, extra tx/ty noise, wrong ids and
+ * false tags) act on the tags seen, after the dropouts above; a wrong or false tag moves both
+ * {@code botpose} and {@code botpose_orb}, because with faults on {@code botpose} is solved from the tags
+ * seen (each tag's robot-to-tag transform placed at the layout tag it claims to be, averaged) instead of
+ * read from the true pose. Its timing faults ({@link FaultedFrameStream}: extra latency and jitter, dropped
+ * and out-of-order frames) act on when a frame becomes the device's current result; the extra delay is
+ * <em>not</em> added to {@code cl} or {@code tl}, so it models delay the device does not report. The device
+ * serves the last frame delivered in a tick, so an out-of-order frame shows (its {@code ts} goes backwards)
+ * only on a tick with no newer frame, which needs a {@link Builder#frameRateHz} below the tick rate. A
+ * repeated frame is delivered after any held frame released on the same tick, so it can hide that
+ * out-of-order frame; otherwise it is the frame already being served and changes nothing a poll can see.
+ *
  * <p><b>Optics and occlusion.</b> {@link Builder#distortion} gives the lens OpenCV's distortion model:
  * corner pixels ({@code pts}) and the centre pixel ({@code txp}, {@code typ}) are distorted, and the angles
  * and poses stay the undistorted geometry a calibrated Limelight reports. {@link Builder#occluders} takes
@@ -156,6 +176,9 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
     private final CameraOccluders robotBody;
     private final SeededRandom dropoutRandom;
     private final double dropoutProbability;
+    /** Null when no faults were asked for, so a fault-free fake runs exactly the code it always did. */
+    private final VisionFaultInjector faultInjector;
+    private final FaultedFrameStream<String> faultStream;
 
     private long simNanos;
     private boolean running;
@@ -204,6 +227,8 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
         this.robotBody = CameraOccluders.of(Collections.<ObstacleBox>emptyList(), b.robotBody);
         this.dropoutRandom = b.dropoutProbability > 0.0 ? new SeededRandom(b.dropoutSeed) : null;
         this.dropoutProbability = b.dropoutProbability;
+        this.faultInjector = b.faults.isNone() ? null : new VisionFaultInjector(b.faults);
+        this.faultStream = b.faults.isNone() ? null : new FaultedFrameStream<String>(b.faults);
     }
 
     /** 127.0.0.1, built without a DNS lookup: if an SDK call ever slipped past this fake, it hits nothing. */
@@ -279,7 +304,11 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
         simNanos += Math.round(deltaTime * 1e9);
 
         if (framePeriodNanos == 0L || simNanos >= nextCaptureNanos) {
-            inFlight.addLast(new Frame(simNanos + latencyNanos, buildFrameJson(simNanos)));
+            if (faultStream != null) {
+                faultStream.offer(simNanos, simNanos + latencyNanos, buildFrameJson(simNanos));
+            } else {
+                inFlight.addLast(new Frame(simNanos + latencyNanos, buildFrameJson(simNanos)));
+            }
             if (framePeriodNanos > 0L) {
                 // The schedule starts at the first capture; a tick longer than a frame skips frames.
                 nextCaptureNanos = capturedOnce ? nextCaptureNanos + framePeriodNanos : simNanos + framePeriodNanos;
@@ -291,6 +320,11 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
         }
         while (!inFlight.isEmpty() && inFlight.peekFirst().availableAtNanos <= simNanos) {
             currentFrameJson = inFlight.pollFirst().json;
+        }
+        if (faultStream != null) {
+            for (FaultedFrameStream.Delivery<String> delivery : faultStream.pollDue(simNanos)) {
+                currentFrameJson = delivery.getFrame();
+            }
         }
         if (running && simNanos >= nextPollNanos) {
             latestResult = SimLLResult.parse(currentFrameJson, nowMs(), this);
@@ -327,6 +361,11 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
     /** {@return the tag layout this fake sees} */
     public AprilTagLayout getLayout() {
         return layout;
+    }
+
+    /** {@return the frame-timing fault stream, for its counters; null when no faults were configured} */
+    public FaultedFrameStream<String> getFaultStream() {
+        return faultStream;
     }
 
     private long nowMs() {
@@ -640,6 +679,39 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
             }
             seen = kept;
         }
+        if (faultInjector != null) {
+            seen = faultInjector.applyToTags(seen, layout, camera, robotXInches, robotYInches, robotHeadingRad);
+        }
+        // Noise first, in tag order, two draws a tag as always; a tag the noise pushes out of the image is
+        // not reported, because a detector cannot report a target outside its image.
+        CameraLens lens = camera.getLens();
+        List<TagSighting> reported = new ArrayList<TagSighting>(seen.size());
+        List<double[]> reportedAngles = new ArrayList<double[]>(seen.size());
+        for (TagSighting s : seen) {
+            double tx = s.getTxDegrees() + gaussian(txTyStdDevDegrees);
+            double ty = s.getTyDegrees() + gaussian(txTyStdDevDegrees);
+            double[] centrePx;
+            if (tx == s.getTxDegrees() && ty == s.getTyDegrees()) {
+                centrePx = lens.project(StrictMath.tan(StrictMath.toRadians(tx)),
+                        -StrictMath.tan(StrictMath.toRadians(ty)), 1.0);
+                if (centrePx == null) {
+                    centrePx = new double[] {s.getCentreXPx(), s.getCentreYPx()};
+                }
+            } else {
+                centrePx = Math.abs(tx) < 90.0 && Math.abs(ty) < 90.0
+                        ? lens.project(StrictMath.tan(StrictMath.toRadians(tx)),
+                                -StrictMath.tan(StrictMath.toRadians(ty)), 1.0)
+                        : null;
+                if (centrePx == null || centrePx[0] < 0.0 || centrePx[0] > lens.getWidthPx()
+                        || centrePx[1] < 0.0 || centrePx[1] > lens.getHeightPx()) {
+                    continue;
+                }
+            }
+            reported.add(s);
+            reportedAngles.add(new double[] {tx, ty, centrePx[0], centrePx[1]});
+        }
+        boolean noiseDroppedEveryTag = !seen.isEmpty() && reported.isEmpty();
+        seen = reported;
         JSONObject json = new JSONObject();
         json.put("pID", pipelineIndex);
         json.put("pipelineType", PIPELINE_TYPE);
@@ -664,10 +736,14 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
         double yawRad = StrictMath.toRadians(suppliedYawDegrees);
         double cosYaw = StrictMath.cos(yawRad);
         double sinYaw = StrictMath.sin(yawRad);
-        CameraLens lens = camera.getLens();
-        for (TagSighting s : seen) {
-            double tx = s.getTxDegrees() + gaussian(txTyStdDevDegrees);
-            double ty = s.getTyDegrees() + gaussian(txTyStdDevDegrees);
+        double mt1X = 0.0;
+        double mt1Y = 0.0;
+        double mt1Cos = 0.0;
+        double mt1Sin = 0.0;
+        for (int i = 0; i < seen.size(); i++) {
+            TagSighting s = seen.get(i);
+            double tx = reportedAngles.get(i)[0];
+            double ty = reportedAngles.get(i)[1];
             JSONObject f = new JSONObject();
             f.put("fID", s.getId());
             f.put("fam", family);
@@ -675,13 +751,8 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
             f.put("ty", ty);
             f.put("tx_nocross", tx);
             f.put("ty_nocross", ty);
-            double[] centrePx = lens.project(StrictMath.tan(StrictMath.toRadians(tx)),
-                    -StrictMath.tan(StrictMath.toRadians(ty)), 1.0);
-            if (centrePx == null) {
-                centrePx = new double[] {s.getCentreXPx(), s.getCentreYPx()};
-            }
-            f.put("txp", centrePx[0]);
-            f.put("typ", centrePx[1]);
+            f.put("txp", reportedAngles.get(i)[2]);
+            f.put("typ", reportedAngles.get(i)[3]);
             f.put("ta", s.getAreaPercent());
             JSONArray corners = new JSONArray();
             for (double[] corner : s.getCornersPx()) {
@@ -709,12 +780,26 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
             mt2X += tag.getXInches() - (cosYaw * r.getXInches() - sinYaw * r.getYInches());
             mt2Y += tag.getYInches() - (sinYaw * r.getXInches() + cosYaw * r.getYInches());
             mt2Z += tag.getZInches() - r.getZInches();
+            if (faultInjector != null) {
+                // MegaTag1 as a solver does it: the robot is wherever puts this tag, as seen, at the layout
+                // tag it claims to be. A correct tag gives the true pose; a wrong or false one does not.
+                RigidTransform3 solved = tag.getFieldToTag().compose(r.inverse());
+                mt1X += solved.getXInches();
+                mt1Y += solved.getYInches();
+                mt1Cos += StrictMath.cos(solved.getYawRad());
+                mt1Sin += StrictMath.sin(solved.getYawRad());
+            }
         }
         json.put("Fiducial", fiducials);
         int count = seen.size();
         json.put("v", count > 0 ? 1 : 0);
         json.put("botpose_tagcount", count);
         if (count == 0) {
+            if (noiseDroppedEveryTag) {
+                // Make the five pose draws a frame with a tag makes, and throw them away, so the noise of
+                // every later frame is the same as if the tags had been reported.
+                skipPoseDraws();
+            }
             double[] zeros = new double[6];
             json.put("botpose", toJson(zeros));
             json.put("botpose_orb", toJson(zeros));
@@ -731,11 +816,14 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
         json.put("botpose_avgarea", sumArea / count);
         json.put("botpose_span", spanInches(seen) * METRES_PER_INCH);
 
-        double mt1X = robotXInches + gaussian(positionStdDevInches);
-        double mt1Y = robotYInches + gaussian(positionStdDevInches);
-        double mt1Yaw = wrapDegrees(StrictMath.toDegrees(robotHeadingRad) + gaussian(yawStdDevDegrees));
+        double mt1BaseX = faultInjector != null ? mt1X / count : robotXInches;
+        double mt1BaseY = faultInjector != null ? mt1Y / count : robotYInches;
+        double mt1BaseYawRad = faultInjector != null ? StrictMath.atan2(mt1Sin, mt1Cos) : robotHeadingRad;
+        double botX = mt1BaseX + gaussian(positionStdDevInches);
+        double botY = mt1BaseY + gaussian(positionStdDevInches);
+        double mt1Yaw = wrapDegrees(StrictMath.toDegrees(mt1BaseYawRad) + gaussian(yawStdDevDegrees));
         json.put("botpose", toJson(new double[] {
-                mt1X * METRES_PER_INCH, mt1Y * METRES_PER_INCH, 0.0, 0.0, 0.0, mt1Yaw}));
+                botX * METRES_PER_INCH, botY * METRES_PER_INCH, 0.0, 0.0, 0.0, mt1Yaw}));
         double orbX = mt2X / count + gaussian(positionStdDevInches);
         double orbY = mt2Y / count + gaussian(positionStdDevInches);
         json.put("botpose_orb", toJson(new double[] {
@@ -787,6 +875,18 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
     /** Degrees into [-180, 180). */
     private static double wrapDegrees(double degrees) {
         return degrees - 360.0 * StrictMath.floor((degrees + 180.0) / 360.0);
+    }
+
+    /**
+     * Makes the five draws a frame's pose estimates take (MegaTag1 x, y and yaw, MegaTag2 x and y), in that
+     * order, and discards them.
+     */
+    private void skipPoseDraws() {
+        gaussian(positionStdDevInches);
+        gaussian(positionStdDevInches);
+        gaussian(yawStdDevDegrees);
+        gaussian(positionStdDevInches);
+        gaussian(positionStdDevInches);
     }
 
     /** One zero-mean Gaussian draw of this standard deviation, or exactly 0 with noise off (no draw). */
@@ -890,6 +990,7 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
         private List<ObstacleBox> robotBody = Collections.emptyList();
         private int dropoutSeed;
         private double dropoutProbability;
+        private VisionFaults faults = VisionFaults.none();
 
         private Builder(AprilTagLayout layout, CameraMount mount, double horizontalFovDegrees,
                 double verticalFovDegrees) {
@@ -1035,6 +1136,22 @@ public class FakeLimelight3A extends Limelight3A implements FakeDevice {
             }
             this.dropoutSeed = seed;
             this.dropoutProbability = probability;
+            return this;
+        }
+
+        /**
+         * Faults for stress-testing the robot's vision code: what the class comment's Faults paragraph
+         * lists. Default {@link VisionFaults#none()}. Every rate in it is a test input, not a Limelight
+         * specification.
+         *
+         * @param visionFaults the faults; {@link VisionFaults#none()} turns them off
+         * @return this builder
+         */
+        public Builder faults(VisionFaults visionFaults) {
+            if (visionFaults == null) {
+                throw new IllegalArgumentException("faults must not be null; use VisionFaults.none()");
+            }
+            this.faults = visionFaults;
             return this;
         }
 
