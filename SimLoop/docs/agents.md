@@ -1,7 +1,7 @@
 # Using SimLoop with an AI agent
 
 SimLoop ships a toolkit for teams who want to program with an AI coding agent: a context file that
-teaches any agent how the library works, four skills for the jobs that come up, prompts to start from,
+teaches any agent how the library works, five skills for the jobs that come up, prompts to start from,
 and notes on spending less.
 
 It lives in [`simloop-agents/`](https://github.com/Horizon-36596/simloop/tree/main/simloop-agents) in the
@@ -31,7 +31,7 @@ Horizon uses **Claude Code**; its paths are the ones the team has exercised most
 | File | What it is |
 |---|---|
 | `AGENTS.md` | The library overview, API inventory, simulation rules and test structure. Copy it to your repository root and add your robot's details. |
-| `skills/` | Four procedures — write a sim test, add a mechanism, debug a failing sim, review sim code. Written for any agent; drop into `.claude/skills/` unmodified. |
+| `skills/` | Five procedures — write a sim test, add a mechanism, debug a failing sim, review sim code, and run the edit-replay-score loop (`run-loop`, started by hand only). Written for any agent; drop into `.claude/skills/` unmodified. |
 | `prompts/` | Copy-paste starting points, including one for learning and one for auditing your tests before a competition. |
 | `pointers/` | One-line files for the tools that need a nudge, and for a project that already has its own instructions file. They point at `AGENTS.md` rather than copying it. |
 | `token-savers.md` | Ways to keep context focused and compare usage without assuming fixed savings. |

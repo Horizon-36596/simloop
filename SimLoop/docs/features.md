@@ -69,7 +69,7 @@ it does **not** do is on [What it does not do](limits.md).
 
 - A portable `AGENTS.md` that teaches an agent the library, the complete public API and the rules it gets wrong. [Using SimLoop with an AI agent](agents.md)
 - Works with any coding agent: Cursor, Codex, Gemini CLI, Copilot's coding agent and others read `AGENTS.md` with no setup. Claude Code is the best-tested route. [Which tool](agents.md#which-tool)
-- Four skills: write a sim test, add a mechanism, debug a failing sim, review sim code. [What is in the folder](agents.md#what-is-in-the-folder)
+- Five skills: write a sim test, add a mechanism, debug a failing sim, review sim code, and run the edit-replay-score loop. [What is in the folder](agents.md#what-is-in-the-folder)
 - Prompts to start from, including one for learning and one for auditing your tests before a competition. [What is in the folder](agents.md#what-is-in-the-folder)
 - A flat index of these pages for agents. [Index for AI agents](llms.md)
 - **Planned, not in this alpha:** give an agent your own robot's logs and it tunes the sim to match your robot.
